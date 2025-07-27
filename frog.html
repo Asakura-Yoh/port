@@ -5,9 +5,10 @@
 
 <script>
 new spine.SpinePlayer("player-container", {
-    skeleton: "https://raw.githubusercontent.com/Asakura-Yoh/port/main/frog.json",
-    atlas: "https://raw.githubusercontent.com/Asakura-Yoh/port/main/frog.atlas"
-    animation: "idle"
-    premultipliedAlpha: false
+      jsonUrl: "https://raw.githubusercontent.com/Asakura-Yoh/port/main/frog.json",
+      atlasUrl: "https://raw.githubusercontent.com/Asakura-Yoh/port/main/frog.atlas",
+      animation: "idle", // replace with actual animation name from your skeleton
+      alpha: true,
+      showControls: true
 });
 </script>
