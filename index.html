@@ -2,18 +2,17 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>Giao diện Spine Player động</title>
+  <title>Spine Character Viewer</title>
   <style>
     html, body {
       margin: 0;
       padding: 0;
-      background-color: #f0f0f0;
+      background-color: #111;
       font-family: sans-serif;
-      min-height: 100vh;
       overflow-x: hidden;
     }
 
-    /* Avatar ở góc trên trái */
+    /* Avatar */
     .avatar {
       position: fixed;
       top: 0;
@@ -23,18 +22,16 @@
       z-index: 1000;
     }
 
-    /* Selector wrapper chứa ảnh và chữ */
+    /* Selector */
     .selector-wrapper {
       position: fixed;
       left: 50px;
-      z-index: 1000;
       width: 20%;
-      height: auto;
+      z-index: 1000;
     }
 
     .selector {
       width: 100%;
-      height: auto;
       display: block;
     }
 
@@ -42,11 +39,8 @@
       position: absolute;
       top: 0;
       left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
       transform-origin: top left;
-      transition: transform 0.3s ease;
+      pointer-events: none;
     }
 
     .selector-title {
@@ -56,71 +50,68 @@
       font-size: 26px;
       font-weight: bold;
       color: #fff;
-      pointer-events: none;
     }
 
     .selector-option {
       position: absolute;
+      font-size: 26px;
       font-weight: bold;
       color: #fff;
-      pointer-events: auto;
       cursor: pointer;
-      transition: color 0.2s ease;
+      pointer-events: auto;
     }
 
     .selector-option:hover {
       color: #ffd700;
     }
 
-    .option-a { top: 85px; left: 50px; font-size: 26px; }
-    .option-b { top: 132.5px; left: 50px; font-size: 26px; }
-    .option-c { top: 180px; left: 50px; font-size: 26px; }
-    .option-d { top: 227.5px; left: 50px; font-size: 26px; }
-    .option-e { top: 275px; left: 50px; font-size: 26px; }
+    .option-a { top: 85px; left: 50px; }
+    .option-b { top: 132.5px; left: 50px; }
+    .option-c { top: 180px; left: 50px; }
+    .option-d { top: 227.5px; left: 50px; }
+    .option-e { top: 275px; left: 50px; }
 
-    /* Menu ở góc trên phải */
+    /* Menu */
     .menu-container {
       position: fixed;
       top: 30px;
       right: 10px;
       width: 60%;
-      height: auto;
       z-index: 1000;
-      text-align: right;
-    }
-
-    .menu-links {
-      display: flex;
-      justify-content: flex-end;
-      gap: 30px;
-      margin-bottom: 10px;
-      padding-right: 20px;
-    }
-
-    .menu-links a {
-      color: #333;
-      font-weight: bold;
-      text-decoration: none;
-      font-size: 20px;
-      transition: color 0.3s ease;
-    }
-
-    .menu-links a:hover {
-      color: #0077be;
     }
 
     .menu {
       width: 100%;
-      height: auto;
+      display: block;
     }
 
-    /* Nội dung rỗng */
-    .content {
-      margin-top: 300px;
-      padding-bottom: 600px;
+    .menu-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      transform-origin: top left;
+      pointer-events: none;
     }
 
-    /* Spine Player cố định dưới avatar 10px */
+    .menu-text {
+      position: absolute;
+      font-size: 24px;
+      font-weight: bold;
+      color: #fff;
+      cursor: pointer;
+      pointer-events: auto;
+      text-shadow: 1px 1px 2px #000;
+    }
+
+    .menu-text:hover {
+      color: #ffd700;
+    }
+
+    .menu-showreel { top: 20px; left: 50px; }
+    .menu-resume   { top: 20px; left: 180px; }
+    .menu-contact  { top: 20px; left: 310px; }
+
+    /* Spine Player */
     #player-container {
       position: fixed;
       right: 0;
@@ -139,40 +130,34 @@
   <!-- Avatar -->
   <img src="images/ava.png" alt="Avatar" class="avatar" id="avatar">
 
-  <!-- Selector + Overlay chữ -->
+  <!-- Selector -->
   <div class="selector-wrapper" id="selector-wrapper">
     <img src="images/selector.png" alt="Selector" class="selector" id="selector">
     <div class="selector-overlay" id="selector-overlay">
       <div class="selector-title">Character</div>
-      <div class="selector-option option-a" onclick="loadSpinePlayer('https://raw.githubusercontent.com/Asakura-Yoh/port/refs/heads/main/spines/hilde.json', 'https://raw.githubusercontent.com/Asakura-Yoh/port/refs/heads/main/spines/hilde.atlas', 'ASTAND')">Hilde</div>
-      <div class="selector-option option-b" onclick="loadSpinePlayer('https://raw.githubusercontent.com/Asakura-Yoh/port/refs/heads/main/spines/jake.json', 'https://raw.githubusercontent.com/Asakura-Yoh/port/refs/heads/main/spines/Jake.atlas', 'ASTAND')">Jake</div>
-      <div class="selector-option option-c" onclick="loadSpinePlayer('https://raw.githubusercontent.com/Asakura-Yoh/port/refs/heads/main/spines/horse.json', 'https://raw.githubusercontent.com/Asakura-Yoh/port/refs/heads/main/spines/horse.atlas', 'ASTAND')">Horse Knight</div>
-      <div class="selector-option option-d" onclick="loadSpinePlayer('https://raw.githubusercontent.com/Asakura-Yoh/port/refs/heads/main/spines/bishop.json', 'https://raw.githubusercontent.com/Asakura-Yoh/port/refs/heads/main/spines/bishop.atlas', 'ASTAND')">Boss Bishop</div>
-      <div class="selector-option option-e" onclick="loadSpinePlayer('https://raw.githubusercontent.com/Asakura-Yoh/port/refs/heads/main/spines/knight.json', 'https://raw.githubusercontent.com/Asakura-Yoh/port/refs/heads/main/spines/knight.atlas', 'ASTAND')">Boss Knight</div>
+      <div class="selector-option option-a" onclick="loadSpinePlayer('https://raw.githubusercontent.com/Asakura-Yoh/port/main/spines/hilde.json', 'https://raw.githubusercontent.com/Asakura-Yoh/port/main/spines/hilde.atlas', 'ASTAND')">Hilde</div>
+      <div class="selector-option option-b" onclick="loadSpinePlayer('https://raw.githubusercontent.com/Asakura-Yoh/port/main/spines/jake.json', 'https://raw.githubusercontent.com/Asakura-Yoh/port/main/spines/Jake.atlas', 'ASTAND')">Jake</div>
+      <div class="selector-option option-c" onclick="loadSpinePlayer('https://raw.githubusercontent.com/Asakura-Yoh/port/main/spines/horse.json', 'https://raw.githubusercontent.com/Asakura-Yoh/port/main/spines/horse.atlas', 'ASTAND')">Horse Knight</div>
+      <div class="selector-option option-d" onclick="loadSpinePlayer('https://raw.githubusercontent.com/Asakura-Yoh/port/main/spines/bishop.json', 'https://raw.githubusercontent.com/Asakura-Yoh/port/main/spines/bishop.atlas', 'ASTAND')">Boss Bishop</div>
+      <div class="selector-option option-e" onclick="loadSpinePlayer('https://raw.githubusercontent.com/Asakura-Yoh/port/main/spines/knight.json', 'https://raw.githubusercontent.com/Asakura-Yoh/port/main/spines/knight.atlas', 'ASTAND')">Boss Knight</div>
     </div>
   </div>
 
-  <!-- Menu + Links -->
-  <div class="menu-container">
-    <div class="menu-links">
-      <a href="#showreel">Showreel</a>
-      <a href="#resume">Resume</a>
-      <a href="#contact">Contact</a>
+  <!-- Menu -->
+  <div class="menu-container" id="menu-container">
+    <img src="images/menu.png" alt="Menu" class="menu" id="menu">
+    <div class="menu-overlay" id="menu-overlay">
+      <div class="menu-text menu-showreel" onclick="scrollToSection('showreel')">Showreel</div>
+      <div class="menu-text menu-resume" onclick="scrollToSection('resume')">Resume</div>
+      <div class="menu-text menu-contact" onclick="scrollToSection('contact')">Contact</div>
     </div>
-    <img src="images/menu.png" alt="Menu" class="menu">
   </div>
 
-  <!-- Nội dung rỗng -->
-  <div class="content">
-    <section id="showreel"><h2>Showreel</h2><p>Nội dung showreel...</p></section>
-    <section id="resume"><h2>Resume</h2><p>Nội dung resume...</p></section>
-    <section id="contact"><h2>Contact</h2><p>Thông tin liên hệ...</p></section>
-  </div>
-
-  <!-- Spine Player Container -->
+  <!-- Spine Player -->
   <div id="player-container"></div>
 
   <!-- JavaScript -->
+  <script src="https://unpkg.com/@esotericsoftware/spine-player@4.2.*/dist/spine-player.js"></script>
   <script>
     function updatePositions() {
       const avatar = document.getElementById('avatar');
@@ -192,7 +177,6 @@
         const baseWidth = selector.offsetWidth || window.innerWidth * 0.2;
         const scale = baseWidth / 300;
         selectorOverlay.style.transform = `scale(${scale})`;
-        selectorOverlay.style.transformOrigin = 'top left';
       }
 
       if (avatar.complete) {
@@ -202,30 +186,42 @@
       }
     }
 
-    window.addEventListener('load', updatePositions);
-    window.addEventListener('resize', updatePositions);
+    function updateMenuOverlayScale() {
+      const menu = document.getElementById('menu');
+      const overlay = document.getElementById('menu-overlay');
+
+      const baseWidth = menu.offsetWidth || window.innerWidth * 0.6;
+      const scale = baseWidth / 600;
+      overlay.style.transform = `scale(${scale})`;
+    }
 
     function loadSpinePlayer(jsonUrl, atlasUrl, animationName) {
       const container = document.getElementById('player-container');
       container.innerHTML = '';
-
-      new spine.SpinePlayer("player-container", {
-        skeleton: jsonUrl,
-        atlas: atlasUrl,
+      new spine.SpinePlayer(container, {
+        jsonUrl,
+        atlasUrl,
         animation: animationName,
+        showControls: false,
+        backgroundColor: '#00000000',
         alpha: true,
-        backgroundColor: "#00000000"
+        success: () => console.log('Spine loaded'),
       });
     }
 
-    window.addEventListener('DOMContentLoaded', () => {
-      loadSpinePlayer(
-        'https://raw.githubusercontent.com/Asakura-Yoh/port/refs/heads/main/spines/hilde.json',
-        'https://raw.githubusercontent.com/Asakura-Yoh/port/refs/heads/main/spines/hilde.atlas',
-        'ASTAND'
-      );
+    function scrollToSection(id) {
+      alert(`Bạn đã chọn: ${id}`);
+    }
+
+    window.addEventListener('load', () => {
+      updatePositions();
+      updateMenuOverlayScale();
+    });
+
+    window.addEventListener('resize', () => {
+      updatePositions();
+      updateMenuOverlayScale();
     });
   </script>
-
-  <!-- Spine Player Script -->
-  <script src="https://unpkg.com/@esotericsoftware/spine-player@4.2.*/dist/iife
+</body>
+</html>
