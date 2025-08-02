@@ -1,33 +1,84 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>Spine Player Embed</title>
-  <link rel="stylesheet" href="https://unpkg.com/@esotericsoftware/spine-player@4.2.*/dist/spine-player.css">
-  <script src="https://unpkg.com/@esotericsoftware/spine-player@4.2.*/dist/iife/spine-player.js"></script>
+  <title>Giao diện đơn giản</title>
   <style>
-    html, body {
+    body {
       margin: 0;
-      height: 100%;
+      padding: 0;
+      background-color: #f0f0f0;
+      font-family: sans-serif;
     }
-    #player-container {
-      width: 100%;
-      height: 100vh;
+
+    /* Avatar góc trái */
+    .avatar {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      z-index: 1000;
+    }
+
+    /* Menu ảnh góc phải */
+    .menu {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      z-index: 1000;
+    }
+
+    .menu img {
+      width: 40px;
+      height: 40px;
+      cursor: pointer;
+      border-radius: 8px;
+      box-shadow: 0 0 5px rgba(0,0,0,0.2);
+    }
+
+    /* Selector ảnh bên trái giữa trang */
+    .selector {
+      position: fixed;
+      top: 50%;
+      left: 10px;
+      transform: translateY(-50%);
+      z-index: 1000;
+    }
+
+    .selector img {
+      width: 50px;
+      height: 50px;
+      cursor: pointer;
+      border-radius: 4px;
+      box-shadow: 0 0 4px rgba(0,0,0,0.2);
+    }
+
+    /* Nội dung chính */
+    .content {
+      padding: 100px;
+      text-align: center;
     }
   </style>
 </head>
 <body>
-  <div id="player-container"></div>
 
-  <script>
-    new spine.SpinePlayer("player-container", {
-      jsonUrl: "https://raw.githubusercontent.com/Asakura-Yoh/port/main/frog.json",
-      atlasUrl: "https://raw.githubusercontent.com/Asakura-Yoh/port/main/frog.atlas",
-      animation: "idle", // replace with actual animation name from your skeleton
-      alpha: true,
-      backgroundColor: "#00000000",
-      showControls: true
-    });
-  </script>
+  <!-- Avatar -->
+  <img src="https://github.com/Asakura-Yoh/port/blob/7c19d1043cbf66c12719f563d679fbafb1f59ce9/ava.png" alt="Avatar" class="avatar">
+
+  <!-- Menu ảnh góc phải -->
+  <div class="menu">
+    <img src="https://github.com/Asakura-Yoh/port/blob/7c19d1043cbf66c12719f563d679fbafb1f59ce9/menu.png" alt="Menu">
+  </div>
+
+  <!-- Selector ảnh bên trái -->
+  <div class="selector">
+    <img src="https://github.com/Asakura-Yoh/port/blob/7c19d1043cbf66c12719f563d679fbafb1f59ce9/selector.png" alt="Selector">
+  </div>
+
+  <!-- Nội dung chính -->
+  <div class="content">
+    <h1>Xin chào!</h1>
+    <p>Đây là giao diện đơn giản với avatar, menu và selector ảnh.</p>
+  </div>
+
 </body>
 </html>
