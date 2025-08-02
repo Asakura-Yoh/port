@@ -2,15 +2,17 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>Giao diện động</title>
+  <title>Giao diện cố định 1920x1080</title>
   <style>
-    body {
+    html, body {
       margin: 0;
       padding: 0;
-      width: 1920;
-      height: 1080;
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
       background-color: #f0f0f0;
       font-family: sans-serif;
+      position: relative;
     }
 
     .avatar {
@@ -40,7 +42,10 @@
     }
 
     .content {
-      padding: 200px 20px;
+      position: absolute;
+      top: 200px;
+      left: 0;
+      width: 100%;
       text-align: center;
     }
   </style>
@@ -58,8 +63,8 @@
 
   <!-- Nội dung -->
   <div class="content">
-    <h1>Giao diện động</h1>
-    <p>Selector cách avatar đúng 10px, tính toán theo chiều cao thực tế.</p>
+    <h1>Giao diện cố định 1920×1080</h1>
+    <p>Avatar 50%, menu 50%, selector 30% cách avatar 10px.</p>
   </div>
 
   <!-- JavaScript -->
@@ -68,7 +73,6 @@
       const avatar = document.getElementById('avatar');
       const selector = document.getElementById('selector');
 
-      // Đợi ảnh avatar tải xong
       if (avatar.complete) {
         const avatarHeight = avatar.offsetHeight;
         selector.style.top = (avatarHeight + 10) + 'px';
@@ -80,12 +84,9 @@
       }
     }
 
-    // Gọi hàm khi trang tải xong
     window.addEventListener('load', updateSelectorPosition);
-    window.addEventListener('resize', updateSelectorPosition); // cập nhật nếu cửa sổ thay đổi
+    window.addEventListener('resize', updateSelectorPosition);
   </script>
 
 </body>
 </html>
-
-
