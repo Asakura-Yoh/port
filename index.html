@@ -24,11 +24,11 @@
       z-index: 1000;
     }
 
-    /* Selector nằm dưới avatar 10px */
+    /* Selector nằm dưới avatar 30px */
     .selector {
       position: fixed;
       left: 50px;
-      width: 22%;
+      width: 20%;
       height: auto;
       z-index: 1000;
     }
@@ -43,18 +43,17 @@
       z-index: 1000;
     }
 
-    /* Container rỗng để giữ layout nếu cần */
+    /* Nội dung rỗng */
     .content {
       margin-top: 300px;
-      padding-bottom: 520px; /* Để không bị che bởi player cố định */
+      padding-bottom: 600px;
     }
 
-    /* Spine Player cố định ở cuối màn hình */
+    /* Spine Player cố định dưới avatar 30px */
     #player-container {
       position: fixed;
-      bottom: 0;
-      right: 0;
-      width: 70%;
+      left: 0;
+      width: 100%;
       height: 500px;
       z-index: 999;
       background-color: transparent;
@@ -81,15 +80,18 @@
   <!-- Spine Player Container -->
   <div id="player-container"></div>
 
-  <!-- JavaScript: căn vị trí selector -->
+  <!-- JavaScript: căn vị trí selector và spine player -->
   <script>
-    function updateSelectorPosition() {
+    function updatePositions() {
       const avatar = document.getElementById('avatar');
       const selector = document.getElementById('selector');
+      const player = document.getElementById('player-container');
 
       function setPosition() {
         const avatarHeight = avatar.offsetHeight;
-        selector.style.top = (avatarHeight + 30) + 'px';
+        const offset = avatarHeight + 30;
+        selector.style.top = offset + 'px';
+        player.style.top = offset + 'px';
       }
 
       if (avatar.complete) {
@@ -99,8 +101,8 @@
       }
     }
 
-    window.addEventListener('load', updateSelectorPosition);
-    window.addEventListener('resize', updateSelectorPosition);
+    window.addEventListener('load', updatePositions);
+    window.addEventListener('resize', updatePositions);
   </script>
 
   <!-- Spine Player Script -->
@@ -117,6 +119,3 @@
 
 </body>
 </html>
-
-
-
