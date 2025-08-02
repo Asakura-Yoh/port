@@ -246,6 +246,14 @@
     window.addEventListener('load', () => {
       updatePositions();
       updateMenuOverlayScale();
+      loadSpinePlayer(
+        'https://raw.githubusercontent.com/Asakura-Yoh/port/main/spines/hilde.json',
+        'https://raw.githubusercontent.com/Asakura-Yoh/port/main/spines/hilde.atlas',
+        'ASTAND'
+      );
+
+      // ✨ Kích hoạt hiệu ứng trượt menu
+      document.getElementById('menu-container').classList.add('animate');
     });
 
     window.addEventListener('resize', () => {
@@ -255,4 +263,3 @@
   </script>
 </body>
 </html>
-````
