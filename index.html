@@ -10,16 +10,13 @@
       font-family: sans-serif;
       min-height: 100vh;
       overflow-x: hidden;
-
-        /* ✅ Ảnh nền */
       background-image: url('images/background9.png');
-      background-size: cover;         /* phủ toàn bộ màn hình */
-      background-position: center;    /* căn giữa */
-      background-repeat: no-repeat;   /* không lặp lại */
-      background-attachment: fixed;  
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      background-attachment: fixed;
     }
 
-    /* Avatar */
     .avatar {
       position: fixed;
       top: 0;
@@ -29,7 +26,6 @@
       z-index: 1000;
     }
 
-    /* Selector */
     .selector-wrapper {
       position: fixed;
       left: 50px;
@@ -79,13 +75,30 @@
     .option-d { top: 227.5px; left: 50px; }
     .option-e { top: 275px; left: 50px; }
 
-    /* Menu */
     .menu-container {
       position: fixed;
       top: 30px;
       right: 10px;
       width: 60%;
       z-index: 1000;
+      opacity: 0;
+      transform: translateY(-100%);
+      transition: opacity 0.3s ease;
+    }
+
+    .menu-container.animate {
+      animation: slideDown 0.6s ease-out forwards;
+    }
+
+    @keyframes slideDown {
+      from {
+        transform: translateY(-100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
     }
 
     .menu {
@@ -119,7 +132,6 @@
     .menu-resume   { top: 5px; left: 245px; }
     .menu-contact  { top: 5px; left: 425px; }
 
-    /* Spine Player */
     #player-container {
       position: fixed;
       right: 0;
@@ -130,15 +142,12 @@
     }
   </style>
 
-  <!-- Spine Player Styles -->
   <link rel="stylesheet" href="https://unpkg.com/@esotericsoftware/spine-player@4.2.*/dist/spine-player.css">
 </head>
 <body>
 
-  <!-- Avatar -->
   <img src="images/ava.png" alt="Avatar" class="avatar" id="avatar">
 
-  <!-- Selector -->
   <div class="selector-wrapper" id="selector-wrapper">
     <img src="images/selector.png" alt="Selector" class="selector" id="selector">
     <div class="selector-overlay" id="selector-overlay">
@@ -151,7 +160,6 @@
     </div>
   </div>
 
-  <!-- Menu -->
   <div class="menu-container" id="menu-container">
     <img src="images/menu.png" alt="Menu" class="menu" id="menu">
     <div class="menu-overlay" id="menu-overlay">
@@ -161,13 +169,10 @@
     </div>
   </div>
 
-  <!-- Spine Player -->
   <div id="player-container"></div>
 
-  <!-- Spine Player Script -->
   <script src="https://unpkg.com/@esotericsoftware/spine-player@4.2.*/dist/iife/spine-player.js"></script>
 
-  <!-- JavaScript -->
   <script>
     function updatePositions() {
       const avatar = document.getElementById('avatar');
@@ -225,6 +230,9 @@
         'https://raw.githubusercontent.com/Asakura-Yoh/port/main/spines/hilde.atlas',
         'ASTAND'
       );
+
+      // ✨ Kích hoạt hiệu ứng trượt menu
+      document.getElementById('menu-container').classList.add('animate');
     });
 
     window.addEventListener('resize', () => {
