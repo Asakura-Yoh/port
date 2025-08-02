@@ -21,14 +21,15 @@
       z-index: 1000;
     }
 
-    /* Selector cách avatar 50px phía dưới */
+    /* Selector cách avatar 10px phía dưới */
     .selector {
       position: fixed;
-      top: calc(50vw + 50px); /* 50vw là chiều cao avatar nếu tỷ lệ 1:1 */
       left: 0;
       width: 50%;
       height: auto;
       z-index: 1000;
+      /* Đặt top bằng chiều cao avatar + 10px */
+      top: calc(100px + 10px); /* Giả sử avatar cao 100px */
     }
 
     /* Menu ở góc trên bên phải, rộng 50% */
@@ -62,7 +63,7 @@
   <!-- Nội dung chính -->
   <div class="content">
     <h1>Giao diện cố định</h1>
-    <p>Avatar và menu mỗi bên chiếm 50% chiều rộng, selector nằm dưới avatar 50px.</p>
+    <p>Avatar và menu mỗi bên chiếm 50% chiều rộng, selector nằm dưới avatar 10px.</p>
   </div>
 
 </body>
