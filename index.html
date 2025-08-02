@@ -50,6 +50,9 @@
       text-align: center;
     }
   </style>
+
+  <!-- Spine Player Styles -->
+  <link rel="stylesheet" href="https://unpkg.com/@esotericsoftware/spine-player@4.2.*/dist/spine-player.css">
 </head>
 <body>
 
@@ -70,6 +73,9 @@
     <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
     <p>Curabitur nec lacus ac sapien tincidunt tincidunt.</p>
     <p>Phía cuối trang để kiểm tra cuộn.</p>
+
+    <!-- Spine Player Container -->
+    <div id="player-container" style="width: 100%; height: 500px; margin-top: 50px;"></div>
   </div>
 
   <!-- JavaScript: căn vị trí selector -->
@@ -94,9 +100,17 @@
     window.addEventListener('resize', updateSelectorPosition);
   </script>
 
+  <!-- Spine Player Script -->
+  <script src="https://unpkg.com/@esotericsoftware/spine-player@4.2.*/dist/iife/spine-player.js"></script>
+  <script>
+    new spine.SpinePlayer("player-container", {
+      skeleton: "https://raw.githubusercontent.com/Asakura-Yoh/port/refs/heads/main/snipper.json",
+      atlas: "https://raw.githubusercontent.com/Asakura-Yoh/port/refs/heads/main/snipper.atlas",
+      animation: "ASTAND",
+      alpha: true,
+      backgroundColor: "#00000000"
+    });
+  </script>
+
 </body>
 </html>
-
-
-
-
