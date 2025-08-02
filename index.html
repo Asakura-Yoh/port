@@ -7,12 +7,12 @@
     html, body {
       margin: 0;
       padding: 0;
-      width: 1920px;
-      height: 1080px;
-      overflow: hidden;
+      min-width: 1920px;
+      min-height: 1080px;
+      overflow: auto; /* Cho phép cuộn */
       background-color: #f0f0f0;
       font-family: sans-serif;
-      position: relative;
+      scroll-behavior: smooth;
     }
 
     .avatar {
@@ -26,7 +26,7 @@
 
     .selector {
       position: fixed;
-      left: 50;
+      left: 50px;
       width: auto;
       height: 70%;
       z-index: 1000;
@@ -34,7 +34,7 @@
 
     .menu {
       position: fixed;
-      top: 50;
+      top: 50px;
       right: 0;
       width: 60%;
       height: auto;
@@ -42,10 +42,8 @@
     }
 
     .content {
-      position: absolute;
-      top: 200px;
-      left: 0;
-      width: 100%;
+      margin-top: 300px; /* Để không bị che bởi avatar/menu */
+      padding: 20px;
       text-align: center;
     }
   </style>
@@ -65,6 +63,8 @@
   <div class="content">
     <h1>Giao diện cố định 1920×1080</h1>
     <p>Avatar 50%, menu 50%, selector 30% cách avatar 10px.</p>
+    <p>Thêm nhiều nội dung ở đây để kiểm tra cuộn...</p>
+    <p style="margin-top: 800px;">Cuối trang</p>
   </div>
 
   <!-- JavaScript -->
@@ -90,7 +90,3 @@
 
 </body>
 </html>
-
-
-
-
