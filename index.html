@@ -31,24 +31,6 @@
       left: 50px;
       width: 20%;
       z-index: 1000;
-      opacity: 0;
-      transform: translateX(-100%);
-      transition: opacity 0.3s ease;
-    }
-
-    .selector-wrapper.animate {
-      animation: slideInLeft 0.6s ease-out forwards;
-    }
-
-    @keyframes slideInLeft {
-      from {
-        transform: translateX(-100%);
-        opacity: 0;
-      }
-      to {
-        transform: translateX(0);
-        opacity: 1;
-      }
     }
 
     .selector {
@@ -210,9 +192,6 @@
         const baseWidth = selector.offsetWidth || window.innerWidth * 0.2;
         const scale = baseWidth / 300;
         selectorOverlay.style.transform = `scale(${scale})`;
-
-        // ✨ Kích hoạt hiệu ứng trượt selector
-        selectorWrapper.classList.add('animate');
       }
 
       if (avatar.complete) {
@@ -248,4 +227,18 @@
       updateMenuOverlayScale();
       loadSpinePlayer(
         'https://raw.githubusercontent.com/Asakura-Yoh/port/main/spines/hilde.json',
-        'https://raw.githubusercontent.com/Asakura-Yoh/
+        'https://raw.githubusercontent.com/Asakura-Yoh/port/main/spines/hilde.atlas',
+        'ASTAND'
+      );
+
+      // ✨ Kích hoạt hiệu ứng trượt menu
+      document.getElementById('menu-container').classList.add('animate');
+    });
+
+    window.addEventListener('resize', () => {
+      updatePositions();
+      updateMenuOverlayScale();
+    });
+  </script>
+</body>
+</html>
