@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>Giao diện đơn giản</title>
+  <title>Giao diện cố định</title>
   <style>
     body {
       margin: 0;
@@ -11,36 +11,35 @@
       font-family: sans-serif;
     }
 
-    /* Avatar góc trái */
+    /* Avatar ở góc trên bên trái */
     .avatar {
-      width: 10vw; /* 10% chiều rộng màn hình */
-      height: auto;
-      transition: transform 0.3s ease;
       position: fixed;
+      top: 0;
+      left: 0;
+      width: 10vw;
+      height: auto;
       z-index: 1000;
     }
 
-    /* Menu ảnh góc phải */
-    .menu {
-      position: fixed;
-      top: 10px;
-      right: 10px;
-      width: 50vw; /* 10% chiều rộng màn hình */
-      height: auto;
-      transition: transform 0.3s ease;
-      z-index: 1000;
-    }
-
-    /* Selector ảnh bên trái giữa trang */
+    /* Selector cách avatar 50px phía dưới */
     .selector {
       position: fixed;
-      top: 50%;
-      left: 10px;
-      transform: translateY(-50%);
+      top: 50px;
+      left: 0;
+      width: 10vw;
+      height: auto;
       z-index: 1000;
     }
 
-   
+    /* Menu ở góc trên bên phải */
+    .menu {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 10vw;
+      height: auto;
+      z-index: 1000;
+    }
 
     /* Nội dung chính */
     .content {
@@ -54,29 +53,17 @@
   <!-- Avatar -->
   <img src="images/ava.png" alt="Avatar" class="avatar">
 
-  <!-- Menu ảnh góc phải -->
-  <div class="menu">
-    <img src="images/menu.png" alt="Menu">
-  </div>
+  <!-- Selector -->
+  <img src="images/selector.png" alt="Selector" class="selector">
 
-  <!-- Selector ảnh bên trái -->
-  <div class="selector">
-    <img src="images/selector.png" alt="Selector">
-  </div>
+  <!-- Menu -->
+  <img src="images/menu.png" alt="Menu" class="menu">
 
   <!-- Nội dung chính -->
   <div class="content">
-    <h1>Xin chào!</h1>
-    <p>Đây là giao diện đơn giản với avatar, menu và selector ảnh.</p>
+    <h1>Giao diện cố định</h1>
+    <p>Avatar ở góc trái, menu ở góc phải, selector cách avatar 50px phía dưới.</p>
   </div>
 
 </body>
 </html>
-
-
-
-
-
-
-
-
