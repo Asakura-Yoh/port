@@ -10,8 +10,11 @@
       background-color: #f0f0f0;
       font-family: sans-serif;
       scroll-behavior: smooth;
+      min-height: 100vh; /* Cho phép cuộn nếu nội dung dài */
+      overflow-x: hidden; /* Tránh cuộn ngang */
     }
 
+    /* Avatar ở góc trên trái */
     .avatar {
       position: fixed;
       top: 0;
@@ -21,6 +24,7 @@
       z-index: 1000;
     }
 
+    /* Selector nằm dưới avatar 10px */
     .selector {
       position: fixed;
       left: 50px;
@@ -29,6 +33,7 @@
       z-index: 1000;
     }
 
+    /* Menu ở góc trên phải */
     .menu {
       position: fixed;
       top: 30px;
@@ -38,8 +43,9 @@
       z-index: 1000;
     }
 
+    /* Nội dung chính cuộn được */
     .content {
-      margin-top: 300px; /* Để không bị che bởi avatar/menu */
+      margin-top: 300px; /* Tránh bị che bởi avatar/menu */
       padding: 20px;
       text-align: center;
     }
@@ -59,24 +65,28 @@
   <!-- Nội dung -->
   <div class="content">
     <h1>Giao diện cố định 1920×1080</h1>
-    <p>Avatar 50%, menu 50%, selector 30% cách avatar 10px.</p>
-    <p>Thêm nhiều nội dung ở đây để kiểm tra cuộn...</p>>
+    <p>Avatar 40%, menu 60%, selector 30% cách avatar 10px.</p>
+    <p>Thêm nhiều nội dung ở đây để kiểm tra cuộn...</p>
+    <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+    <p>Curabitur nec lacus ac sapien tincidunt tincidunt.</p>
+    <p>Phía cuối trang để kiểm tra cuộn.</p>
   </div>
 
-  <!-- JavaScript -->
+  <!-- JavaScript: căn vị trí selector -->
   <script>
     function updateSelectorPosition() {
       const avatar = document.getElementById('avatar');
       const selector = document.getElementById('selector');
 
-      if (avatar.complete) {
+      function setPosition() {
         const avatarHeight = avatar.offsetHeight;
         selector.style.top = (avatarHeight + 10) + 'px';
+      }
+
+      if (avatar.complete) {
+        setPosition();
       } else {
-        avatar.onload = () => {
-          const avatarHeight = avatar.offsetHeight;
-          selector.style.top = (avatarHeight + 10) + 'px';
-        };
+        avatar.onload = setPosition;
       }
     }
 
@@ -86,8 +96,3 @@
 
 </body>
 </html>
-
-
-
-
-
