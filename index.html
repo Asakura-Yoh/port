@@ -45,8 +45,7 @@
       width: 100%;
       height: 100%;
       pointer-events: none;
-      position: relative;
-      transform-origin: top center;
+      transform-origin: top left;
       transition: transform 0.3s ease;
     }
 
@@ -75,33 +74,33 @@
 
     /* Tùy chỉnh vị trí và size từng dòng chữ */
     .option-a {
-      top: 0px;
-      left: 10px;
-      font-size: 48px;
+      top: 50px;
+      left: 30px;
+      font-size: 18px;
     }
 
     .option-b {
-      top: 20px;
-      left: 10px;
-      font-size: 24px;
+      top: 90px;
+      left: 50px;
+      font-size: 20px;
     }
 
     .option-c {
-      top: 30px;
-      left: 10px;
-      font-size: 24px;
+      top: 130px;
+      left: 70px;
+      font-size: 22px;
     }
 
     .option-d {
-      top: 60px;
-      left: 10px;
+      top: 170px;
+      left: 90px;
       font-size: 24px;
     }
 
     .option-e {
-      top: 80px;
-      left: 10px;
-      font-size: 24px;
+      top: 210px;
+      left: 110px;
+      font-size: 26px;
     }
 
     /* Menu ở góc trên phải */
@@ -181,6 +180,7 @@
         const baseWidth = selector.offsetWidth || window.innerWidth * 0.2;
         const scale = baseWidth / 300;
         selectorOverlay.style.transform = `scale(${scale})`;
+        selectorOverlay.style.transformOrigin = 'top left';
       }
 
       if (avatar.complete) {
@@ -222,6 +222,3 @@
 
 </body>
 </html>
-
-
-
