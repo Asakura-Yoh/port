@@ -2,13 +2,14 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>Spine Character Viewer</title>
+  <title>Giao diện Spine Player động</title>
   <style>
     html, body {
       margin: 0;
       padding: 0;
-      background-color: #111;
+      background-color: #f0f0f0;
       font-family: sans-serif;
+      min-height: 100vh;
       overflow-x: hidden;
     }
 
@@ -104,7 +105,7 @@
     }
 
     .menu-text:hover {
-      color: #ffd700;
+      color: #0077be;
     }
 
     .menu-showreel { top: 20px; left: 50px; }
@@ -147,17 +148,19 @@
   <div class="menu-container" id="menu-container">
     <img src="images/menu.png" alt="Menu" class="menu" id="menu">
     <div class="menu-overlay" id="menu-overlay">
-      <div class="menu-text menu-showreel" onclick="scrollToSection('showreel')">Showreel</div>
-      <div class="menu-text menu-resume" onclick="scrollToSection('resume')">Resume</div>
-      <div class="menu-text menu-contact" onclick="scrollToSection('contact')">Contact</div>
+      <div class="menu-text menu-showreel" onclick="alert('Showreel')">Showreel</div>
+      <div class="menu-text menu-resume" onclick="alert('Resume')">Resume</div>
+      <div class="menu-text menu-contact" onclick="alert('Contact')">Contact</div>
     </div>
   </div>
 
   <!-- Spine Player -->
   <div id="player-container"></div>
 
+  <!-- Spine Player Script -->
+  <script src="https://unpkg.com/@esotericsoftware/spine-player@4.2.*/dist/iife/spine-player.js"></script>
+
   <!-- JavaScript -->
-  <script src="https://unpkg.com/@esotericsoftware/spine-player@4.2.*/dist/spine-player.js"></script>
   <script>
     function updatePositions() {
       const avatar = document.getElementById('avatar');
@@ -199,23 +202,22 @@
       const container = document.getElementById('player-container');
       container.innerHTML = '';
       new spine.SpinePlayer(container, {
-        jsonUrl,
-        atlasUrl,
+        skeleton: jsonUrl,
+        atlas: atlasUrl,
         animation: animationName,
-        showControls: false,
-        backgroundColor: '#00000000',
         alpha: true,
-        success: () => console.log('Spine loaded'),
+        backgroundColor: "#00000000"
       });
-    }
-
-    function scrollToSection(id) {
-      alert(`Bạn đã chọn: ${id}`);
     }
 
     window.addEventListener('load', () => {
       updatePositions();
       updateMenuOverlayScale();
+      loadSpinePlayer(
+        'https://raw.githubusercontent.com/Asakura-Yoh/port/main/spines/hilde.json',
+        'https://raw.githubusercontent.com/Asakura-Yoh/port/main/spines/hilde.atlas',
+        'ASTAND'
+      );
     });
 
     window.addEventListener('resize', () => {
