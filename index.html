@@ -72,45 +72,46 @@
       color: #ffd700;
     }
 
-    /* Tùy chỉnh vị trí và size từng dòng chữ */
-    .option-a {
-      top: 85px;
-      left: 50px;
-      font-size: 26px;
-    }
-
-    .option-b {
-      top: 132.5px;
-      left: 50px;
-      font-size: 26px;
-    }
-
-    .option-c {
-      top: 180px;
-      left: 50px;
-      font-size: 26px;
-    }
-
-    .option-d {
-      top: 227.5px;
-      left: 50px;
-      font-size: 26px;
-    }
-
-    .option-e {
-      top: 275px;
-      left: 50px;
-      font-size: 26px;
-    }
+    .option-a { top: 85px; left: 50px; font-size: 26px; }
+    .option-b { top: 132.5px; left: 50px; font-size: 26px; }
+    .option-c { top: 180px; left: 50px; font-size: 26px; }
+    .option-d { top: 227.5px; left: 50px; font-size: 26px; }
+    .option-e { top: 275px; left: 50px; font-size: 26px; }
 
     /* Menu ở góc trên phải */
-    .menu {
+    .menu-container {
       position: fixed;
       top: 30px;
       right: 10px;
       width: 60%;
       height: auto;
       z-index: 1000;
+      text-align: right;
+    }
+
+    .menu-links {
+      display: flex;
+      justify-content: flex-end;
+      gap: 30px;
+      margin-bottom: 10px;
+      padding-right: 20px;
+    }
+
+    .menu-links a {
+      color: #333;
+      font-weight: bold;
+      text-decoration: none;
+      font-size: 20px;
+      transition: color 0.3s ease;
+    }
+
+    .menu-links a:hover {
+      color: #0077be;
+    }
+
+    .menu {
+      width: 100%;
+      height: auto;
     }
 
     /* Nội dung rỗng */
@@ -151,11 +152,22 @@
     </div>
   </div>
 
-  <!-- Menu -->
-  <img src="images/menu.png" alt="Menu" class="menu">
+  <!-- Menu + Links -->
+  <div class="menu-container">
+    <div class="menu-links">
+      <a href="#showreel">Showreel</a>
+      <a href="#resume">Resume</a>
+      <a href="#contact">Contact</a>
+    </div>
+    <img src="images/menu.png" alt="Menu" class="menu">
+  </div>
 
   <!-- Nội dung rỗng -->
-  <div class="content"></div>
+  <div class="content">
+    <section id="showreel"><h2>Showreel</h2><p>Nội dung showreel...</p></section>
+    <section id="resume"><h2>Resume</h2><p>Nội dung resume...</p></section>
+    <section id="contact"><h2>Contact</h2><p>Thông tin liên hệ...</p></section>
+  </div>
 
   <!-- Spine Player Container -->
   <div id="player-container"></div>
@@ -193,10 +205,9 @@
     window.addEventListener('load', updatePositions);
     window.addEventListener('resize', updatePositions);
 
-    // Tạo mới Spine Player với file khác
     function loadSpinePlayer(jsonUrl, atlasUrl, animationName) {
       const container = document.getElementById('player-container');
-      container.innerHTML = ''; // Xóa player cũ
+      container.innerHTML = '';
 
       new spine.SpinePlayer("player-container", {
         skeleton: jsonUrl,
@@ -207,7 +218,6 @@
       });
     }
 
-    // Tải mặc định ban đầu
     window.addEventListener('DOMContentLoaded', () => {
       loadSpinePlayer(
         'https://raw.githubusercontent.com/Asakura-Yoh/port/refs/heads/main/spines/hilde.json',
@@ -218,7 +228,4 @@
   </script>
 
   <!-- Spine Player Script -->
-  <script src="https://unpkg.com/@esotericsoftware/spine-player@4.2.*/dist/iife/spine-player.js"></script>
-
-</body>
-</html>
+  <script src="https://unpkg.com/@esotericsoftware/spine-player@4.2.*/dist/iife
