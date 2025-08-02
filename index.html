@@ -2,14 +2,13 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>Giao diện cố định 1920x1080</title>
+  <title>Giao diện Spine Player động</title>
   <style>
     html, body {
       margin: 0;
       padding: 0;
       background-color: #f0f0f0;
       font-family: sans-serif;
-      scroll-behavior: smooth;
       min-height: 100vh;
       overflow-x: hidden;
     }
@@ -24,13 +23,54 @@
       z-index: 1000;
     }
 
-    /* Selector nằm dưới avatar 30px */
-    .selector {
+    /* Selector wrapper chứa ảnh và chữ */
+    .selector-wrapper {
       position: fixed;
       left: 50px;
+      z-index: 1000;
       width: 20%;
       height: auto;
-      z-index: 1000;
+    }
+
+    .selector {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    .selector-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transform-origin: top center;
+      transition: transform 0.3s ease;
+    }
+
+    .selector-title {
+      font-size: 18px;
+      font-weight: bold;
+      color: #fff;
+      margin-bottom: 10px;
+    }
+
+    .selector-option {
+      font-size: 16px;
+      color: #fff;
+      margin: 4px 0;
+      cursor: pointer;
+      pointer-events: auto;
+      transition: color 0.2s ease;
+    }
+
+    .selector-option:hover {
+      color: #ffd700;
     }
 
     /* Menu ở góc trên phải */
@@ -49,7 +89,7 @@
       padding-bottom: 600px;
     }
 
-    /* Spine Player cố định dưới avatar 30px */
+    /* Spine Player cố định dưới avatar 10px */
     #player-container {
       position: fixed;
       right: 0;
@@ -68,8 +108,18 @@
   <!-- Avatar -->
   <img src="images/ava.png" alt="Avatar" class="avatar" id="avatar">
 
-  <!-- Selector -->
-  <img src="images/selector.png" alt="Selector" class="selector" id="selector">
+  <!-- Selector + Overlay chữ -->
+  <div class="selector-wrapper" id="selector-wrapper">
+    <img src="images/selector.png" alt="Selector" class="selector" id="selector">
+    <div class="selector-overlay" id="selector-overlay">
+      <div class="selector-title">Character</div>
+      <div class="selector-option" onclick="loadSpinePlayer('snipperA.json', 'snipperA.atlas', 'ASTAND')">Snipper A</div>
+      <div class="selector-option" onclick="loadSpinePlayer('snipperB.json', 'snipperB.atlas', 'BWALK')">Snipper B</div>
+      <div class="selector-option" onclick="loadSpinePlayer('snipperC.json', 'snipperC.atlas', 'CATTACK')">Snipper C</div>
+      <div class="selector-option" onclick="loadSpinePlayer('snipperD.json', 'snipperD.atlas', 'DJUMP')">Snipper D</div>
+      <div class="selector-option" onclick="loadSpinePlayer('snipperE.json', 'snipperE.atlas', 'EDIE')">Snipper E</div>
+    </div>
+  </div>
 
   <!-- Menu -->
   <img src="images/menu.png" alt="Menu" class="menu">
@@ -80,19 +130,26 @@
   <!-- Spine Player Container -->
   <div id="player-container"></div>
 
-  <!-- JavaScript: căn vị trí selector và spine player -->
+  <!-- JavaScript -->
   <script>
     function updatePositions() {
       const avatar = document.getElementById('avatar');
+      const selectorWrapper = document.getElementById('selector-wrapper');
       const selector = document.getElementById('selector');
+      const selectorOverlay = document.getElementById('selector-overlay');
       const player = document.getElementById('player-container');
 
       function setPosition() {
         const avatarHeight = avatar.offsetHeight;
         const offset = avatarHeight + 30;
         const offset2 = avatarHeight + 10;
-        selector.style.top = offset + 'px';
+
+        selectorWrapper.style.top = offset + 'px';
         player.style.top = offset2 + 'px';
+
+        const baseWidth = selector.offsetWidth || window.innerWidth * 0.2;
+        const scale = baseWidth / 300;
+        selectorOverlay.style.transform = `scale(${scale})`;
       }
 
       if (avatar.complete) {
@@ -104,21 +161,31 @@
 
     window.addEventListener('load', updatePositions);
     window.addEventListener('resize', updatePositions);
+
+    // Tạo mới Spine Player với file khác
+    function loadSpinePlayer(jsonUrl, atlasUrl, animationName) {
+      const container = document.getElementById('player-container');
+      container.innerHTML = ''; // Xóa player cũ
+
+      new spine.SpinePlayer("player-container", {
+        skeleton: jsonUrl,
+        atlas: atlasUrl,
+        animation: animationName,
+        alpha: true,
+        backgroundColor: "#00000000"
+      });
+    }
+
+    // Tải mặc định ban đầu
+    window.addEventListener('DOMContentLoaded', () => {
+      loadSpinePlayer('https://raw.githubusercontent.com/Asakura-Yoh/port/refs/heads/main/snipper.json', 
+                      'https://raw.githubusercontent.com/Asakura-Yoh/port/refs/heads/main/snipper.atlas', 
+                      'ASTAND');
+    });
   </script>
 
   <!-- Spine Player Script -->
   <script src="https://unpkg.com/@esotericsoftware/spine-player@4.2.*/dist/iife/spine-player.js"></script>
-  <script>
-    new spine.SpinePlayer("player-container", {
-      skeleton: "https://raw.githubusercontent.com/Asakura-Yoh/port/refs/heads/main/snipper.json",
-      atlas: "https://raw.githubusercontent.com/Asakura-Yoh/port/refs/heads/main/snipper.atlas",
-      animation: "ASTAND",
-      alpha: true,
-      backgroundColor: "#00000000"
-    });
-  </script>
 
 </body>
 </html>
-
-
