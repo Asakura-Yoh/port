@@ -76,14 +76,20 @@
 
     .selector-description {
       position: absolute;
-      top: 100px;
+      top: 120px;
       left: 90px;
       width: calc(100% - 100px);
       font-size: 18px;
       color: #fff;
-      line-height: 1.6;
+      line-height: 1.8;
       text-shadow: 1px 1px 2px #000;
       white-space: normal;
+      opacity: 0;
+      transition: opacity 1s ease;
+    }
+
+    .selector-description.visible {
+      opacity: 1;
     }
 
     .menu-container {
@@ -155,7 +161,7 @@
       <div class="selector-title">About me</div>
     </div>
 
-    <div class="selector-description">
+    <div class="selector-description" id="selector-description">
       Xin chào! Tôi là một nhà thiết kế sáng tạo với niềm đam mê trong việc kết hợp nghệ thuật và công nghệ để tạo ra những trải nghiệm tương tác độc đáo. Tôi yêu thích hoạt hình, thiết kế giao diện người dùng, và luôn tìm cách kể chuyện bằng hình ảnh. Hãy cùng khám phá thế giới của tôi qua các dự án bên dưới!
     </div>
   </div>
@@ -175,17 +181,23 @@
       const selectorWrapper = document.getElementById('selector-wrapper');
       const selector = document.getElementById('selector');
       const selectorOverlay = document.getElementById('selector-overlay');
+      const description = document.getElementById('selector-description');
 
       function setPosition() {
         const avatarHeight = avatar.offsetHeight;
         const offset = avatarHeight + 30;
         selectorWrapper.style.top = offset + 'px';
 
-        const baseWidth = selector.offsetWidth || window.innerWidth * 0.2;
+        const baseWidth = selector.offsetWidth || window.innerWidth * 0.25;
         const scale = baseWidth / 300;
         selectorOverlay.style.transform = `scale(${scale})`;
 
         selectorWrapper.classList.add('animate');
+
+        // ✨ Hiện dần đoạn giới thiệu sau khi selector xuất hiện
+        setTimeout(() => {
+          description.classList.add('visible');
+        }, 600);
       }
 
       if (avatar.complete) {
