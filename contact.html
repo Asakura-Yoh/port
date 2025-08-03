@@ -26,6 +26,26 @@
       z-index: 1000;
     }
 
+    .solo-image {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 40%;
+      height: auto;
+      z-index: 1000;
+      opacity: 0;
+      transition: opacity 1s ease;
+    }
+
+    .solo-image.animate {
+      animation: fadeIn 1.2s ease-out forwards;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
     .selector-wrapper {
       position: fixed;
       left: 50px;
@@ -154,6 +174,7 @@
 <body>
 
   <img src="images/ava.png" alt="Avatar" class="avatar" id="avatar">
+  <img src="images/solo.png" alt="Solo Image" class="solo-image" id="solo-image">
 
   <div class="selector-wrapper" id="selector-wrapper">
     <img src="images/selectorContact.png" alt="Selector" class="selector" id="selector">
@@ -162,9 +183,11 @@
       <div class="selector-option option-a">Phone: +84363145646</div>
       <div class="selector-option option-b">Email: tenlalinh@gmail.com</div>
       <div class="selector-option option-c">Location: Ha Noi, Viet Nam</div>
-      <div class="selector-option option-d">LinkedIn: <a href="https://www.linkedin.com/in/linh-tran-32823b16b/" target="_blank" style="color: #fff; text-decoration: underline;">Linh Tran</a>
+      <div class="selector-option option-d">
+        LinkedIn: <a href="https://www.linkedin.com/in/linh-tran-32823b16b/" target="_blank" style="color: #fff; text-decoration: underline;">Linh Tran</a>
       </div>
-      <div class="selector-option option-e">Youtube: <a href="https://www.youtube.com/@yohimator" target="_blank" style="color: #fff; text-decoration: underline;">Yohimator</a>
+      <div class="selector-option option-e">
+        Youtube: <a href="https://www.youtube.com/@yohimator" target="_blank" style="color: #fff; text-decoration: underline;">Yohimator</a>
       </div>
     </div>
   </div>
@@ -217,6 +240,7 @@
       updatePositions();
       updateMenuOverlayScale();
       document.getElementById('menu-container').classList.add('animate');
+      document.getElementById('solo-image').classList.add('animate');
     });
 
     window.addEventListener('resize', () => {
