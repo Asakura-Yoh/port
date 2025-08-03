@@ -76,13 +76,14 @@
 
     .selector-description {
       position: absolute;
-      top: 70px;
+      top: 100px;
       left: 90px;
-      width: 80%;
+      width: calc(100% - 100px);
       font-size: 18px;
       color: #fff;
-      line-height: 1.5;
+      line-height: 1.6;
       text-shadow: 1px 1px 2px #000;
+      white-space: normal;
     }
 
     .menu-container {
@@ -149,11 +150,13 @@
 
   <div class="selector-wrapper" id="selector-wrapper">
     <img src="images/selector.png" alt="Selector" class="selector" id="selector">
+
     <div class="selector-overlay" id="selector-overlay">
       <div class="selector-title">About me</div>
-      <div class="selector-description">
-        Xin chào! Tôi là một nhà thiết kế sáng tạo với niềm đam mê trong việc kết hợp nghệ thuật và công nghệ để tạo ra những trải nghiệm tương tác độc đáo. Tôi yêu thích hoạt hình, thiết kế giao diện người dùng, và luôn tìm cách kể chuyện bằng hình ảnh. Hãy cùng khám phá thế giới của tôi qua các dự án bên dưới!
-      </div>
+    </div>
+
+    <div class="selector-description">
+      Xin chào! Tôi là một nhà thiết kế sáng tạo với niềm đam mê trong việc kết hợp nghệ thuật và công nghệ để tạo ra những trải nghiệm tương tác độc đáo. Tôi yêu thích hoạt hình, thiết kế giao diện người dùng, và luôn tìm cách kể chuyện bằng hình ảnh. Hãy cùng khám phá thế giới của tôi qua các dự án bên dưới!
     </div>
   </div>
 
