@@ -158,11 +158,21 @@
     .menu-resume   { top: 5px; left: 245px; }
     .menu-contact  { top: 5px; left: 425px; }
 
-    /* New selectors inside board */
+    /* Board overlay container */
+    #board-overlay {
+      position: absolute;
+      top: 15vh;
+      right: 0;
+      width: 75%;
+      z-index: 1001;
+      transform-origin: top right;
+      pointer-events: none;
+    }
+
     .board-selector {
       position: absolute;
       width: 25%;
-      transform-origin: top left;
+      pointer-events: auto;
       opacity: 0;
     }
 
@@ -171,10 +181,10 @@
       opacity: 1;
     }
 
-    .selector1 { top: 20%; left: 5%; }
-    .selector2 { top: 40%; left: 10%; }
+    .selector1 { top: 10%; left: 5%; }
+    .selector2 { top: 35%; left: 10%; }
     .selector3 { top: 60%; left: 15%; }
-    .selector4 { top: 80%; left: 20%; }
+    .selector4 { top: 85%; left: 20%; }
   </style>
 </head>
 <body>
@@ -182,28 +192,31 @@
   <img src="images/ava.png" alt="Avatar" class="avatar" id="avatar">
   <img src="images/board.png" alt="Board Image" class="board-image" id="board-image">
 
-  <!-- 4 new selectors inside board -->
-  <div class="board-selector selector1" id="board-selector1">
-    <img src="images/selectorAboutme.png" alt="Selector" class="selector">
-    <div class="selector-overlay"><div class="selector-title">Project A</div></div>
-    <div class="selector-description" id="desc1"></div>
-  </div>
-  <div class="board-selector selector2" id="board-selector2">
-    <img src="images/selectorAboutme.png" alt="Selector" class="selector">
-    <div class="selector-overlay"><div class="selector-title">Project B</div></div>
-    <div class="selector-description" id="desc2"></div>
-  </div>
-  <div class="board-selector selector3" id="board-selector3">
-    <img src="images/selectorAboutme.png" alt="Selector" class="selector">
-    <div class="selector-overlay"><div class="selector-title">Project C</div></div>
-    <div class="selector-description" id="desc3"></div>
-  </div>
-  <div class="board-selector selector4" id="board-selector4">
-    <img src="images/selectorAboutme.png" alt="Selector" class="selector">
-    <div class="selector-overlay"><div class="selector-title">Project D</div></div>
-    <div class="selector-description" id="desc4"></div>
+  <!-- Board overlay chứa 4 selector mới -->
+  <div id="board-overlay">
+    <div class="board-selector selector1" id="board-selector1">
+      <img src="images/selectorAboutme.png" alt="Selector" class="selector">
+      <div class="selector-overlay"><div class="selector-title">Project A</div></div>
+      <div class="selector-description" id="desc1"></div>
+    </div>
+    <div class="board-selector selector2" id="board-selector2">
+      <img src="images/selectorAboutme.png" alt="Selector" class="selector">
+      <div class="selector-overlay"><div class="selector-title">Project B</div></div>
+      <div class="selector-description" id="desc2"></div>
+    </div>
+    <div class="board-selector selector3" id="board-selector3">
+      <img src="images/selectorAboutme.png" alt="Selector" class="selector">
+      <div class="selector-overlay"><div class="selector-title">Project C</div></div>
+      <div class="selector-description" id="desc3"></div>
+    </div>
+    <div class="board-selector selector4" id="board-selector4">
+      <img src="images/selectorAboutme.png" alt="Selector" class="selector">
+      <div class="selector-overlay"><div class="selector-title">Project D</div></div>
+      <div class="selector-description" id="desc4"></div>
+    </div>
   </div>
 
+  <!-- Selector chính bên trái -->
   <div class="selector-wrapper" id="selector-wrapper">
     <img src="images/selectorAboutme.png" alt="Selector" class="selector" id="selector">
     <div class="selector-overlay" id="selector-overlay">
@@ -212,6 +225,7 @@
     <div class="selector-description" id="selector-description"></div>
   </div>
 
+  <!-- Menu điều hướng -->
   <div class="menu-container" id="menu-container">
     <img src="images/menu.png" alt="Menu" class="menu" id="menu">
     <div class="menu-overlay" id="menu-overlay">
@@ -257,6 +271,7 @@
       const selectorOverlay = document.getElementById('selector-overlay');
       const description = document.getElementById('selector-description');
       const boardImage = document.getElementById('board-image');
+      const boardOverlay = document.getElementById('board-overlay');
 
       function setPosition() {
         const avatarHeight = avatar.offsetHeight;
@@ -276,17 +291,19 @@
           }, 600);
         }
 
-        // Scale and animate board selectors
+        // Scale board overlay
+        const boardScale = boardImage.offsetWidth / 600;
+        boardOverlay.style.transform = `scale(${boardScale})`;
+
+        // Animate and type text for each board selector
         boardDescriptions.forEach((item, index) => {
           const selectorEl = document.getElementById(`board-selector${index + 1}`);
           const overlayEl = selectorEl.querySelector('.selector-overlay');
           const descEl = document.getElementById(item.id);
 
-          const baseBoardWidth = boardImage.offsetWidth || window.innerWidth * 0.75;
-          const boardScale = baseBoardWidth / 300;
           overlayEl.style.transform = `scale(${boardScale})`;
-
           selectorEl.classList.add('animate');
+
           setTimeout(() => {
             descEl.classList.add('visible');
             typeText(descEl, item.text, 10);
