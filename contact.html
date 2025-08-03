@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>Giao diện Spine Player động</title>
+  <title>Giao diện không có Spine Player</title>
   <style>
     html, body {
       margin: 0;
@@ -149,18 +149,7 @@
     .menu-showreel { top: 5px; left: 40px; }
     .menu-resume   { top: 5px; left: 245px; }
     .menu-contact  { top: 5px; left: 425px; }
-
-    #player-container {
-      position: fixed;
-      right: 0;
-      width: 70%;
-      height: 500px;
-      z-index: 999;
-      background-color: transparent;
-    }
   </style>
-
-  <link rel="stylesheet" href="https://unpkg.com/@esotericsoftware/spine-player@4.2.*/dist/spine-player.css">
 </head>
 <body>
 
@@ -170,11 +159,11 @@
     <img src="images/selector.png" alt="Selector" class="selector" id="selector">
     <div class="selector-overlay" id="selector-overlay">
       <div class="selector-title">Character</div>
-      <div class="selector-option option-a" onclick="loadSpinePlayer('https://raw.githubusercontent.com/Asakura-Yoh/port/main/spines/hilde.json', 'https://raw.githubusercontent.com/Asakura-Yoh/port/main/spines/hilde.atlas', 'ASTAND')">Hilde</div>
-      <div class="selector-option option-b" onclick="loadSpinePlayer('https://raw.githubusercontent.com/Asakura-Yoh/port/main/spines/jake.json', 'https://raw.githubusercontent.com/Asakura-Yoh/port/main/spines/jake.atlas', 'ASTAND')">Jake</div>
-      <div class="selector-option option-c" onclick="loadSpinePlayer('https://raw.githubusercontent.com/Asakura-Yoh/port/main/spines/horse.json', 'https://raw.githubusercontent.com/Asakura-Yoh/port/main/spines/horse.atlas', 'ASTAND')">Horse Knight</div>
-      <div class="selector-option option-d" onclick="loadSpinePlayer('https://raw.githubusercontent.com/Asakura-Yoh/port/main/spines/bishop.json', 'https://raw.githubusercontent.com/Asakura-Yoh/port/main/spines/bishop.atlas', 'ASTAND')">Boss Bishop</div>
-      <div class="selector-option option-e" onclick="loadSpinePlayer('https://raw.githubusercontent.com/Asakura-Yoh/port/main/spines/knight.json', 'https://raw.githubusercontent.com/Asakura-Yoh/port/main/spines/knight.atlas', 'ASTAND')">Boss Knight</div>
+      <div class="selector-option option-a">Hilde</div>
+      <div class="selector-option option-b">Jake</div>
+      <div class="selector-option option-c">Horse Knight</div>
+      <div class="selector-option option-d">Boss Bishop</div>
+      <div class="selector-option option-e">Boss Knight</div>
     </div>
   </div>
 
@@ -187,31 +176,22 @@
     </div>
   </div>
 
-  <div id="player-container"></div>
-
-  <script src="https://unpkg.com/@esotericsoftware/spine-player@4.2.*/dist/iife/spine-player.js"></script>
-
   <script>
     function updatePositions() {
       const avatar = document.getElementById('avatar');
       const selectorWrapper = document.getElementById('selector-wrapper');
       const selector = document.getElementById('selector');
       const selectorOverlay = document.getElementById('selector-overlay');
-      const player = document.getElementById('player-container');
 
       function setPosition() {
         const avatarHeight = avatar.offsetHeight;
         const offset = avatarHeight + 30;
-        const offset2 = avatarHeight + 10;
-
         selectorWrapper.style.top = offset + 'px';
-        player.style.top = offset2 + 'px';
 
         const baseWidth = selector.offsetWidth || window.innerWidth * 0.2;
         const scale = baseWidth / 300;
         selectorOverlay.style.transform = `scale(${scale})`;
 
-        // ✨ Kích hoạt hiệu ứng trượt selector
         selectorWrapper.classList.add('animate');
       }
 
@@ -231,28 +211,9 @@
       overlay.style.transform = `scale(${scale})`;
     }
 
-    function loadSpinePlayer(jsonUrl, atlasUrl, animationName) {
-      const container = document.getElementById('player-container');
-      container.innerHTML = '';
-      new spine.SpinePlayer(container, {
-        skeleton: jsonUrl,
-        atlas: atlasUrl,
-        animation: animationName,
-        alpha: true,
-        backgroundColor: "#00000000"
-      });
-    }
-
     window.addEventListener('load', () => {
       updatePositions();
       updateMenuOverlayScale();
-      loadSpinePlayer(
-        'https://raw.githubusercontent.com/Asakura-Yoh/port/main/spines/hilde.json',
-        'https://raw.githubusercontent.com/Asakura-Yoh/port/main/spines/hilde.atlas',
-        'ASTAND'
-      );
-
-      // ✨ Kích hoạt hiệu ứng trượt menu
       document.getElementById('menu-container').classList.add('animate');
     });
 
