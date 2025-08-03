@@ -26,6 +26,33 @@
       z-index: 1000;
     }
 
+    .board-image {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 40%;
+      height: auto;
+      z-index: 999;
+      opacity: 0;
+      transform: scale(0.9);
+      transition: opacity 1s ease, transform 1s ease;
+    }
+
+    .board-image.animate {
+      animation: fadeInScale 1.2s ease-out forwards;
+    }
+
+    @keyframes fadeInScale {
+      from {
+        opacity: 0;
+        transform: scale(0.9);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
     .selector-wrapper {
       position: fixed;
       left: 50px;
@@ -152,6 +179,7 @@
 <body>
 
   <img src="images/ava.png" alt="Avatar" class="avatar" id="avatar">
+  <img src="images/board.png" alt="Board Image" class="board-image" id="board-image">
 
   <div class="selector-wrapper" id="selector-wrapper">
     <img src="images/selectorAboutme.png" alt="Selector" class="selector" id="selector">
@@ -175,23 +203,23 @@
   <script>
     const descriptionText = `  I'm Linh, 2D Animator & VFX Artist with over 3 years of experience. Specializing in dynamic visuals and immersive game effects, I fuse creativity with technical mastery using tools like Photoshop, Spine2D, After Effects, and Unity.<br>  Let’s turn imagination into motion!`;
 
-function typeText(element, text, speed = 10) {
-  let i = 0;
-  function type() {
-    if (i < text.length) {
-      const char = text.charAt(i);
-      if (char === '<' && text.substring(i, i + 4) === '<br>') {
-        element.innerHTML += '<br>';
-        i += 4;
-      } else {
-        element.innerHTML += char;
-        i++;
+    function typeText(element, text, speed = 10) {
+      let i = 0;
+      function type() {
+        if (i < text.length) {
+          const char = text.charAt(i);
+          if (char === '<' && text.substring(i, i + 4) === '<br>') {
+            element.innerHTML += '<br>';
+            i += 4;
+          } else {
+            element.innerHTML += char;
+            i++;
+          }
+          setTimeout(type, speed);
+        }
       }
-      setTimeout(type, speed);
+      type();
     }
-  }
-  type();
-}
 
     function updatePositions() {
       const avatar = document.getElementById('avatar');
@@ -211,7 +239,6 @@ function typeText(element, text, speed = 10) {
 
         selectorWrapper.classList.add('animate');
 
-        // ✨ Hiện dần và đánh máy đoạn giới thiệu
         setTimeout(() => {
           description.classList.add('visible');
           typeText(description, descriptionText, 10);
@@ -238,6 +265,7 @@ function typeText(element, text, speed = 10) {
       updatePositions();
       updateMenuOverlayScale();
       document.getElementById('menu-container').classList.add('animate');
+      document.getElementById('board-image').classList.add('animate');
     });
 
     window.addEventListener('resize', () => {
