@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>Giao diện không có Spine Player</title>
+  <title>Giới thiệu bản thân</title>
   <style>
     html, body {
       margin: 0;
@@ -29,7 +29,7 @@
     .selector-wrapper {
       position: fixed;
       left: 50px;
-      width: 20%;
+      width: 40%;
       z-index: 1000;
       opacity: 0;
       transform: translateX(-100%);
@@ -74,25 +74,16 @@
       white-space: nowrap;
     }
 
-    .selector-option {
+    .selector-description {
       position: absolute;
-      font-size: 26px;
-      font-weight: bold;
+      top: 70px;
+      left: 90px;
+      width: 80%;
+      font-size: 18px;
       color: #fff;
-      cursor: pointer;
-      pointer-events: auto;
-      white-space: nowrap;
+      line-height: 1.5;
+      text-shadow: 1px 1px 2px #000;
     }
-
-    .selector-option:hover {
-      color: #ffd700;
-    }
-
-    .option-a { top: 85px; left: 50px; }
-    .option-b { top: 132.5px; left: 50px; }
-    .option-c { top: 180px; left: 50px; }
-    .option-d { top: 227.5px; left: 50px; }
-    .option-e { top: 275px; left: 50px; }
 
     .menu-container {
       position: fixed;
@@ -157,14 +148,12 @@
   <img src="images/ava.png" alt="Avatar" class="avatar" id="avatar">
 
   <div class="selector-wrapper" id="selector-wrapper">
-    <img src="images/selectorAboutme.png" alt="Selector" class="selector" id="selector">
+    <img src="images/selector.png" alt="Selector" class="selector" id="selector">
     <div class="selector-overlay" id="selector-overlay">
       <div class="selector-title">About me</div>
-      <div class="selector-option option-a">Hilde</div>
-      <div class="selector-option option-b">Jake</div>
-      <div class="selector-option option-c">Horse Knight</div>
-      <div class="selector-option option-d">Boss Bishop</div>
-      <div class="selector-option option-e">Boss Knight</div>
+      <div class="selector-description">
+        Xin chào! Tôi là một nhà thiết kế sáng tạo với niềm đam mê trong việc kết hợp nghệ thuật và công nghệ để tạo ra những trải nghiệm tương tác độc đáo. Tôi yêu thích hoạt hình, thiết kế giao diện người dùng, và luôn tìm cách kể chuyện bằng hình ảnh. Hãy cùng khám phá thế giới của tôi qua các dự án bên dưới!
+      </div>
     </div>
   </div>
 
