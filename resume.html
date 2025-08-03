@@ -8,7 +8,7 @@
       margin: 0;
       padding: 0;
       font-family: sans-serif;
-      min-height: 110vh; /* tăng chiều cao để có thể cuộn */
+      min-height: 110vh;
       overflow-x: hidden;
       overflow-y: auto;
       background-image: url('images/background9.png');
@@ -42,6 +42,36 @@
     .board-image.animate {
       animation: fadeInScale 1.2s ease-out forwards;
     }
+
+    .board-overlay {
+      position: absolute;
+      top: 15vh;
+      right: 0;
+      width: 75%;
+      height: auto;
+      pointer-events: none;
+      transform-origin: top right;
+      z-index: 1001;
+    }
+
+    .board-item {
+      position: absolute;
+      font-size: 20px;
+      font-weight: bold;
+      color: #fff;
+      text-shadow: 1px 1px 2px #000;
+      pointer-events: auto;
+      cursor: text;
+      white-space: nowrap;
+      background-color: rgba(0, 0, 0, 0.4);
+      padding: 6px 12px;
+      border-radius: 6px;
+    }
+
+    .item-a { top: 10%; left: 10%; }
+    .item-b { top: 30%; left: 20%; }
+    .item-c { top: 50%; left: 15%; }
+    .item-d { top: 70%; left: 25%; }
 
     @keyframes fadeInScale {
       from {
@@ -182,13 +212,18 @@
   <img src="images/ava.png" alt="Avatar" class="avatar" id="avatar">
   <img src="images/board.png" alt="Board Image" class="board-image" id="board-image">
 
+  <div class="board-overlay" id="board-overlay">
+    <div class="board-item item-a" contenteditable="true">2021: Intern at XYZ Studio</div>
+    <div class="board-item item-b" contenteditable="true">2022: Freelance Animator</div>
+    <div class="board-item item-c" contenteditable="true">2023: VFX Artist at GameHub</div>
+    <div class="board-item item-d" contenteditable="true">2024: Lead Animator at DreamWorks</div>
+  </div>
+
   <div class="selector-wrapper" id="selector-wrapper">
     <img src="images/selectorAboutme.png" alt="Selector" class="selector" id="selector">
-
     <div class="selector-overlay" id="selector-overlay">
       <div class="selector-title">About me</div>
     </div>
-
     <div class="selector-description" id="selector-description"></div>
   </div>
 
@@ -230,6 +265,8 @@
       const selector = document.getElementById('selector');
       const selectorOverlay = document.getElementById('selector-overlay');
       const description = document.getElementById('selector-description');
+      const board = document.getElementById('board-image');
+      const boardOverlay = document.getElementById('board-overlay');
 
       function setPosition() {
         const avatarHeight = avatar.offsetHeight;
@@ -237,47 +274,5 @@
         selectorWrapper.style.top = offset + 'px';
 
         const baseWidth = selector.offsetWidth || window.innerWidth * 0.25;
-        const scale = baseWidth / 300;
-        selectorOverlay.style.transform = `scale(${scale})`;
-
-        selectorWrapper.classList.add('animate');
-
-        if (!typedAlready) {
-          setTimeout(() => {
-            description.classList.add('visible');
-            typeText(description, descriptionText, 10);
-            typedAlready = true;
-          }, 600);
-        }
-      }
-
-      if (avatar.complete) {
-        setPosition();
-      } else {
-        avatar.onload = setPosition;
-      }
-    }
-
-    function updateMenuOverlayScale() {
-      const menu = document.getElementById('menu');
-      const overlay = document.getElementById('menu-overlay');
-
-      const baseWidth = menu.offsetWidth || window.innerWidth * 0.6;
-      const scale = baseWidth / 600;
-      overlay.style.transform = `scale(${scale})`;
-    }
-
-    window.addEventListener('load', () => {
-      updatePositions();
-      updateMenuOverlayScale();
-      document.getElementById('menu-container').classList.add('animate');
-      document.getElementById('board-image').classList.add('animate');
-    });
-
-    window.addEventListener('resize', () => {
-      updatePositions();
-      updateMenuOverlayScale();
-    });
-  </script>
-</body>
-</html>
+        const scaleSelector = baseWidth / 300;
+        selectorOverlay.style
