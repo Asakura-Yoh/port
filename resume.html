@@ -8,8 +8,9 @@
       margin: 0;
       padding: 0;
       font-family: sans-serif;
-      min-height: 100vh;
+      min-height: 200vh; /* tăng chiều cao để có thể cuộn */
       overflow-x: hidden;
+      overflow-y: auto;
       background-image: url('images/background9.png');
       background-size: cover;
       background-position: center;
@@ -27,8 +28,8 @@
     }
 
     .board-image {
-      position: fixed;
-      top: 15%;
+      position: absolute;
+      top: 15vh;
       right: 0;
       width: 75%;
       height: auto;
@@ -203,6 +204,8 @@
   <script>
     const descriptionText = `  I'm Linh, 2D Animator & VFX Artist with over 3 years of experience. Specializing in dynamic visuals and immersive game effects, I fuse creativity with technical mastery using tools like Photoshop, Spine2D, After Effects, and Unity.<br>  Let’s turn imagination into motion!`;
 
+    let typedAlready = false;
+
     function typeText(element, text, speed = 10) {
       let i = 0;
       function type() {
@@ -239,10 +242,13 @@
 
         selectorWrapper.classList.add('animate');
 
-        setTimeout(() => {
-          description.classList.add('visible');
-          typeText(description, descriptionText, 10);
-        }, 600);
+        if (!typedAlready) {
+          setTimeout(() => {
+            description.classList.add('visible');
+            typeText(description, descriptionText, 10);
+            typedAlready = true;
+          }, 600);
+        }
       }
 
       if (avatar.complete) {
