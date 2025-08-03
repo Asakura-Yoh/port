@@ -175,17 +175,23 @@
   <script>
     const descriptionText = `I'm Linh, 2D Animator & VFX Artist with over 3 years of experience. Specializing in dynamic visuals and immersive game effects, I fuse creativity with technical mastery using tools like Photoshop, Spine2D, After Effects, and Unity.<br>Let’s turn imagination into motion!`;
 
-    function typeText(element, text, speed = 60) {
-      let i = 0;
-      function type() {
-        if (i < text.length) {
-          element.innerHTML += text.charAt(i);
-          i++;
-          setTimeout(type, speed);
-        }
+function typeText(element, text, speed = 90) {
+  let i = 0;
+  function type() {
+    if (i < text.length) {
+      const char = text.charAt(i);
+      if (char === '<' && text.substring(i, i + 4) === '<br>') {
+        element.innerHTML += '<br>';
+        i += 4;
+      } else {
+        element.innerHTML += char;
+        i++;
       }
-      type();
+      setTimeout(type, speed);
     }
+  }
+  type();
+}
 
     function updatePositions() {
       const avatar = document.getElementById('avatar');
