@@ -85,7 +85,6 @@
       text-shadow: 1px 1px 2px #000;
       white-space: normal;
       opacity: 0;
-      transition: opacity 1s ease;
     }
 
     .selector-description.visible {
@@ -161,9 +160,7 @@
       <div class="selector-title">About me</div>
     </div>
 
-    <div class="selector-description" id="selector-description">
-      Xin chào! Tôi là một nhà thiết kế sáng tạo với niềm đam mê trong việc kết hợp nghệ thuật và công nghệ để tạo ra những trải nghiệm tương tác độc đáo. Tôi yêu thích hoạt hình, thiết kế giao diện người dùng, và luôn tìm cách kể chuyện bằng hình ảnh. Hãy cùng khám phá thế giới của tôi qua các dự án bên dưới!
-    </div>
+    <div class="selector-description" id="selector-description"></div>
   </div>
 
   <div class="menu-container" id="menu-container">
@@ -176,6 +173,20 @@
   </div>
 
   <script>
+    const descriptionText = `Xin chào! Tôi là một nhà thiết kế sáng tạo với niềm đam mê trong việc kết hợp nghệ thuật và công nghệ để tạo ra những trải nghiệm tương tác độc đáo. Tôi yêu thích hoạt hình, thiết kế giao diện người dùng, và luôn tìm cách kể chuyện bằng hình ảnh. Hãy cùng khám phá thế giới của tôi qua các dự án bên dưới!`;
+
+    function typeText(element, text, speed = 30) {
+      let i = 0;
+      function type() {
+        if (i < text.length) {
+          element.innerHTML += text.charAt(i);
+          i++;
+          setTimeout(type, speed);
+        }
+      }
+      type();
+    }
+
     function updatePositions() {
       const avatar = document.getElementById('avatar');
       const selectorWrapper = document.getElementById('selector-wrapper');
@@ -194,9 +205,10 @@
 
         selectorWrapper.classList.add('animate');
 
-        // ✨ Hiện dần đoạn giới thiệu sau khi selector xuất hiện
+        // ✨ Hiện dần và đánh máy đoạn giới thiệu
         setTimeout(() => {
           description.classList.add('visible');
+          typeText(description, descriptionText, 30);
         }, 600);
       }
 
