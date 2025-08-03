@@ -72,41 +72,6 @@
       display: block;
     }
 
-    .selector-overlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      transform-origin: top left;
-      pointer-events: none;
-    }
-
-    .selector-title {
-      position: absolute;
-      top: 23px;
-      left: 90px;
-      font-size: 26px;
-      font-weight: bold;
-      color: #fff;
-      white-space: nowrap;
-    }
-
-    .selector-description {
-      position: absolute;
-      top: 100px;
-      left: 50px;
-      width: calc(100% - 100px);
-      font-size: 20px;
-      color: #fff;
-      line-height: 1.7;
-      text-shadow: 1px 1px 2px #000;
-      white-space: normal;
-      opacity: 0;
-    }
-
-    .selector-description.visible {
-      opacity: 1;
-    }
-
     .menu-container {
       position: fixed;
       top: 30px;
@@ -157,73 +122,16 @@
     .menu-showreel { top: 5px; left: 40px; }
     .menu-resume   { top: 5px; left: 245px; }
     .menu-contact  { top: 5px; left: 425px; }
-
-    /* Board overlay container */
-    #board-overlay {
-      position: absolute;
-      top: 15vh;
-      right: 0;
-      width: 75%;
-      z-index: 1001;
-      transform-origin: top right;
-      pointer-events: none;
-    }
-
-    .board-selector {
-      position: absolute;
-      width: 15%;
-      pointer-events: auto;
-      opacity: 0;
-      transform-origin: top left;
-    }
-
-    .board-selector.animate {
-      animation: slideInLeft 0.6s ease-out forwards;
-      opacity: 1;
-    }
-
-    .selector1 { top: 50%; left: 55%; }
-    .selector2 { top: 50%; left: 75%; }
-    .selector3 { top: 60%; left: 55%; }
-    .selector4 { top: 60%; left: 75%; }
   </style>
 </head>
 <body>
 
   <img src="images/ava.png" alt="Avatar" class="avatar" id="avatar">
-  <img src="images/board.png" alt="Board Image" class="board-image" id="board-image">
+  <img src="images/timeline.png" alt="Board Image" class="board-image" id="board-image">
 
-  <!-- Board overlay chứa 4 selector mới -->
-  <div id="board-overlay">
-    <div class="board-selector selector1" id="board-selector1">
-      <img src="images/selectorContact.png" alt="Selector" class="selector">
-      <div class="selector-overlay"><div class="selector-title">Project A</div></div>
-      <div class="selector-description" id="desc1"></div>
-    </div>
-    <div class="board-selector selector2" id="board-selector2">
-      <img src="images/selectorContact.png" alt="Selector" class="selector">
-      <div class="selector-overlay"><div class="selector-title">Project B</div></div>
-      <div class="selector-description" id="desc2"></div>
-    </div>
-    <div class="board-selector selector3" id="board-selector3">
-      <img src="images/selectorContact.png" alt="Selector" class="selector">
-      <div class="selector-overlay"><div class="selector-title">Project C</div></div>
-      <div class="selector-description" id="desc3"></div>
-    </div>
-    <div class="board-selector selector4" id="board-selector4">
-      <img src="images/selectorContact.png" alt="Selector" class="selector">
-      <div class="selector-overlay"><div class="selector-title">Project D</div></div>
-      <div class="selector-description" id="desc4"></div>
-    </div>
-  </div>
-
-  <!-- Selector chính bên trái -->
+  <!-- Selector chính bên trái, không có text phủ -->
   <div class="selector-wrapper" id="selector-wrapper">
-    <img src="images/selectorAboutme.png" alt="Selector" class="selector" id="selector">
-    <div class="selector-overlay" id="selector-overlay">
-      <div class="selector-title">About me</div>
-    </div>
-    <div class="selector-description" id="selector-description"></div>
+    <img src="images/aboutme.png" alt="Selector" class="selector" id="selector">
   </div>
 
   <!-- Menu điều hướng -->
@@ -235,87 +143,23 @@
       <div class="menu-text menu-contact" onclick="window.location.href='contact.html'">Contact</div>
     </div>
   </div>
-    <script>
-    const descriptionText = `I'm Linh, 2D Animator & VFX Artist with over 3 years of experience. Specializing in dynamic visuals and immersive game effects, I fuse creativity with technical mastery using tools like Photoshop, Spine2D, After Effects, and Unity.<br>Let’s turn imagination into motion!`;
 
-    const boardDescriptions = [
-      { id: 'desc1', text: 'Project A: Mobile Game FX' },
-      { id: 'desc2', text: 'Project B: UI Animation' },
-      { id: 'desc3', text: 'Project C: Spine2D Rigging' },
-      { id: 'desc4', text: 'Project D: VFX for Cinematics' }
-    ];
-
-    let typedAlready = false;
-
-    function typeText(element, text, speed = 10) {
-      let i = 0;
-      function type() {
-        if (i < text.length) {
-          const char = text.charAt(i);
-          if (char === '<' && text.substring(i, i + 4) === '<br>') {
-            element.innerHTML += '<br>';
-            i += 4;
-          } else {
-            element.innerHTML += char;
-            i++;
-          }
-          setTimeout(type, speed);
-        }
-      }
-      type();
-    }
-
+  <script>
     function updatePositions() {
       const avatar = document.getElementById('avatar');
       const selectorWrapper = document.getElementById('selector-wrapper');
       const selector = document.getElementById('selector');
-      const selectorOverlay = document.getElementById('selector-overlay');
-      const description = document.getElementById('selector-description');
-      const boardImage = document.getElementById('board-image');
-      const boardOverlay = document.getElementById('board-overlay');
 
       function setPosition() {
         const avatarHeight = avatar.offsetHeight;
         selectorWrapper.style.top = (avatarHeight + 30) + 'px';
-
-        const baseWidth = selector.offsetWidth || window.innerWidth * 0.25;
-        const scale = baseWidth / 300;
-        selectorOverlay.style.transform = `scale(${scale})`;
-
         selectorWrapper.classList.add('animate');
-
-        if (!typedAlready) {
-          setTimeout(() => {
-            description.classList.add('visible');
-            typeText(description, descriptionText, 10);
-            typedAlready = true;
-          }, 600);
-        }
-
-        // Scale board overlay
-        const boardScale = boardImage.offsetWidth / 600;
-        boardOverlay.style.transform = `scale(${boardScale})`;
-
-        // Animate and type text for each board selector
-        boardDescriptions.forEach((item, index) => {
-          const selectorEl = document.getElementById(`board-selector${index + 1}`);
-          const overlayEl = selectorEl.querySelector('.selector-overlay');
-          const descEl = document.getElementById(item.id);
-
-          overlayEl.style.transform = `scale(${boardScale})`;
-          selectorEl.classList.add('animate');
-
-          setTimeout(() => {
-            descEl.classList.add('visible');
-            typeText(descEl, item.text, 10);
-          }, 600);
-        });
       }
 
-      if (avatar.complete && boardImage.complete) {
+      if (avatar.complete) {
         setPosition();
       } else {
-        avatar.onload = boardImage.onload = setPosition;
+        avatar.onload = setPosition;
       }
     }
 
