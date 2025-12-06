@@ -235,10 +235,10 @@
       const container = document.getElementById('player-container');
       container.innerHTML = '';
       new spine.SpinePlayer(container, {
+        showControls: true,
         skeleton: jsonUrl,
         atlas: atlasUrl,
         animation: animationName,
-        showControls: true,
         alpha: true,
         backgroundColor: "#00000000"
       });
