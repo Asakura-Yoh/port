@@ -20,7 +20,7 @@
             margin: 0; padding: 20px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: var(--bg-color); color: var(--text-color);
             height: 100vh; overflow: hidden; display: flex; flex-direction: column;
-            position: relative; z-index: 1; /* Cần thiết để z-index âm hoạt động */
+            position: relative; /* Setup cho z-index hoạt động chuẩn */
         }
 
         /* --- Global UI --- */
@@ -147,10 +147,12 @@
         .player-overlay-info p { margin: 5px 0 0 0; color: #aaa; font-size: 13px; }
         #player-wrapper { flex: 1; width: 100%; height: 100%; }
 
-        /* HACK: Nằm trong view để lừa Spine, nhưng giấu đằng sau Body */
+        /* HACK: Chống đóng băng Render. Cần nổi lên nhưng vô hình */
         #hidden-parser {
-            position: fixed; top: 0; left: 0; width: 256px; height: 256px;
-            z-index: -9999; pointer-events: none; opacity: 0.1;
+            position: fixed; top: 20px; left: 20px; width: 256px; height: 256px;
+            z-index: 9999; /* Luôn nổi lên trên cùng để WebGL không tắt */
+            pointer-events: none; /* Click xuyên qua bình thường */
+            opacity: 0.02; /* Ẩn đi với người dùng nhưng trình duyệt vẫn vẽ */
         }
     </style>
 </head>
@@ -371,7 +373,7 @@
             }
         }
 
-        // --- ASYNC THUMBNAIL GENERATOR LOOP ---
+        // --- SAFE ASYNC THUMBNAIL GENERATOR ---
         function generateThumbnailsForProject(project) {
             return new Promise((resolve) => {
                 let initConfig = {
@@ -385,12 +387,12 @@
                         const results = [];
                         const canvas = player.canvas;
 
-                        // BƯỚC 1: Monkey-Patch hàm Render của WebGL để túm gọn pixel ngay lập tức
+                        // Monkey-patch an toàn (sử dụng .bind để tránh mất context WebGL)
                         let captureResolve = null;
-                        const originalRender = player.render;
+                        const originalRender = player.render.bind(player);
+                        
                         player.render = function() {
-                            originalRender.call(player);
-                            // Nếu đang bật cờ cần chụp ảnh
+                            originalRender();
                             if (captureResolve) {
                                 try {
                                     const data = canvas.toDataURL('image/png');
@@ -400,7 +402,6 @@
                             }
                         };
 
-                        // BƯỚC 2: Vòng lặp phát animation -> nhích frame -> yêu cầu chụp
                         for (let i = 0; i < anims.length; i++) {
                             const a = anims[i];
                             logMessage(`Đang chụp hình Skeleton [${project.name}]: ${a.name} (${i+1}/${anims.length})...`, 'info');
@@ -409,17 +410,20 @@
                             player.skeleton.setToSetupPose();
                             player.animationState.setAnimation(0, a.name, true);
                             
-                            // Tiến tới frame tương đương 0.1s để tránh chụp dính pose nhắm mắt/tàng hình
+                            // Tiến frame chống tàng hình
                             player.animationState.update(Math.min(0.1, a.duration / 2));
                             player.animationState.apply(player.skeleton);
                             player.skeleton.updateWorldTransform();
 
-                            // Bật cờ và đợi WebGL render frame tiếp theo
+                            // Bật cờ chụp ảnh với Fallback chống treo (Timeout 400ms)
                             const thumbData = await new Promise(res => {
                                 captureResolve = res;
                                 setTimeout(() => {
-                                    if (captureResolve === res) { captureResolve = null; res(null); }
-                                }, 300); // Fallback chống treo
+                                    if (captureResolve === res) { 
+                                        captureResolve = null; 
+                                        res(null); // Giải phóng tiến trình nếu WebGL bị nghẽn
+                                    }
+                                }, 400); 
                             });
 
                             results.push({ name: a.name, duration: a.duration, thumb: thumbData });
@@ -439,7 +443,6 @@
             });
         }
 
-        // --- Build UI ---
         const fallbackSvg = `<svg viewBox="0 0 24 24" width="40" height="40" stroke="#555" stroke-width="2" fill="none"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path></svg>`;
 
         function buildGalleryUI() {
@@ -503,7 +506,6 @@
             });
         }
 
-        // --- Player Controller ---
         function playAnimation(projectConfig, animationName) {
             document.querySelectorAll('.list-item').forEach(el => el.classList.remove('active'));
             const activeEl = document.querySelector(`.list-item[data-skeleton="${projectConfig.name}"][data-anim="${animationName}"]`);
