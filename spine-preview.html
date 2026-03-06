@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spine2D Animation Gallery & Previewer</title>
+    <title>Spine2D Web Previewer (Pro)</title>
     
     <link rel="stylesheet" href="https://unpkg.com/@esotericsoftware/spine-player@4.2.47/dist/spine-player.css">
     
@@ -13,8 +13,8 @@
             --panel-bg: #1e1e1e;
             --card-bg: #2d2d2d;
             --text-color: #e0e0e0;
-            --accent-color: #e84a5f;
-            --hover-color: #ff5c72;
+            --accent-color: #007acc;
+            --hover-color: #0098ff;
         }
 
         * { box-sizing: border-box; }
@@ -27,21 +27,20 @@
             color: var(--text-color);
         }
 
-        /* --- Upload Zone --- */
         .upload-container {
             background-color: var(--panel-bg);
             padding: 40px;
             border-radius: 12px;
-            border: 2px dashed #444;
+            border: 2px dashed #555;
             text-align: center;
-            max-width: 600px;
+            max-width: 650px;
             margin: 0 auto 30px auto;
             transition: all 0.3s ease;
         }
 
         .upload-container.dragover {
             border-color: var(--accent-color);
-            background-color: #2a1a1c;
+            background-color: #1a2a3a;
         }
 
         #file-input { display: none; }
@@ -61,30 +60,28 @@
 
         .upload-btn:hover { background-color: var(--hover-color); }
 
-        .error-log { color: #ff5555; margin-top: 10px; font-family: monospace; font-size: 12px; word-break: break-all; }
+        .instructions { color: #888; font-size: 14px; margin-top: 10px; }
 
-        /* --- Gallery Grid --- */
-        #gallery-container {
+        /* Status & Error Logs */
+        #status-display {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 13px;
             display: none;
-            max-width: 1200px;
-            margin: 0 auto;
+            word-break: break-word;
+            text-align: left;
         }
+        .status-info { background: #2a2a2a; color: #4db8ff; border-left: 3px solid #4db8ff; display: block !important; }
+        .status-error { background: #3a1a1a; color: #ff5555; border-left: 3px solid #ff5555; display: block !important; }
+        .status-success { background: #1a3a2a; color: #55ff55; border-left: 3px solid #55ff55; display: block !important; }
 
-        .gallery-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #333;
-            padding-bottom: 10px;
-            margin-bottom: 20px;
-        }
-
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 20px;
-        }
-
+        /* Gallery Grid */
+        #gallery-container { display: none; max-width: 1200px; margin: 0 auto; }
+        .gallery-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 20px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
+        
         .anim-card {
             background-color: var(--card-bg);
             border-radius: 8px;
@@ -92,94 +89,60 @@
             cursor: pointer;
             transition: transform 0.2s, box-shadow 0.2s;
             border: 1px solid #333;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
+            display: flex; flex-direction: column; align-items: center; text-align: center;
         }
-
         .anim-card:hover {
             transform: translateY(-5px);
             box-shadow: 0 8px 15px rgba(0,0,0,0.3);
             border-color: var(--accent-color);
         }
-
         .anim-icon {
-            width: 50px;
-            height: 50px;
-            background-color: #1a1a1a;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 10px;
-            color: var(--accent-color);
+            width: 50px; height: 50px; background-color: #1a1a1a; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; margin-bottom: 10px; color: var(--accent-color);
         }
+        .anim-card h3 { margin: 0 0 5px 0; font-size: 16px; word-break: break-all; }
+        .anim-card span { font-size: 12px; color: #aaa; }
 
-        .anim-card h3 {
-            margin: 0 0 5px 0;
-            font-size: 16px;
-            word-break: break-all;
-        }
-
-        .anim-card span {
-            font-size: 12px;
-            color: #888;
-        }
-
-        /* --- Modal Previewer --- */
+        /* Modal Previewer */
         #preview-modal {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background-color: rgba(0, 0, 0, 0.9);
-            z-index: 1000;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.95); z-index: 1000;
+            justify-content: center; align-items: center; flex-direction: column;
         }
-
         #modal-close {
+            position: absolute; top: 20px; right: 30px; color: white; font-size: 40px; cursor: pointer; z-index: 1001; line-height: 1;
+        }
+        #modal-close:hover { color: var(--accent-color); }
+        #player-wrapper { width: 85vw; height: 80vh; background-color: #111; border-radius: 8px; overflow: hidden; box-shadow: 0 0 30px rgba(0,0,0,0.8); }
+        #anim-title { color: white; margin-top: 15px; font-size: 24px; }
+
+        /* HACK: WebGL requires physical dimensions to initialize. Do NOT use display:none */
+        #hidden-parser {
             position: absolute;
-            top: 20px; right: 30px;
-            color: white;
-            font-size: 30px;
-            cursor: pointer;
-            z-index: 1001;
+            top: -9999px;
+            left: -9999px;
+            width: 100px;
+            height: 100px;
+            visibility: hidden;
         }
-
-        #player-wrapper {
-            width: 80vw;
-            height: 80vh;
-            background-color: #000;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 0 30px rgba(0,0,0,0.8);
-        }
-
-        #anim-title {
-            color: white;
-            margin-top: 15px;
-            font-size: 24px;
-        }
-
-        #hidden-parser { display: none; }
     </style>
 </head>
 <body>
 
     <div class="upload-container" id="drop-zone">
-        <h2>Spine Exporter Parser</h2>
-        <p>Drop <strong>.json</strong>, <strong>.atlas</strong>, and <strong>.png</strong> to generate gallery</p>
-        <input type="file" id="file-input" multiple accept=".json,.skel,.atlas,.png,.txt">
-        <button class="upload-btn" onclick="document.getElementById('file-input').click()">Upload Files</button>
-        <div id="error-display" class="error-log"></div>
+        <h2>Spine2D Exporter Web Tool</h2>
+        <p>Kéo thả toàn bộ file export vào đây</p>
+        <p class="instructions">Bao gồm: 1 file (.json hoặc .skel), 1 file (.atlas hoặc .atlas.txt), và CÁC file (.png)</p>
+        <input type="file" id="file-input" multiple accept=".json,.skel,.atlas,.txt,.png">
+        <button class="upload-btn" onclick="document.getElementById('file-input').click()">Chọn Files</button>
+        
+        <div id="status-display"></div>
     </div>
 
     <div id="gallery-container">
         <div class="gallery-header">
-            <h2 id="skeleton-name">Extracted Animations</h2>
-            <span id="anim-count">0 animations found</span>
+            <h2 id="skeleton-name">Animations</h2>
+            <span id="anim-count">0 animations</span>
         </div>
         <div class="grid" id="anim-grid"></div>
     </div>
@@ -197,7 +160,7 @@
     <script>
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('file-input');
-        const errorDisplay = document.getElementById('error-display');
+        const statusDisplay = document.getElementById('status-display');
         
         const galleryContainer = document.getElementById('gallery-container');
         const animGrid = document.getElementById('anim-grid');
@@ -207,13 +170,175 @@
         const playerWrapper = document.getElementById('player-wrapper');
         const animTitle = document.getElementById('anim-title');
 
-        // Centralized configuration for Spine Player
-        let spineConfig = {
-            jsonUrl: null,
-            skelUrl: null,
-            atlasUrl: null,
-            rawDataURIs: {}
-        };
+        let spineConfig = { jsonUrl: null, skelUrl: null, atlasUrl: null, rawDataURIs: {} };
         let mainPlayer = null;
+        let tempParserPlayer = null;
 
-        // --- Event Listeners
+        // UI Logger
+        function logMessage(msg, type = 'info') {
+            statusDisplay.className = `status-${type}`;
+            statusDisplay.innerHTML = `<strong>${type.toUpperCase()}:</strong> ${msg}`;
+            console[type === 'error' ? 'error' : 'log'](msg);
+        }
+
+        // Event Listeners
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault(); dropZone.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+        fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+        // Core Pipeline
+        function handleFiles(files) {
+            logMessage('Đang xử lý files...', 'info');
+            galleryContainer.style.display = 'none';
+            
+            let dataFile = null; 
+            let atlasFile = null;
+            let pngFiles = [];
+
+            // Phân loại tất cả các file được ném vào
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const name = file.name.toLowerCase();
+                
+                if (name.endsWith('.json') || name.endsWith('.skel')) {
+                    dataFile = file;
+                } else if (name.endsWith('.atlas') || name.endsWith('.atlas.txt')) {
+                    atlasFile = file;
+                } else if (name.endsWith('.png')) {
+                    pngFiles.push(file); // Hỗ trợ lưu nhiều file PNG
+                }
+            }
+
+            // Validation
+            if (!dataFile) return logMessage('Thiếu file data (.json hoặc .skel)', 'error');
+            if (!atlasFile) return logMessage('Thiếu file cấu hình atlas (.atlas hoặc .atlas.txt)', 'error');
+            if (pngFiles.length === 0) return logMessage('Thiếu file hình ảnh (.png)', 'error');
+
+            try {
+                // Reset config sạch sẽ cho mỗi lần upload mới
+                spineConfig = { jsonUrl: null, skelUrl: null, atlasUrl: null, rawDataURIs: {} };
+                
+                if (dataFile.name.toLowerCase().endsWith('.skel')) {
+                    spineConfig.skelUrl = dataFile.name;
+                } else {
+                    spineConfig.jsonUrl = dataFile.name;
+                }
+                spineConfig.atlasUrl = atlasFile.name;
+
+                // Tạo Blob URLs mapping
+                spineConfig.rawDataURIs[dataFile.name] = URL.createObjectURL(dataFile);
+                spineConfig.rawDataURIs[atlasFile.name] = URL.createObjectURL(atlasFile);
+                
+                // Map toàn bộ các file PNG
+                pngFiles.forEach(png => {
+                    spineConfig.rawDataURIs[png.name] = URL.createObjectURL(png);
+                });
+
+                logMessage(`Đã map thành công: 1 Data, 1 Atlas, ${pngFiles.length} PNG(s). Khởi tạo WebGL...`, 'info');
+                
+                // Khởi tạo player ẩn để parse data
+                parseSkeletonData();
+
+            } catch (err) {
+                logMessage(err.message, 'error');
+            }
+        }
+
+        function parseSkeletonData() {
+            // Clean up player cũ nếu có để giải phóng RAM
+            if (tempParserPlayer) {
+                tempParserPlayer.dispose();
+                document.getElementById('hidden-parser').innerHTML = '';
+            }
+
+            let initConfig = {
+                atlasUrl: spineConfig.atlasUrl,
+                rawDataURIs: spineConfig.rawDataURIs,
+                showControls: false,
+                success: function (player) {
+                    logMessage('Parse dữ liệu thành công!', 'success');
+                    const animations = player.skeleton.data.animations;
+                    buildGallery(animations);
+                    
+                    // Giữ lại hoặc dispose tùy ý, nhưng ở đây ta dispose để nhẹ máy
+                    tempParserPlayer = player;
+                    setTimeout(() => {
+                        if(tempParserPlayer) {
+                            tempParserPlayer.dispose();
+                            document.getElementById('hidden-parser').innerHTML = '';
+                            tempParserPlayer = null;
+                        }
+                    }, 500);
+                },
+                error: function (player, reason) {
+                    logMessage(`Spine Player Error: ${reason}`, 'error');
+                }
+            };
+
+            if (spineConfig.skelUrl) initConfig.skelUrl = spineConfig.skelUrl;
+            if (spineConfig.jsonUrl) initConfig.jsonUrl = spineConfig.jsonUrl;
+
+            // Render vào thẻ div đang bị giấu bằng CSS (vẫn có kích thước vật lý)
+            new spine.SpinePlayer("hidden-parser", initConfig);
+        }
+
+        function buildGallery(animations) {
+            galleryContainer.style.display = 'block';
+            animGrid.innerHTML = '';
+            animCount.textContent = `Tìm thấy ${animations.length} animations`;
+
+            animations.forEach(anim => {
+                const card = document.createElement('div');
+                card.className = 'anim-card';
+                
+                const icon = `<svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path></svg>`;
+                
+                card.innerHTML = `
+                    <div class="anim-icon">${icon}</div>
+                    <h3>${anim.name}</h3>
+                    <span>Thời lượng: ${anim.duration.toFixed(2)}s</span>
+                `;
+                
+                card.onclick = () => openPreviewModal(anim.name);
+                animGrid.appendChild(card);
+            });
+        }
+
+        function openPreviewModal(animationName) {
+            previewModal.style.display = 'flex';
+            animTitle.textContent = animationName;
+
+            if (!mainPlayer) {
+                let playerConfig = {
+                    atlasUrl: spineConfig.atlasUrl,
+                    rawDataURIs: spineConfig.rawDataURIs,
+                    alpha: true,
+                    backgroundColor: "#00000000",
+                    animation: animationName,
+                    showControls: true
+                };
+
+                if (spineConfig.skelUrl) playerConfig.skelUrl = spineConfig.skelUrl;
+                if (spineConfig.jsonUrl) playerConfig.jsonUrl = spineConfig.jsonUrl;
+
+                mainPlayer = new spine.SpinePlayer("player-wrapper", playerConfig);
+            } else {
+                mainPlayer.animationState.setAnimation(0, animationName, true);
+            }
+        }
+
+        function closeModal() {
+            previewModal.style.display = 'none';
+            if (mainPlayer) mainPlayer.animationState.clearTracks();
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && previewModal.style.display === 'flex') closeModal();
+        });
+    </script>
+</body>
+</html>
