@@ -62,6 +62,30 @@
 
         .instructions { color: #888; font-size: 14px; margin-top: 10px; }
 
+        /* Configuration Settings */
+        .settings-panel {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #333;
+            text-align: left;
+            display: inline-block;
+        }
+
+        .settings-panel label {
+            cursor: pointer;
+            font-size: 13px;
+            color: #ccc;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .settings-panel input[type="checkbox"] {
+            accent-color: var(--accent-color);
+            width: 16px;
+            height: 16px;
+        }
+
         /* Status & Error Logs */
         #status-display {
             margin-top: 15px;
@@ -130,6 +154,12 @@
         <input type="file" id="file-input" multiple accept=".json,.skel,.atlas,.txt,.png">
         <button class="upload-btn" onclick="document.getElementById('file-input').click()">Chọn Files</button>
         
+        <div class="settings-panel">
+            <label title="Tắt tính năng này nếu ảnh bị viền trắng/vuông. Bật nếu ảnh bị viền đen.">
+                <input type="checkbox" id="pma-toggle"> Premultiplied Alpha (PMA)
+            </label>
+        </div>
+
         <div id="status-display"></div>
     </div>
 
@@ -155,6 +185,7 @@
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('file-input');
         const statusDisplay = document.getElementById('status-display');
+        const pmaToggle = document.getElementById('pma-toggle');
         
         const galleryContainer = document.getElementById('gallery-container');
         const animGrid = document.getElementById('anim-grid');
@@ -167,6 +198,7 @@
         let spineConfig = { jsonUrl: null, skelUrl: null, atlasUrl: null, rawDataURIs: {} };
         let mainPlayer = null;
         let tempParserPlayer = null;
+        let currentFiles = null;
 
         function logMessage(msg, type = 'info') {
             statusDisplay.className = `status-${type}`;
@@ -174,7 +206,6 @@
             console[type === 'error' ? 'error' : 'log'](msg);
         }
 
-        // Helper: Convert File to Base64 Data URI
         const fileToDataURI = (file) => new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = () => resolve(reader.result);
@@ -182,8 +213,22 @@
             reader.readAsDataURL(file);
         });
 
+        // Re-process if PMA settings change
+        pmaToggle.addEventListener('change', () => {
+            if (currentFiles) {
+                logMessage('Đổi cấu hình PMA, đang render lại...', 'info');
+                // Destroy old main player to force re-render with new settings
+                if (mainPlayer) {
+                    mainPlayer.dispose();
+                    playerWrapper.innerHTML = '';
+                    mainPlayer = null;
+                }
+                handleFiles(currentFiles);
+            }
+        });
+
         dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
-        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'); });
         dropZone.addEventListener('drop', (e) => {
             e.preventDefault(); dropZone.classList.remove('dragover');
             handleFiles(e.dataTransfer.files);
@@ -191,7 +236,8 @@
         fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
 
         async function handleFiles(files) {
-            logMessage('Đang xử lý files sang Base64...', 'info');
+            currentFiles = files; // Save for re-processing if toggled
+            logMessage('Đang phân tích cấu trúc Alpha...', 'info');
             galleryContainer.style.display = 'none';
             
             let dataFile = null; 
@@ -212,7 +258,7 @@
             }
 
             if (!dataFile) return logMessage('Thiếu file data (.json hoặc .skel)', 'error');
-            if (!atlasFile) return logMessage('Thiếu file cấu hình atlas (.atlas hoặc .atlas.txt)', 'error');
+            if (!atlasFile) return logMessage('Thiếu file cấu hình atlas (.atlas)', 'error');
             if (pngFiles.length === 0) return logMessage('Thiếu file hình ảnh (.png)', 'error');
 
             try {
@@ -224,7 +270,6 @@
                 
                 spineConfig.atlasUrl = atlasFile.name;
 
-                // Chuyển toàn bộ file thành chuỗi Base64 (Bypass hoàn toàn lỗi HTTP 400)
                 spineConfig.rawDataURIs[dataFile.name] = await fileToDataURI(dataFile);
                 spineConfig.rawDataURIs[atlasFile.name] = await fileToDataURI(atlasFile);
                 
@@ -232,7 +277,7 @@
                     spineConfig.rawDataURIs[png.name] = await fileToDataURI(png);
                 }
 
-                logMessage(`Đã map thành công qua Base64. Khởi tạo WebGL...`, 'info');
+                logMessage(`Chuẩn bị WebGL (PMA: ${pmaToggle.checked})...`, 'info');
                 parseSkeletonData();
 
             } catch (err) {
@@ -250,8 +295,9 @@
                 atlasUrl: spineConfig.atlasUrl,
                 rawDataURIs: spineConfig.rawDataURIs,
                 showControls: false,
+                premultipliedAlpha: pmaToggle.checked, // Fix applied here
                 success: function (player) {
-                    logMessage('Parse dữ liệu thành công!', 'success');
+                    logMessage('Render thành công!', 'success');
                     buildGallery(player.skeleton.data.animations);
                     
                     tempParserPlayer = player;
@@ -264,7 +310,7 @@
                     }, 100);
                 },
                 error: function (player, reason) {
-                    logMessage(`Spine Player Error: ${reason}`, 'error');
+                    logMessage(`Lỗi Render: ${reason}`, 'error');
                 }
             };
 
@@ -307,7 +353,8 @@
                     alpha: true,
                     backgroundColor: "#00000000",
                     animation: animationName,
-                    showControls: true
+                    showControls: true,
+                    premultipliedAlpha: pmaToggle.checked // Fix applied here
                 };
 
                 if (spineConfig.skelUrl) playerConfig.skelUrl = spineConfig.skelUrl;
