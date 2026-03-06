@@ -217,7 +217,6 @@
         pmaToggle.addEventListener('change', () => {
             if (currentFiles) {
                 logMessage('Đổi cấu hình PMA, đang render lại...', 'info');
-                // Destroy old main player to force re-render with new settings
                 if (mainPlayer) {
                     mainPlayer.dispose();
                     playerWrapper.innerHTML = '';
@@ -227,10 +226,12 @@
             }
         });
 
+        // FIXED SYNTAX ERRORS HERE:
         dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
-        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'); });
+        dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('dragover'); });
         dropZone.addEventListener('drop', (e) => {
-            e.preventDefault(); dropZone.classList.remove('dragover');
+            e.preventDefault(); 
+            dropZone.classList.remove('dragover');
             handleFiles(e.dataTransfer.files);
         });
         fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
@@ -295,7 +296,7 @@
                 atlasUrl: spineConfig.atlasUrl,
                 rawDataURIs: spineConfig.rawDataURIs,
                 showControls: false,
-                premultipliedAlpha: pmaToggle.checked, // Fix applied here
+                premultipliedAlpha: pmaToggle.checked,
                 success: function (player) {
                     logMessage('Render thành công!', 'success');
                     buildGallery(player.skeleton.data.animations);
@@ -354,7 +355,7 @@
                     backgroundColor: "#00000000",
                     animation: animationName,
                     showControls: true,
-                    premultipliedAlpha: pmaToggle.checked // Fix applied here
+                    premultipliedAlpha: pmaToggle.checked
                 };
 
                 if (spineConfig.skelUrl) playerConfig.skelUrl = spineConfig.skelUrl;
