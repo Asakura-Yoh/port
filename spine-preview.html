@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spine2D Animation Gallery & Previewer</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/@esotericsoftware/spine-player@4.2.47/dist/spine-player.css">
+    
+    <style>
+        :root {
+            --bg-color: #121212;
+            --panel-bg: #1e1e1e;
+            --card-bg: #2d2d2d;
+            --text-color: #e0e0e0;
+            --accent-color: #e84a5f; /* Spine theme color */
+            --hover-color: #ff5c72;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        /* --- Upload Zone --- */
+        .upload-container {
+            background-color: var(--panel-bg);
+            padding: 40px;
+            border-radius: 12px;
+            border: 2px dashed #444;
+            text-align: center;
+            max-width: 600px;
+            margin: 0 auto 30px auto;
+            transition: all 0.3s ease;
+        }
+
+        .upload-container.dragover {
+            border-color: var(--accent-color);
+            background-color: #2a1a1c;
+        }
+
+        #file-input { display: none; }
+
+        .upload-btn {
+            background-color: var(--accent-color);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+            margin-top: 15px;
+            transition: background 0.2s;
+        }
+
+        .upload-btn:hover { background-color: var(--hover-color); }
+
+        .error-log { color: #ff5555; margin-top: 10px; font-family: monospace; }
+
+        /* --- Gallery Grid --- */
+        #gallery-container {
+            display: none;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .gallery-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .anim-card {
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            padding: 15px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: 1px solid #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .anim-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.3);
+            border-color: var(--accent-color);
+        }
+
+        .anim-icon {
+            width: 50px;
+            height: 50px;
+            background-color: #1a1a1a;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 10px;
+            color: var(--accent-color);
+        }
+
+        .anim-card h3 {
+            margin: 0 0 5px 0;
+            font-size: 16px;
+            word-break: break-all;
+        }
+
+        .anim-card span {
+            font-size: 12px;
+            color: #888;
+        }
+
+        /* --- Modal Previewer --- */
+        #preview-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        #modal-close {
+            position: absolute;
+            top: 20px; right: 30px;
+            color: white;
+            font-size: 30px;
+            cursor: pointer;
+            z-index: 1001;
+        }
+
+        #player-wrapper {
+            width: 80vw;
+            height: 80vh;
+            background-color: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+        }
+
+        #anim-title {
+            color: white;
+            margin-top: 15px;
+            font-size: 24px;
+        }
+
+        /* Hidden player used just for parsing data */
+        #hidden-parser { display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="upload-container" id="drop-zone">
+        <h2>Spine Exporter Parser</h2>
+        <p>Drop <strong>.json</strong>, <strong>.atlas</strong>, and <strong>.png</strong> to generate gallery</p>
+        <input type="file" id="file-input" multiple accept=".json,.atlas,.png,.txt">
+        <button class="upload-btn" onclick="document.getElementById('file-input').click()">Upload Files</button>
+        <div id="error-display" class="error-log"></div>
+    </div>
+
+    <div id="gallery-container">
+        <div class="gallery-header">
+            <h2 id="skeleton-name">Extracted Animations</h2>
+            <span id="anim-count">0 animations found</span>
+        </div>
+        <div class="grid" id="anim-grid"></div>
+    </div>
+
+    <div id="preview-modal">
+        <span id="modal-close" onclick="closeModal()">&times;</span>
+        <div id="player-wrapper"></div>
+        <h2 id="anim-title">Animation Name</h2>
+    </div>
+
+    <div id="hidden-parser"></div>
+
+    <script src="https://unpkg.com/@esotericsoftware/spine-player@4.2.47/dist/iife/spine-player.js"></script>
+    
+    <script>
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const errorDisplay = document.getElementById('error-display');
+        
+        const galleryContainer = document.getElementById('gallery-container');
+        const animGrid = document.getElementById('anim-grid');
+        const animCount = document.getElementById('anim-count');
+        
+        const previewModal = document.getElementById('preview-modal');
+        const playerWrapper = document.getElementById('player-wrapper');
+        const animTitle = document.getElementById('anim-title');
+
+        let globalJsonUrl = null;
+        let globalAtlasUrl = null;
+        let mainPlayer = null;
+
+        // --- Drag & Drop Handlers ---
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault(); dropZone.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+        fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+        // --- File Processing ---
+        async function handleFiles(files) {
+            errorDisplay.textContent = 'Processing files...';
+            
+            let jsonFile = null, atlasFile = null, pngFile = null;
+
+            for (let i = 0; i < files.length; i++) {
+                const name = files[i].name.toLowerCase();
+                if (name.endsWith('.json')) jsonFile = files[i];
+                else if (name.endsWith('.atlas') || name.endsWith('.atlas.txt')) atlasFile = files[i];
+                else if (name.endsWith('.png')) pngFile = files[i];
+            }
+
+            if (!jsonFile || !atlasFile || !pngFile) {
+                errorDisplay.textContent = 'Error: Missing files. Need .json, .atlas, and .png';
+                return;
+            }
+
+            try {
+                // 1. Generate Blob URLs
+                const pngUrl = URL.createObjectURL(pngFile);
+                let atlasText = await atlasFile.text();
+                
+                // 2. Patch Atlas Image Path
+                const escapedPngName = pngFile.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const pngNameRegex = new RegExp(escapedPngName, 'g');
+                
+                if (!pngNameRegex.test(atlasText)) {
+                    const lines = atlasText.split('\n');
+                    for(let i=0; i<lines.length; i++){
+                        if(lines[i].toLowerCase().endsWith('.png')) {
+                            lines[i] = pngUrl;
+                            break;
+                        }
+                    }
+                    atlasText = lines.join('\n');
+                } else {
+                    atlasText = atlasText.replace(pngNameRegex, pngUrl);
+                }
+
+                globalAtlasUrl = URL.createObjectURL(new Blob([atlasText], { type: 'text/plain' }));
+                globalJsonUrl = URL.createObjectURL(jsonFile);
+
+                errorDisplay.textContent = 'Loading Skeleton Data...';
+                
+                // 3. Parse Skeleton Data via a temporary player to extract animations
+                parseSkeletonData();
+
+            } catch (err) {
+                console.error(err);
+                errorDisplay.textContent = `Error: ${err.message}`;
+            }
+        }
+
+        // --- Data Extraction & UI Generation ---
+        function parseSkeletonData() {
+            // We create a temporary player just to trigger the Spine runtime parsing
+            new spine.SpinePlayer("hidden-parser", {
+                jsonUrl: globalJsonUrl,
+                atlasUrl: globalAtlasUrl,
+                showControls: false,
+                success: function (player) {
+                    errorDisplay.textContent = '';
+                    const animations = player.skeleton.data.animations;
+                    buildGallery(animations);
+                    
+                    // Cleanup temp player memory
+                    player.dispose(); 
+                    document.getElementById('hidden-parser').innerHTML = '';
+                },
+                error: function (player, reason) {
+                    errorDisplay.textContent = `Parse Error: ${reason}`;
+                }
+            });
+        }
+
+        function buildGallery(animations) {
+            galleryContainer.style.display = 'block';
+            animGrid.innerHTML = '';
+            animCount.textContent = `${animations.length} animations extracted`;
+
+            animations.forEach(anim => {
+                const card = document.createElement('div');
+                card.className = 'anim-card';
+                
+                // SVG Icon acting as a visual thumbnail placeholder
+                const icon = `<svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`;
+                
+                card.innerHTML = `
+                    <div class="anim-icon">${icon}</div>
+                    <h3>${anim.name}</h3>
+                    <span>Duration: ${anim.duration.toFixed(2)}s</span>
+                `;
+                
+                // Bind click event to open Modal
+                card.onclick = () => openPreviewModal(anim.name);
+                animGrid.appendChild(card);
+            });
+        }
+
+        // --- Video/Web Player Modal Logic ---
+        function openPreviewModal(animationName) {
+            previewModal.style.display = 'flex';
+            animTitle.textContent = `Playing: ${animationName}`;
+
+            // Initialize or update the main player
+            if (!mainPlayer) {
+                mainPlayer = new spine.SpinePlayer("player-wrapper", {
+                    jsonUrl: globalJsonUrl,
+                    atlasUrl: globalAtlasUrl,
+                    alpha: true,
+                    backgroundColor: "#00000000",
+                    animation: animationName, // Set starting animation
+                    showControls: true
+                });
+            } else {
+                // If player exists, just swap the animation state directly (High Performance)
+                mainPlayer.animationState.setAnimation(0, animationName, true);
+            }
+        }
+
+        function closeModal() {
+            previewModal.style.display = 'none';
+            if (mainPlayer) {
+                // Clear animation state when closed to save rendering resources
+                mainPlayer.animationState.clearTracks();
+            }
+        }
+
+        // Close modal on escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && previewModal.style.display === 'flex') {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>
