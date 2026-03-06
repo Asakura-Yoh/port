@@ -9,25 +9,17 @@
     
     <style>
         :root {
-            --bg-color: #121212;
-            --panel-bg: #1e1e1e;
-            --card-bg: #2d2d2d;
-            --text-color: #e0e0e0;
-            --accent-color: #007acc;
-            --hover-color: #0098ff;
-            --folder-color: #e84a5f;
-            --folder-hover: #ff5c72;
-            --border-color: #333;
+            --bg-color: #121212; --panel-bg: #1e1e1e; --card-bg: #2d2d2d;
+            --text-color: #e0e0e0; --accent-color: #007acc; --hover-color: #0098ff;
+            --folder-color: #e84a5f; --folder-hover: #ff5c72; --border-color: #333;
         }
 
         * { box-sizing: border-box; }
 
         body {
-            margin: 0; padding: 20px;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0; padding: 20px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: var(--bg-color); color: var(--text-color);
-            height: 100vh; overflow: hidden;
-            display: flex; flex-direction: column;
+            height: 100vh; overflow: hidden; display: flex; flex-direction: column;
         }
 
         /* --- Global UI --- */
@@ -43,22 +35,20 @@
         .outline-btn:hover { background-color: #333; color: white; border-color: #888; }
 
         #status-display {
-            margin-top: 15px; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 13px;
-            display: none; word-break: break-word; text-align: left; width: 100%; max-width: 650px;
+            margin-top: 15px; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 14px;
+            display: none; word-break: break-word; text-align: center; width: 100%; max-width: 650px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         }
-        .status-info { background: #2a2a2a; color: #4db8ff; border-left: 3px solid #4db8ff; display: block !important; }
-        .status-error { background: #3a1a1a; color: #ff5555; border-left: 3px solid #ff5555; display: block !important; }
-        .status-success { background: #1a3a2a; color: #55ff55; border-left: 3px solid #55ff55; display: block !important; }
+        .status-info { background: #1e3a5f; color: #66ccff; border: 1px solid #4db8ff; display: block !important; }
+        .status-error { background: #3a1a1a; color: #ff5555; border: 1px solid #ff5555; display: block !important; }
 
         /* --- 1. Upload Screen --- */
         #upload-screen {
-            flex: 1; display: flex; flex-direction: column;
-            justify-content: center; align-items: center;
+            flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;
         }
         .upload-container {
             background-color: var(--panel-bg); padding: 40px; border-radius: 12px;
-            border: 2px dashed #555; text-align: center; width: 100%; max-width: 650px;
-            transition: all 0.3s ease;
+            border: 2px dashed #555; text-align: center; width: 100%; max-width: 650px; transition: all 0.3s ease;
         }
         .upload-container.dragover { border-color: var(--accent-color); background-color: #1a2a3a; }
         #file-input, #folder-input { display: none; }
@@ -83,30 +73,32 @@
             border-bottom: 2px solid var(--accent-color); padding-bottom: 10px; margin-bottom: 20px;
         }
         .project-header h3 { margin: 0; color: white; font-size: 18px; display: flex; align-items: center; gap: 10px; }
-        .project-header span { font-size: 13px; color: #aaa; }
         
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; }
         .anim-card {
-            background-color: var(--card-bg); border-radius: 8px; padding: 15px; cursor: pointer;
+            background-color: var(--card-bg); border-radius: 8px; padding: 12px; cursor: pointer;
             transition: transform 0.2s, box-shadow 0.2s; border: 1px solid #444;
             display: flex; flex-direction: column; align-items: center; text-align: center;
         }
-        .anim-card:hover { transform: translateY(-5px); box-shadow: 0 8px 15px rgba(0,0,0,0.5); border-color: var(--folder-color); }
+        .anim-card:hover { transform: translateY(-5px); box-shadow: 0 8px 15px rgba(0,0,0,0.5); border-color: var(--accent-color); }
+        
+        /* THUMBNAIL UI CỦA CARD */
         .anim-icon {
-            width: 40px; height: 40px; background-color: #111; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center; margin-bottom: 10px; color: var(--folder-color);
+            width: 120px; height: 120px; background-color: #111; border-radius: 8px;
+            display: flex; align-items: center; justify-content: center; margin-bottom: 10px;
+            overflow: hidden; border: 1px solid #222;
         }
-        .anim-card h4 { margin: 0 0 5px 0; font-size: 15px; word-break: break-all; color: white; }
+        .anim-icon img { width: 100%; height: 100%; object-fit: contain; }
+        
+        .anim-card h4 { margin: 0 0 5px 0; font-size: 14px; word-break: break-all; color: white; }
         .anim-card span { font-size: 12px; color: #888; }
 
         /* --- 3. Workspace Screen (Split) --- */
-        #workspace-screen {
-            display: none; flex: 1; width: 100%; gap: 20px; overflow: hidden;
-        }
+        #workspace-screen { display: none; flex: 1; width: 100%; gap: 20px; overflow: hidden; }
 
         /* Sidebar */
         #sidebar {
-            width: 350px; background-color: var(--panel-bg); border-radius: 8px;
+            width: 320px; background-color: var(--panel-bg); border-radius: 8px;
             display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--border-color);
         }
         .sidebar-header {
@@ -120,24 +112,27 @@
         .settings-panel input[type="checkbox"] { accent-color: var(--accent-color); width: 16px; height: 16px; }
 
         #sidebar-list { flex: 1; overflow-y: auto; padding: 15px; }
-
         .skeleton-title {
             font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px;
             margin-bottom: 10px; font-weight: bold; border-bottom: 1px solid #333; padding-bottom: 5px;
             display: flex; justify-content: space-between; margin-top: 15px;
         }
         .skeleton-title:first-child { margin-top: 0; }
-        .skeleton-title span.count { background: #333; padding: 2px 6px; border-radius: 10px; font-size: 10px; color: white; }
 
         .list-item {
             display: flex; align-items: center; justify-content: space-between;
-            background-color: var(--card-bg); padding: 10px 12px; border-radius: 6px;
+            background-color: var(--card-bg); padding: 8px 10px; border-radius: 6px;
             cursor: pointer; margin-bottom: 8px; transition: all 0.2s; border: 1px solid transparent;
         }
         .list-item:hover { background-color: #383838; }
         .list-item.active { border-color: var(--accent-color); background-color: rgba(0, 122, 204, 0.1); }
-        .list-item-name { font-size: 14px; color: #ddd; font-weight: 500; }
-        .list-item-time { font-size: 12px; color: #777; font-family: monospace; }
+        
+        /* THUMBNAIL UI TRÊN SIDEBAR */
+        .list-item-left { display: flex; align-items: center; gap: 10px; overflow: hidden; }
+        .list-item-thumb { width: 34px; height: 34px; background: #111; border-radius: 4px; object-fit: contain; }
+        .list-item-name { font-size: 13px; color: #ddd; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
+        
+        .list-item-time { font-size: 11px; color: #777; font-family: monospace; }
         .list-item.active .list-item-name { color: var(--accent-color); }
 
         /* Player Area */
@@ -151,18 +146,19 @@
         }
         .player-overlay-info h2 { margin: 0; color: white; font-size: 20px; }
         .player-overlay-info p { margin: 5px 0 0 0; color: #aaa; font-size: 13px; }
-
         #player-wrapper { flex: 1; width: 100%; height: 100%; }
-        #hidden-parser { position: absolute; top: -9999px; left: -9999px; width: 10px; height: 10px; visibility: hidden; }
+
+        /* HACK: Player ẩn chụp ảnh phải có size vật lý và nằm trong DOM nhưng không cản trở UI */
+        #hidden-parser { position: absolute; top: 0; left: 0; width: 300px; height: 300px; z-index: -999; opacity: 0.01; pointer-events: none; }
     </style>
 </head>
 <body>
 
     <div id="upload-screen">
         <div class="upload-container" id="drop-zone">
-            <h2>Spine2D Pro Web Tool</h2>
+            <h2>Spine2D Thumbnail Generator</h2>
             <p>Kéo thả File rời hoặc NGUYÊN MỘT FOLDER vào đây</p>
-            <p class="instructions">Hỗ trợ trích xuất hàng loạt và tạo thư viện xem trước</p>
+            <p class="instructions">Hệ thống sẽ render ngầm để chụp ảnh từng animation</p>
             
             <input type="file" id="file-input" multiple accept=".json,.skel,.atlas,.txt,.png">
             <input type="file" id="folder-input" webkitdirectory directory multiple>
@@ -177,11 +173,10 @@
 
     <div id="gallery-screen">
         <div class="screen-header">
-            <h2>Library: Tất cả Animations</h2>
-            <button class="btn outline-btn" onclick="hardReset()">🔙 Tải Folder Khác</button>
+            <h2>Library: Preview Animations</h2>
+            <button class="btn outline-btn" onclick="hardReset()">🔙 Tải Data Khác</button>
         </div>
-        <div id="gallery-content">
-            </div>
+        <div id="gallery-content"></div>
     </div>
 
     <div id="workspace-screen">
@@ -196,8 +191,7 @@
                     </label>
                 </div>
             </div>
-            <div id="sidebar-list">
-                </div>
+            <div id="sidebar-list"></div>
         </div>
 
         <div id="preview-area">
@@ -214,15 +208,14 @@
     <script src="https://unpkg.com/@esotericsoftware/spine-player@4.2.47/dist/iife/spine-player.js"></script>
     
     <script>
-        // --- System Setup ---
         const statusDisplay = document.getElementById('status-display');
-        window.onerror = function(msg, url, line) { console.warn(`Silent Error: ${msg}`); return true; };
+        window.onerror = function() { return true; }; // Tắt báo lỗi hệ thống gây hoang mang
         function logMessage(msg, type = 'info') {
+            statusDisplay.style.display = 'block';
             statusDisplay.className = `status-${type}`;
-            statusDisplay.innerHTML = `<strong>${type.toUpperCase()}:</strong> ${msg}`;
+            statusDisplay.innerHTML = `<strong>${type === 'info' ? 'TIẾN TRÌNH' : 'LỖI'}:</strong> ${msg}`;
         }
 
-        // --- DOM Elements ---
         const screens = {
             upload: document.getElementById('upload-screen'),
             gallery: document.getElementById('gallery-screen'),
@@ -232,7 +225,6 @@
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('file-input');
         const folderInput = document.getElementById('folder-input');
-        
         const galleryContent = document.getElementById('gallery-content');
         const sidebarList = document.getElementById('sidebar-list');
         const pmaToggle = document.getElementById('pma-toggle');
@@ -242,47 +234,33 @@
         const animTitle = document.getElementById('anim-title');
         const animSubtitle = document.getElementById('anim-subtitle');
 
-        // --- Core Variables ---
         let globalRawURIs = {};
-        let globalParsedData = []; // Lưu trữ toàn bộ data sau khi parse
+        let globalParsedData = []; 
         let mainPlayer = null;
         let activeProjectConfig = null;
         let activeAnimation = null;
 
-        const fileToDataURI = (file) => new Promise((resolve, reject) => {
+        const fileToDataURI = (file) => new Promise((resolve) => {
             const reader = new FileReader();
             reader.onload = () => resolve(reader.result);
-            reader.onerror = () => reject(new Error(`Lỗi đọc file`));
             reader.readAsDataURL(file);
         });
 
-        // --- Navigation Functions ---
         function showScreen(screenName) {
             screens.upload.style.display = 'none';
             screens.gallery.style.display = 'none';
             screens.workspace.style.display = 'none';
-            screens[screenName].style.display = (screenName === 'gallery') ? 'flex' : (screenName === 'workspace' ? 'flex' : 'flex');
-            
-            if (screenName === 'upload') {
-                screens.upload.style.flexDirection = 'column'; // fix layout
-            }
+            screens[screenName].style.display = screenName === 'upload' ? 'flex' : 'flex';
         }
 
         function hardReset() {
             if (mainPlayer) { mainPlayer.dispose(); mainPlayer = null; }
-            playerWrapper.innerHTML = '';
-            globalRawURIs = {};
-            globalParsedData = [];
-            statusDisplay.style.display = 'none';
-            showScreen('upload');
+            playerWrapper.innerHTML = ''; globalRawURIs = {}; globalParsedData = [];
+            statusDisplay.style.display = 'none'; showScreen('upload');
         }
 
         function backToGallery() {
-            // Dừng player để tiết kiệm tài nguyên khi ở ngoài Gallery
-            if (mainPlayer) {
-                mainPlayer.animationState.clearTracks();
-                mainPlayer.skeleton.setToSetupPose();
-            }
+            if (mainPlayer) { mainPlayer.animationState.clearTracks(); mainPlayer.skeleton.setToSetupPose(); }
             showScreen('gallery');
         }
 
@@ -291,12 +269,9 @@
             playAnimation(projectConfig, animationName);
         }
 
-        // --- Player PMA Toggle ---
         pmaToggle.addEventListener('change', () => {
             if (mainPlayer && activeProjectConfig && activeAnimation) {
-                mainPlayer.dispose();
-                playerWrapper.innerHTML = '';
-                mainPlayer = null;
+                mainPlayer.dispose(); playerWrapper.innerHTML = ''; mainPlayer = null;
                 playAnimation(activeProjectConfig, activeAnimation);
             }
         });
@@ -307,10 +282,8 @@
         dropZone.addEventListener('drop', async (e) => {
             e.preventDefault(); dropZone.classList.remove('dragover');
             logMessage('Đang quét thư mục...', 'info');
-            try {
-                const files = await getFilesFromDataTransfer(e.dataTransfer);
-                processFiles(files);
-            } catch (err) { logMessage(`Lỗi đọc file: ${err.message}`, 'error'); }
+            const files = await getFilesFromDataTransfer(e.dataTransfer);
+            processFiles(files);
         });
 
         async function getFilesFromDataTransfer(dataTransfer) {
@@ -333,9 +306,8 @@
 
         function traverseFileTree(item, files) {
             return new Promise((resolve) => {
-                if (item.isFile) {
-                    item.file(file => { files.push(file); resolve(); });
-                } else if (item.isDirectory) {
+                if (item.isFile) { item.file(file => { files.push(file); resolve(); }); } 
+                else if (item.isDirectory) {
                     const dirReader = item.createReader();
                     dirReader.readEntries(entries => {
                         const promises = [];
@@ -349,88 +321,109 @@
         fileInput.addEventListener('change', (e) => { if(e.target.files.length > 0) processFiles(e.target.files); e.target.value = ''; });
         folderInput.addEventListener('change', (e) => { if(e.target.files.length > 0) processFiles(e.target.files); e.target.value = ''; });
 
-        // --- Main Data Processing ---
+        // --- Data Processor ---
         async function processFiles(files) {
-            try {
-                logMessage('Đang nạp dữ liệu...', 'info');
-                globalRawURIs = {};
-                globalParsedData = [];
-                
-                let dataFiles = []; let atlasFiles = []; let allFilesToEncode = [];
+            logMessage('Đang nạp dữ liệu và mã hóa ảnh (Base64)...', 'info');
+            globalRawURIs = {}; globalParsedData = [];
+            
+            let dataFiles = []; let atlasFiles = []; let allFilesToEncode = [];
 
-                for (let i = 0; i < files.length; i++) {
-                    const file = files[i];
-                    if (!file || !file.name) continue;
-                    const name = file.name.toLowerCase();
-                    if (name.includes('.ds_store') || name.includes('thumbs.db')) continue;
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                if (!file || !file.name) continue;
+                const name = file.name.toLowerCase();
+                if (name.includes('.ds_store') || name.includes('thumbs.db')) continue;
 
-                    allFilesToEncode.push(file);
-                    if (name.endsWith('.json') || name.endsWith('.skel')) dataFiles.push(file);
-                    else if (name.endsWith('.atlas') || name.endsWith('.atlas.txt')) atlasFiles.push(file);
-                }
+                allFilesToEncode.push(file);
+                if (name.endsWith('.json') || name.endsWith('.skel')) dataFiles.push(file);
+                else if (name.endsWith('.atlas') || name.endsWith('.atlas.txt')) atlasFiles.push(file);
+            }
 
-                if (dataFiles.length === 0 || atlasFiles.length === 0) return logMessage('Thiếu file cấu trúc Spine.', 'error');
+            if (dataFiles.length === 0 || atlasFiles.length === 0) return logMessage('Thiếu file cấu trúc Spine.', 'error');
 
-                for (const f of allFilesToEncode) globalRawURIs[f.name] = await fileToDataURI(f);
+            for (const f of allFilesToEncode) globalRawURIs[f.name] = await fileToDataURI(f);
 
-                let projects = [];
-                if (dataFiles.length === 1 && atlasFiles.length >= 1) {
-                    const baseName = dataFiles[0].name.replace(/\.[^/.]+$/, "");
-                    projects.push({ name: baseName, data: dataFiles[0], atlas: atlasFiles[0] });
-                } else {
-                    dataFiles.forEach(d => {
-                        const baseName = d.name.substring(0, d.name.lastIndexOf('.'));
-                        let matchedAtlas = atlasFiles.find(a => a.name.startsWith(baseName));
-                        if (!matchedAtlas) matchedAtlas = atlasFiles[0]; 
-                        if (matchedAtlas) projects.push({ name: baseName, data: d, atlas: matchedAtlas });
-                    });
-                }
-                
-                for (let i = 0; i < projects.length; i++) {
-                    const result = await parseSingleProject(projects[i]);
-                    if (result && result.animations.length > 0) globalParsedData.push(result);
-                }
+            let projects = [];
+            if (dataFiles.length === 1 && atlasFiles.length >= 1) {
+                const baseName = dataFiles[0].name.replace(/\.[^/.]+$/, "");
+                projects.push({ name: baseName, data: dataFiles[0], atlas: atlasFiles[0] });
+            } else {
+                dataFiles.forEach(d => {
+                    const baseName = d.name.substring(0, d.name.lastIndexOf('.'));
+                    let matchedAtlas = atlasFiles.find(a => a.name.startsWith(baseName));
+                    if (!matchedAtlas) matchedAtlas = atlasFiles[0]; 
+                    if (matchedAtlas) projects.push({ name: baseName, data: d, atlas: matchedAtlas });
+                });
+            }
+            
+            for (let i = 0; i < projects.length; i++) {
+                const result = await generateThumbnailsForProject(projects[i]);
+                if (result && result.animations.length > 0) globalParsedData.push(result);
+            }
 
-                if (globalParsedData.length > 0) {
-                    // Tạo UI cho cả 2 màn hình
-                    buildGalleryUI();
-                    buildSidebarUI();
-                    
-                    statusDisplay.style.display = 'none'; 
-                    showScreen('gallery'); // Hiển thị Gallery đầu tiên
-                } else {
-                    logMessage('Toàn bộ file bị lỗi cấu trúc.', 'error');
-                }
-            } catch (err) {
-                logMessage(`Lỗi hệ thống: ${err.message}`, 'error');
+            if (globalParsedData.length > 0) {
+                buildGalleryUI();
+                buildSidebarUI();
+                statusDisplay.style.display = 'none'; 
+                showScreen('gallery');
+            } else {
+                logMessage('Toàn bộ file bị lỗi cấu trúc.', 'error');
             }
         }
 
-        function parseSingleProject(project) {
+        // --- ASYNC THUMBNAIL GENERATOR LOOP ---
+        function generateThumbnailsForProject(project) {
             return new Promise((resolve) => {
                 let initConfig = {
                     atlasUrl: project.atlas.name,
                     rawDataURIs: globalRawURIs,
                     showControls: false,
-                    success: function (player) {
-                        const anims = player.skeleton.data.animations.map(a => ({ name: a.name, duration: a.duration }));
+                    alpha: true, // Cho phép nền trong suốt
+                    backgroundColor: "#00000000",
+                    success: async function (player) {
+                        const anims = player.skeleton.data.animations;
+                        const results = [];
+                        const canvas = player.canvas;
+
+                        // Vòng lặp chụp ảnh từng animation
+                        for (let i = 0; i < anims.length; i++) {
+                            const a = anims[i];
+                            logMessage(`Render ảnh Skeleton [${project.name}]: ${a.name} (${i+1}/${anims.length})...`, 'info');
+                            
+                            player.animationState.clearTracks();
+                            player.skeleton.setToSetupPose();
+                            // Set animation & Play để viewport cập nhật
+                            player.animationState.setAnimation(0, a.name, true);
+
+                            // Đợi WebGL draw frame (khoảng 80ms)
+                            await new Promise(res => setTimeout(res, 80));
+
+                            let thumbData = null;
+                            try {
+                                thumbData = canvas.toDataURL('image/png');
+                            } catch(e) { console.warn("Canvas capture failed"); }
+
+                            results.push({ name: a.name, duration: a.duration, thumb: thumbData });
+                        }
+
                         player.dispose();
                         document.getElementById('hidden-parser').innerHTML = '';
-                        resolve({ projectInfo: project, animations: anims });
+                        resolve({ projectInfo: project, animations: results });
                     },
                     error: function () { resolve(null); }
                 };
                 if (project.data.name.toLowerCase().endsWith('.skel')) initConfig.skelUrl = project.data.name;
                 else initConfig.jsonUrl = project.data.name;
+                
                 new spine.SpinePlayer("hidden-parser", initConfig);
             });
         }
 
-        // --- Build UI Generators ---
+        // --- Build UI ---
+        const fallbackSvg = `<svg viewBox="0 0 24 24" width="40" height="40" stroke="#555" stroke-width="2" fill="none"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path></svg>`;
+
         function buildGalleryUI() {
             galleryContent.innerHTML = '';
-            const svgIcon = `<svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path></svg>`;
-
             globalParsedData.forEach(data => {
                 const groupDiv = document.createElement('div');
                 groupDiv.className = 'project-group';
@@ -447,8 +440,12 @@
                 data.animations.forEach(anim => {
                     const card = document.createElement('div');
                     card.className = 'anim-card';
+                    
+                    // NẾU CÓ THUMBNAIL THÌ RENDER THUMBNAIL, NẾU KHÔNG THÌ RENDER SVG
+                    const imgTag = anim.thumb && anim.thumb.length > 10 ? `<img src="${anim.thumb}">` : fallbackSvg;
+                    
                     card.innerHTML = `
-                        <div class="anim-icon">${svgIcon}</div>
+                        <div class="anim-icon">${imgTag}</div>
                         <h4>${anim.name}</h4>
                         <span>${anim.duration.toFixed(2)}s</span>
                     `;
@@ -461,23 +458,23 @@
 
         function buildSidebarUI() {
             sidebarList.innerHTML = '';
-
             globalParsedData.forEach(data => {
-                const titleHtml = `
-                    <div class="skeleton-title">
-                        Skeleton: ${data.projectInfo.name}
-                        <span class="count">${data.animations.length}</span>
-                    </div>
-                `;
+                const titleHtml = `<div class="skeleton-title">Skeleton: ${data.projectInfo.name}</div>`;
                 sidebarList.insertAdjacentHTML('beforeend', titleHtml);
                 
                 data.animations.forEach(anim => {
                     const item = document.createElement('div');
                     item.className = 'list-item';
-                    item.dataset.skeleton = data.projectInfo.name; // Tag để query
+                    item.dataset.skeleton = data.projectInfo.name;
                     item.dataset.anim = anim.name;
+                    
+                    const imgTag = anim.thumb && anim.thumb.length > 10 ? `<img src="${anim.thumb}" class="list-item-thumb">` : `<div class="list-item-thumb" style="display:flex;align-items:center;justify-content:center;font-size:10px;color:#555;">IMG</div>`;
+                    
                     item.innerHTML = `
-                        <span class="list-item-name">${anim.name}</span>
+                        <div class="list-item-left">
+                            ${imgTag}
+                            <span class="list-item-name">${anim.name}</span>
+                        </div>
                         <span class="list-item-time">${anim.duration.toFixed(2)}s</span>
                     `;
                     
@@ -489,7 +486,6 @@
 
         // --- Player Controller ---
         function playAnimation(projectConfig, animationName) {
-            // Update Sidebar Highlight
             document.querySelectorAll('.list-item').forEach(el => el.classList.remove('active'));
             const activeEl = document.querySelector(`.list-item[data-skeleton="${projectConfig.name}"][data-anim="${animationName}"]`);
             if (activeEl) {
@@ -497,7 +493,6 @@
                 activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }
 
-            // Update UI Details
             playerInfo.style.display = 'block';
             animTitle.textContent = animationName;
             animSubtitle.textContent = `Skeleton: ${projectConfig.name}`;
@@ -505,31 +500,18 @@
             activeProjectConfig = projectConfig;
             activeAnimation = animationName;
 
-            // Player Logic
             if (mainPlayer && mainPlayer.config.atlasUrl !== projectConfig.atlas.name) {
-                mainPlayer.dispose();
-                playerWrapper.innerHTML = '';
-                mainPlayer = null;
+                mainPlayer.dispose(); playerWrapper.innerHTML = ''; mainPlayer = null;
             }
 
             if (!mainPlayer) {
                 let playerConfig = {
-                    atlasUrl: projectConfig.atlas.name,
-                    rawDataURIs: globalRawURIs,
-                    alpha: true,
-                    backgroundColor: "#00000000",
-                    animation: animationName,
-                    showControls: true,
-                    premultipliedAlpha: pmaToggle.checked,
-                    defaultMix: 0, 
-                    viewport: { transitionTime: 0 }
+                    atlasUrl: projectConfig.atlas.name, rawDataURIs: globalRawURIs,
+                    alpha: true, backgroundColor: "#00000000", animation: animationName, showControls: true,
+                    premultipliedAlpha: pmaToggle.checked, defaultMix: 0, viewport: { transitionTime: 0 }
                 };
-
-                if (projectConfig.data.name.toLowerCase().endsWith('.skel')) {
-                    playerConfig.skelUrl = projectConfig.data.name;
-                } else {
-                    playerConfig.jsonUrl = projectConfig.data.name;
-                }
+                if (projectConfig.data.name.toLowerCase().endsWith('.skel')) playerConfig.skelUrl = projectConfig.data.name;
+                else playerConfig.jsonUrl = projectConfig.data.name;
 
                 mainPlayer = new spine.SpinePlayer("player-wrapper", playerConfig);
             } else {
