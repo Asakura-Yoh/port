@@ -116,14 +116,8 @@
         #player-wrapper { width: 85vw; height: 80vh; background-color: #111; border-radius: 8px; overflow: hidden; box-shadow: 0 0 30px rgba(0,0,0,0.8); }
         #anim-title { color: white; margin-top: 15px; font-size: 24px; }
 
-        /* HACK: WebGL requires physical dimensions to initialize. Do NOT use display:none */
         #hidden-parser {
-            position: absolute;
-            top: -9999px;
-            left: -9999px;
-            width: 100px;
-            height: 100px;
-            visibility: hidden;
+            position: absolute; top: -9999px; left: -9999px; width: 10px; height: 10px; visibility: hidden;
         }
     </style>
 </head>
@@ -132,7 +126,7 @@
     <div class="upload-container" id="drop-zone">
         <h2>Spine2D Exporter Web Tool</h2>
         <p>Kéo thả toàn bộ file export vào đây</p>
-        <p class="instructions">Bao gồm: 1 file (.json hoặc .skel), 1 file (.atlas hoặc .atlas.txt), và CÁC file (.png)</p>
+        <p class="instructions">Bao gồm: 1 file (.json hoặc .skel), 1 file (.atlas), và CÁC file (.png)</p>
         <input type="file" id="file-input" multiple accept=".json,.skel,.atlas,.txt,.png">
         <button class="upload-btn" onclick="document.getElementById('file-input').click()">Chọn Files</button>
         
@@ -174,14 +168,20 @@
         let mainPlayer = null;
         let tempParserPlayer = null;
 
-        // UI Logger
         function logMessage(msg, type = 'info') {
             statusDisplay.className = `status-${type}`;
             statusDisplay.innerHTML = `<strong>${type.toUpperCase()}:</strong> ${msg}`;
             console[type === 'error' ? 'error' : 'log'](msg);
         }
 
-        // Event Listeners
+        // Helper: Convert File to Base64 Data URI
+        const fileToDataURI = (file) => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(new Error(`Failed to read file: ${file.name}`));
+            reader.readAsDataURL(file);
+        });
+
         dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
         dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
         dropZone.addEventListener('drop', (e) => {
@@ -190,16 +190,14 @@
         });
         fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
 
-        // Core Pipeline
-        function handleFiles(files) {
-            logMessage('Đang xử lý files...', 'info');
+        async function handleFiles(files) {
+            logMessage('Đang xử lý files sang Base64...', 'info');
             galleryContainer.style.display = 'none';
             
             let dataFile = null; 
             let atlasFile = null;
             let pngFiles = [];
 
-            // Phân loại tất cả các file được ném vào
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
                 const name = file.name.toLowerCase();
@@ -209,38 +207,32 @@
                 } else if (name.endsWith('.atlas') || name.endsWith('.atlas.txt')) {
                     atlasFile = file;
                 } else if (name.endsWith('.png')) {
-                    pngFiles.push(file); // Hỗ trợ lưu nhiều file PNG
+                    pngFiles.push(file);
                 }
             }
 
-            // Validation
             if (!dataFile) return logMessage('Thiếu file data (.json hoặc .skel)', 'error');
             if (!atlasFile) return logMessage('Thiếu file cấu hình atlas (.atlas hoặc .atlas.txt)', 'error');
             if (pngFiles.length === 0) return logMessage('Thiếu file hình ảnh (.png)', 'error');
 
             try {
-                // Reset config sạch sẽ cho mỗi lần upload mới
                 spineConfig = { jsonUrl: null, skelUrl: null, atlasUrl: null, rawDataURIs: {} };
                 
-                if (dataFile.name.toLowerCase().endsWith('.skel')) {
-                    spineConfig.skelUrl = dataFile.name;
-                } else {
-                    spineConfig.jsonUrl = dataFile.name;
-                }
+                const isBinary = dataFile.name.toLowerCase().endsWith('.skel');
+                if (isBinary) spineConfig.skelUrl = dataFile.name;
+                else spineConfig.jsonUrl = dataFile.name;
+                
                 spineConfig.atlasUrl = atlasFile.name;
 
-                // Tạo Blob URLs mapping
-                spineConfig.rawDataURIs[dataFile.name] = URL.createObjectURL(dataFile);
-                spineConfig.rawDataURIs[atlasFile.name] = URL.createObjectURL(atlasFile);
+                // Chuyển toàn bộ file thành chuỗi Base64 (Bypass hoàn toàn lỗi HTTP 400)
+                spineConfig.rawDataURIs[dataFile.name] = await fileToDataURI(dataFile);
+                spineConfig.rawDataURIs[atlasFile.name] = await fileToDataURI(atlasFile);
                 
-                // Map toàn bộ các file PNG
-                pngFiles.forEach(png => {
-                    spineConfig.rawDataURIs[png.name] = URL.createObjectURL(png);
-                });
+                for (const png of pngFiles) {
+                    spineConfig.rawDataURIs[png.name] = await fileToDataURI(png);
+                }
 
-                logMessage(`Đã map thành công: 1 Data, 1 Atlas, ${pngFiles.length} PNG(s). Khởi tạo WebGL...`, 'info');
-                
-                // Khởi tạo player ẩn để parse data
+                logMessage(`Đã map thành công qua Base64. Khởi tạo WebGL...`, 'info');
                 parseSkeletonData();
 
             } catch (err) {
@@ -249,7 +241,6 @@
         }
 
         function parseSkeletonData() {
-            // Clean up player cũ nếu có để giải phóng RAM
             if (tempParserPlayer) {
                 tempParserPlayer.dispose();
                 document.getElementById('hidden-parser').innerHTML = '';
@@ -261,10 +252,8 @@
                 showControls: false,
                 success: function (player) {
                     logMessage('Parse dữ liệu thành công!', 'success');
-                    const animations = player.skeleton.data.animations;
-                    buildGallery(animations);
+                    buildGallery(player.skeleton.data.animations);
                     
-                    // Giữ lại hoặc dispose tùy ý, nhưng ở đây ta dispose để nhẹ máy
                     tempParserPlayer = player;
                     setTimeout(() => {
                         if(tempParserPlayer) {
@@ -272,7 +261,7 @@
                             document.getElementById('hidden-parser').innerHTML = '';
                             tempParserPlayer = null;
                         }
-                    }, 500);
+                    }, 100);
                 },
                 error: function (player, reason) {
                     logMessage(`Spine Player Error: ${reason}`, 'error');
@@ -282,7 +271,6 @@
             if (spineConfig.skelUrl) initConfig.skelUrl = spineConfig.skelUrl;
             if (spineConfig.jsonUrl) initConfig.jsonUrl = spineConfig.jsonUrl;
 
-            // Render vào thẻ div đang bị giấu bằng CSS (vẫn có kích thước vật lý)
             new spine.SpinePlayer("hidden-parser", initConfig);
         }
 
