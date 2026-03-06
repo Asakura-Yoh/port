@@ -122,8 +122,7 @@
         <div id="status-display"></div>
     </div>
 
-    <div id="gallery-container">
-        </div>
+    <div id="gallery-container"></div>
 
     <div id="preview-modal">
         <span id="modal-close" onclick="closeModal()">&times;</span>
@@ -167,7 +166,6 @@
             reader.readAsDataURL(file);
         });
 
-        // Xử lý PMA Toggle mượt mà: Chỉ reload Player hiện tại, không parse lại folder
         pmaToggle.addEventListener('change', () => {
             if (mainPlayer && activeProjectConfig && activeAnimation) {
                 logMessage('Đổi cấu hình PMA, đang khởi tạo lại Player...', 'info');
@@ -179,7 +177,6 @@
             }
         });
 
-        // Drag & Drop Handlers
         dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
         dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('dragover'); });
         dropZone.addEventListener('drop', async (e) => {
@@ -225,7 +222,6 @@
         fileInput.addEventListener('change', (e) => processFiles(e.target.files));
         folderInput.addEventListener('change', (e) => processFiles(e.target.files));
 
-        // Core Pipeline cho nhiều nhân vật
         async function processFiles(files) {
             logMessage('Đang phân loại và ghép cặp files...', 'info');
             galleryContainer.style.display = 'none';
@@ -235,60 +231,42 @@
             let atlasFiles = [];
             let allFilesToEncode = [];
 
-            // 1. Phân loại files
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
                 const name = file.name.toLowerCase();
                 if (name.includes('.ds_store') || name.includes('thumbs.db')) continue;
 
                 allFilesToEncode.push(file);
-
-                if (name.endsWith('.json') || name.endsWith('.skel')) {
-                    dataFiles.push(file);
-                } else if (name.endsWith('.atlas') || name.endsWith('.atlas.txt')) {
-                    atlasFiles.push(file);
-                }
+                if (name.endsWith('.json') || name.endsWith('.skel')) dataFiles.push(file);
+                else if (name.endsWith('.atlas') || name.endsWith('.atlas.txt')) atlasFiles.push(file);
             }
 
-            if (dataFiles.length === 0 || atlasFiles.length === 0) {
-                return logMessage('Không tìm thấy đủ cặp file .json/.skel và .atlas trong thư mục', 'error');
-            }
+            if (dataFiles.length === 0 || atlasFiles.length === 0) return logMessage('Không tìm thấy đủ cặp file .json/.skel và .atlas trong thư mục', 'error');
 
             try {
-                // 2. Encode TẤT CẢ các file thành Base64 để nhét vào RAM
                 logMessage('Đang tải tài nguyên vào bộ nhớ (Base64)...', 'info');
-                for (const f of allFilesToEncode) {
-                    globalRawURIs[f.name] = await fileToDataURI(f);
-                }
+                for (const f of allFilesToEncode) globalRawURIs[f.name] = await fileToDataURI(f);
 
-                // 3. Ghép cặp (Pairing) Data và Atlas
                 let projects = [];
                 if (dataFiles.length === 1 && atlasFiles.length >= 1) {
-                    // Nếu chỉ có 1 data file, ghép với atlas đầu tiên tìm thấy
                     const baseName = dataFiles[0].name.replace(/\.[^/.]+$/, "");
                     projects.push({ name: baseName, data: dataFiles[0], atlas: atlasFiles[0] });
                 } else {
-                    // Nếu có nhiều, ghép dựa trên tên file (VD: hero.json đi với hero.atlas)
                     dataFiles.forEach(d => {
                         const baseName = d.name.substring(0, d.name.lastIndexOf('.'));
                         let matchedAtlas = atlasFiles.find(a => a.name.startsWith(baseName));
-                        if (!matchedAtlas) matchedAtlas = atlasFiles[0]; // Fallback
-                        if (matchedAtlas) {
-                            projects.push({ name: baseName, data: d, atlas: matchedAtlas });
-                        }
+                        if (!matchedAtlas) matchedAtlas = atlasFiles[0]; 
+                        if (matchedAtlas) projects.push({ name: baseName, data: d, atlas: matchedAtlas });
                     });
                 }
 
                 logMessage(`Tìm thấy ${projects.length} Character(s). Bắt đầu trích xuất...`, 'info');
                 
-                // 4. Quét tuần tự từng nhân vật để tránh crash WebGL
                 let parsedResults = [];
                 for (let i = 0; i < projects.length; i++) {
                     logMessage(`Đang trích xuất: [${projects[i].name}] (${i+1}/${projects.length})...`, 'info');
                     const result = await parseSingleProject(projects[i]);
-                    if (result && result.animations.length > 0) {
-                        parsedResults.push(result);
-                    }
+                    if (result && result.animations.length > 0) parsedResults.push(result);
                 }
 
                 if (parsedResults.length > 0) {
@@ -297,13 +275,11 @@
                 } else {
                     logMessage('Lỗi: Không thể trích xuất được animation nào.', 'error');
                 }
-
             } catch (err) {
                 logMessage(err.message, 'error');
             }
         }
 
-        // Tạo Promise bọc Spine Player ẩn để quét từng project tuần tự
         function parseSingleProject(project) {
             return new Promise((resolve) => {
                 let initConfig = {
@@ -311,29 +287,15 @@
                     rawDataURIs: globalRawURIs,
                     showControls: false,
                     success: function (player) {
-                        // Rút trích danh sách animation
-                        const anims = player.skeleton.data.animations.map(a => ({
-                            name: a.name, duration: a.duration
-                        }));
-                        
-                        // Hủy player ngay lập tức để dọn RAM
+                        const anims = player.skeleton.data.animations.map(a => ({ name: a.name, duration: a.duration }));
                         player.dispose();
                         document.getElementById('hidden-parser').innerHTML = '';
-                        
                         resolve({ projectInfo: project, animations: anims });
                     },
-                    error: function (player, reason) {
-                        console.error(`Lỗi trích xuất ${project.name}:`, reason);
-                        resolve(null); // Bỏ qua nếu lỗi, tiếp tục file khác
-                    }
+                    error: function (player, reason) { resolve(null); }
                 };
-
-                if (project.data.name.toLowerCase().endsWith('.skel')) {
-                    initConfig.skelUrl = project.data.name;
-                } else {
-                    initConfig.jsonUrl = project.data.name;
-                }
-
+                if (project.data.name.toLowerCase().endsWith('.skel')) initConfig.skelUrl = project.data.name;
+                else initConfig.jsonUrl = project.data.name;
                 new spine.SpinePlayer("hidden-parser", initConfig);
             });
         }
@@ -372,7 +334,6 @@
                         <span>${anim.duration.toFixed(2)}s</span>
                     `;
                     
-                    // Truyền nguyên cấu hình project vào Modal
                     card.onclick = () => openPreviewModal(data.projectInfo, anim.name);
                     gridContainer.appendChild(card);
                 });
@@ -384,50 +345,4 @@
         function openPreviewModal(projectConfig, animationName) {
             previewModal.style.display = 'flex';
             animTitle.textContent = animationName;
-            animSubtitle.textContent = `Character: ${projectConfig.name}`;
-            
-            activeProjectConfig = projectConfig;
-            activeAnimation = animationName;
-
-            // Nếu player hiện tại đang chạy NHÂN VẬT KHÁC -> bắt buộc phải hủy và tạo lại
-            if (mainPlayer && mainPlayer.config.atlasUrl !== projectConfig.atlas.name) {
-                mainPlayer.dispose();
-                playerWrapper.innerHTML = '';
-                mainPlayer = null;
-            }
-
-            if (!mainPlayer) {
-                let playerConfig = {
-                    atlasUrl: projectConfig.atlas.name,
-                    rawDataURIs: globalRawURIs,
-                    alpha: true,
-                    backgroundColor: "#00000000",
-                    animation: animationName,
-                    showControls: true,
-                    premultipliedAlpha: pmaToggle.checked
-                };
-
-                if (projectConfig.data.name.toLowerCase().endsWith('.skel')) {
-                    playerConfig.skelUrl = projectConfig.data.name;
-                } else {
-                    playerConfig.jsonUrl = projectConfig.data.name;
-                }
-
-                mainPlayer = new spine.SpinePlayer("player-wrapper", playerConfig);
-            } else {
-                // Nếu cùng nhân vật, chỉ cần đổi state rất nhanh
-                mainPlayer.animationState.setAnimation(0, animationName, true);
-            }
-        }
-
-        function closeModal() {
-            previewModal.style.display = 'none';
-            if (mainPlayer) mainPlayer.animationState.clearTracks();
-        }
-
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && previewModal.style.display === 'flex') closeModal();
-        });
-    </script>
-</body>
-</html>
+            animSubtitle.textContent =
