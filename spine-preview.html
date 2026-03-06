@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spine2D Web Previewer (Pro)</title>
+    <title>Spine2D Web Workspace</title>
     
     <link rel="stylesheet" href="https://unpkg.com/@esotericsoftware/spine-player@4.2.47/dist/spine-player.css">
     
@@ -17,6 +17,7 @@
             --hover-color: #0098ff;
             --folder-color: #e84a5f;
             --folder-hover: #ff5c72;
+            --border-color: #333;
         }
 
         * { box-sizing: border-box; }
@@ -25,108 +26,155 @@
             margin: 0; padding: 20px;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: var(--bg-color); color: var(--text-color);
+            height: 100vh; overflow: hidden;
+            display: flex; flex-direction: column;
         }
 
+        /* --- Màn hình Upload ban đầu --- */
+        #upload-screen {
+            flex: 1; display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+        }
         .upload-container {
             background-color: var(--panel-bg); padding: 40px; border-radius: 12px;
-            border: 2px dashed #555; text-align: center; max-width: 650px;
-            margin: 0 auto 30px auto; transition: all 0.3s ease;
+            border: 2px dashed #555; text-align: center; width: 100%; max-width: 650px;
+            transition: all 0.3s ease;
         }
         .upload-container.dragover { border-color: var(--accent-color); background-color: #1a2a3a; }
         
         #file-input, #folder-input { display: none; }
-        .btn-group { display: flex; justify-content: center; gap: 15px; margin-top: 15px; }
-        .upload-btn {
-            background-color: var(--accent-color); color: white; padding: 12px 24px;
-            border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 16px;
-            transition: background 0.2s;
+        .btn-group { display: flex; justify-content: center; gap: 15px; margin-top: 20px; }
+        .btn {
+            color: white; padding: 12px 24px; border: none; border-radius: 6px; 
+            cursor: pointer; font-weight: bold; font-size: 15px; transition: background 0.2s;
         }
+        .upload-btn { background-color: var(--accent-color); }
         .upload-btn:hover { background-color: var(--hover-color); }
         .folder-btn { background-color: var(--folder-color); }
         .folder-btn:hover { background-color: var(--folder-hover); }
 
         .instructions { color: #888; font-size: 14px; margin-top: 10px; }
 
-        .settings-panel { margin-top: 20px; padding-top: 15px; border-top: 1px solid #333; display: inline-block; }
-        .settings-panel label { cursor: pointer; font-size: 13px; color: #ccc; display: flex; align-items: center; gap: 8px; }
-        .settings-panel input[type="checkbox"] { accent-color: var(--accent-color); width: 16px; height: 16px; }
-
         #status-display {
             margin-top: 15px; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 13px;
-            display: none; word-break: break-word; text-align: left;
+            display: none; word-break: break-word; text-align: left; width: 100%; max-width: 650px;
         }
         .status-info { background: #2a2a2a; color: #4db8ff; border-left: 3px solid #4db8ff; display: block !important; }
         .status-error { background: #3a1a1a; color: #ff5555; border-left: 3px solid #ff5555; display: block !important; }
         .status-success { background: #1a3a2a; color: #55ff55; border-left: 3px solid #55ff55; display: block !important; }
 
-        #gallery-container { display: none; max-width: 1200px; margin: 0 auto; }
-        .project-group { margin-bottom: 40px; background: #1a1a1a; padding: 20px; border-radius: 10px; border: 1px solid #333; }
-        .project-header {
-            display: flex; justify-content: space-between; align-items: center;
-            border-bottom: 2px solid var(--accent-color); padding-bottom: 10px; margin-bottom: 20px;
+        /* --- Màn hình Workspace (Split-screen) --- */
+        #workspace {
+            display: none; /* Ẩn lúc đầu */
+            flex: 1; width: 100%; gap: 20px; overflow: hidden;
         }
-        .project-header h2 { margin: 0; color: white; font-size: 20px; display: flex; align-items: center; gap: 10px; }
-        .project-header span { font-size: 14px; color: #aaa; }
-        
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; }
-        .anim-card {
-            background-color: var(--card-bg); border-radius: 8px; padding: 15px; cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s; border: 1px solid #444;
-            display: flex; flex-direction: column; align-items: center; text-align: center;
-        }
-        .anim-card:hover { transform: translateY(-5px); box-shadow: 0 8px 15px rgba(0,0,0,0.5); border-color: var(--folder-color); }
-        .anim-icon {
-            width: 40px; height: 40px; background-color: #111; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center; margin-bottom: 10px; color: var(--folder-color);
-        }
-        .anim-card h3 { margin: 0 0 5px 0; font-size: 15px; word-break: break-all; color: white; }
-        .anim-card span { font-size: 12px; color: #888; }
 
-        #preview-modal {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: rgba(0, 0, 0, 0.95); z-index: 1000;
-            justify-content: center; align-items: center; flex-direction: column;
+        /* Cột bên trái: Danh sách Animation */
+        #sidebar {
+            width: 350px; background-color: var(--panel-bg); border-radius: 8px;
+            display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--border-color);
         }
-        #modal-close { position: absolute; top: 20px; right: 30px; color: white; font-size: 40px; cursor: pointer; z-index: 1001; line-height: 1; }
-        #modal-close:hover { color: var(--accent-color); }
-        #player-wrapper { width: 85vw; height: 80vh; background-color: #111; border-radius: 8px; overflow: hidden; box-shadow: 0 0 30px rgba(0,0,0,0.8); }
-        #anim-title { color: white; margin-top: 15px; font-size: 24px; }
-        #anim-subtitle { color: var(--folder-color); font-size: 14px; margin-top: 5px; }
+        
+        .sidebar-header {
+            padding: 20px; border-bottom: 1px solid var(--border-color);
+            background-color: #181818;
+        }
+        .sidebar-header h2 { margin: 0 0 10px 0; font-size: 18px; }
+        .reset-btn {
+            width: 100%; padding: 10px; background: #333; color: white; border: none;
+            border-radius: 4px; cursor: pointer; font-size: 13px; margin-bottom: 10px;
+        }
+        .reset-btn:hover { background: #444; }
+
+        .settings-panel label { cursor: pointer; font-size: 13px; color: #ccc; display: flex; align-items: center; gap: 8px; }
+        .settings-panel input[type="checkbox"] { accent-color: var(--accent-color); width: 16px; height: 16px; }
+
+        #anim-list-container {
+            flex: 1; overflow-y: auto; padding: 15px;
+        }
+
+        .skeleton-group { margin-bottom: 25px; }
+        .skeleton-title {
+            font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px;
+            margin-bottom: 10px; font-weight: bold; border-bottom: 1px solid #333; padding-bottom: 5px;
+            display: flex; justify-content: space-between;
+        }
+        .skeleton-title span.count { background: #333; padding: 2px 6px; border-radius: 10px; font-size: 10px; color: white; }
+
+        .anim-item {
+            display: flex; align-items: center; justify-content: space-between;
+            background-color: var(--card-bg); padding: 10px 12px; border-radius: 6px;
+            cursor: pointer; margin-bottom: 8px; transition: all 0.2s; border: 1px solid transparent;
+        }
+        .anim-item:hover { background-color: #383838; }
+        .anim-item.active {
+            border-color: var(--accent-color); background-color: rgba(0, 122, 204, 0.1);
+        }
+        .anim-item-name { font-size: 14px; color: #ddd; font-weight: 500; }
+        .anim-item-time { font-size: 12px; color: #777; font-family: monospace; }
+        .anim-item.active .anim-item-name { color: var(--accent-color); }
+
+        /* Cột bên phải: Player */
+        #preview-area {
+            flex: 1; background-color: #0b0b0b; border-radius: 8px; overflow: hidden;
+            position: relative; display: flex; flex-direction: column; border: 1px solid var(--border-color);
+        }
+        
+        .player-overlay-info {
+            position: absolute; top: 20px; left: 20px; z-index: 10; pointer-events: none;
+            background: rgba(0,0,0,0.6); padding: 10px 20px; border-radius: 6px; border-left: 4px solid var(--accent-color);
+        }
+        .player-overlay-info h2 { margin: 0; color: white; font-size: 20px; }
+        .player-overlay-info p { margin: 5px 0 0 0; color: #aaa; font-size: 13px; }
+
+        #player-wrapper { flex: 1; width: 100%; height: 100%; }
 
         #hidden-parser { position: absolute; top: -9999px; left: -9999px; width: 10px; height: 10px; visibility: hidden; }
     </style>
 </head>
 <body>
 
-    <div class="upload-container" id="drop-zone">
-        <h2>Spine2D Exporter Web Tool</h2>
-        <p>Kéo thả NGUYÊN MỘT FOLDER chứa nhiều nhân vật vào đây</p>
-        <p class="instructions">Hỗ trợ tự động nhóm các file .json/.skel với .atlas tương ứng</p>
-        
-        <input type="file" id="file-input" multiple accept=".json,.skel,.atlas,.txt,.png">
-        <input type="file" id="folder-input" webkitdirectory directory multiple>
-        
-        <div class="btn-group">
-            <button class="upload-btn" onclick="document.getElementById('file-input').click()">Chọn Files Rời</button>
-            <button class="upload-btn folder-btn" onclick="document.getElementById('folder-input').click()">Chọn Folder</button>
+    <div id="upload-screen">
+        <div class="upload-container" id="drop-zone">
+            <h2>Spine2D TA Workspace</h2>
+            <p>Kéo thả File rời hoặc NGUYÊN MỘT FOLDER vào đây</p>
+            <p class="instructions">Hỗ trợ trích xuất hàng loạt và chia giao diện làm việc</p>
+            
+            <input type="file" id="file-input" multiple accept=".json,.skel,.atlas,.txt,.png">
+            <input type="file" id="folder-input" webkitdirectory directory multiple>
+            
+            <div class="btn-group">
+                <button class="btn upload-btn" onclick="document.getElementById('file-input').click()">Chọn Files Rời</button>
+                <button class="btn folder-btn" onclick="document.getElementById('folder-input').click()">Chọn Folder</button>
+            </div>
         </div>
-        
-        <div class="settings-panel">
-            <label title="Tắt nếu ảnh bị viền trắng/vuông. Bật nếu ảnh bị viền đen.">
-                <input type="checkbox" id="pma-toggle"> Premultiplied Alpha (PMA)
-            </label>
-        </div>
-
         <div id="status-display"></div>
     </div>
 
-    <div id="gallery-container"></div>
+    <div id="workspace">
+        
+        <div id="sidebar">
+            <div class="sidebar-header">
+                <h2>Animations</h2>
+                <button class="reset-btn" onclick="resetWorkspace()">🔙 Tải Data Mới</button>
+                <div class="settings-panel">
+                    <label title="Bật nếu ảnh bị viền đen. Tắt để sửa lỗi viền trắng/vuông.">
+                        <input type="checkbox" id="pma-toggle"> Premultiplied Alpha (PMA)
+                    </label>
+                </div>
+            </div>
+            <div id="anim-list-container">
+                </div>
+        </div>
 
-    <div id="preview-modal">
-        <span id="modal-close" onclick="closeModal()">&times;</span>
-        <div id="player-wrapper"></div>
-        <h2 id="anim-title">Animation Name</h2>
-        <span id="anim-subtitle">Character Name</span>
+        <div id="preview-area">
+            <div class="player-overlay-info" id="player-info" style="display: none;">
+                <h2 id="anim-title">Animation Name</h2>
+                <p id="anim-subtitle">Skeleton: xxx</p>
+            </div>
+            <div id="player-wrapper"></div>
+        </div>
+
     </div>
 
     <div id="hidden-parser"></div>
@@ -134,35 +182,34 @@
     <script src="https://unpkg.com/@esotericsoftware/spine-player@4.2.47/dist/iife/spine-player.js"></script>
     
     <script>
+        // --- System Logs ---
         const statusDisplay = document.getElementById('status-display');
-        
-        // Hệ thống báo lỗi Global (Chống sập ngầm)
-        window.onerror = function(msg, url, line) {
-            logMessage(`Lỗi hệ thống dòng ${line}: ${msg}`, 'error');
-            return false;
-        };
-
+        window.onerror = function(msg, url, line) { logMessage(`Lỗi hệ thống: ${msg}`, 'error'); return false; };
         function logMessage(msg, type = 'info') {
             statusDisplay.className = `status-${type}`;
             statusDisplay.innerHTML = `<strong>${type.toUpperCase()}:</strong> ${msg}`;
-            console[type === 'error' ? 'error' : 'log'](msg);
         }
 
+        // --- DOM Elements ---
+        const uploadScreen = document.getElementById('upload-screen');
+        const workspace = document.getElementById('workspace');
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('file-input');
         const folderInput = document.getElementById('folder-input');
         const pmaToggle = document.getElementById('pma-toggle');
         
-        const galleryContainer = document.getElementById('gallery-container');
-        const previewModal = document.getElementById('preview-modal');
+        const animListContainer = document.getElementById('anim-list-container');
         const playerWrapper = document.getElementById('player-wrapper');
+        const playerInfo = document.getElementById('player-info');
         const animTitle = document.getElementById('anim-title');
         const animSubtitle = document.getElementById('anim-subtitle');
 
+        // --- Core Variables ---
         let globalRawURIs = {};
         let mainPlayer = null;
         let activeProjectConfig = null;
         let activeAnimation = null;
+        let activeListItem = null;
 
         const fileToDataURI = (file) => new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -171,17 +218,28 @@
             reader.readAsDataURL(file);
         });
 
+        // --- UI Interactions ---
+        function resetWorkspace() {
+            if (mainPlayer) { mainPlayer.dispose(); mainPlayer = null; }
+            playerWrapper.innerHTML = '';
+            animListContainer.innerHTML = '';
+            playerInfo.style.display = 'none';
+            workspace.style.display = 'none';
+            uploadScreen.style.display = 'flex';
+            statusDisplay.style.display = 'none';
+            globalRawURIs = {};
+        }
+
         pmaToggle.addEventListener('change', () => {
             if (mainPlayer && activeProjectConfig && activeAnimation) {
-                logMessage('Đổi cấu hình PMA, đang khởi tạo lại Player...', 'info');
                 mainPlayer.dispose();
                 playerWrapper.innerHTML = '';
                 mainPlayer = null;
-                openPreviewModal(activeProjectConfig, activeAnimation);
-                setTimeout(() => logMessage('Khởi tạo Player hoàn tất!', 'success'), 500);
+                playAnimation(activeProjectConfig, activeAnimation, activeListItem);
             }
         });
 
+        // --- Drag & Drop ---
         dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
         dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('dragover'); });
         dropZone.addEventListener('drop', async (e) => {
@@ -226,30 +284,20 @@
             });
         }
 
-        // BẮT BUỘC RESET VALUE SAU KHI CHỌN ĐỂ TRÁNH LỖI "ĐỨNG IM"
-        fileInput.addEventListener('change', (e) => {
-            if(e.target.files.length > 0) processFiles(e.target.files);
-            e.target.value = ''; // Reset
-        });
-        
-        folderInput.addEventListener('change', (e) => {
-            if(e.target.files.length > 0) processFiles(e.target.files);
-            e.target.value = ''; // Reset
-        });
+        fileInput.addEventListener('change', (e) => { if(e.target.files.length > 0) processFiles(e.target.files); e.target.value = ''; });
+        folderInput.addEventListener('change', (e) => { if(e.target.files.length > 0) processFiles(e.target.files); e.target.value = ''; });
 
+        // --- Core Process ---
         async function processFiles(files) {
             try {
-                logMessage('Đang phân loại và ghép cặp files...', 'info');
-                galleryContainer.style.display = 'none';
+                logMessage('Đang xử lý dữ liệu...', 'info');
                 globalRawURIs = {};
                 
-                let dataFiles = [];
-                let atlasFiles = [];
-                let allFilesToEncode = [];
+                let dataFiles = []; let atlasFiles = []; let allFilesToEncode = [];
 
                 for (let i = 0; i < files.length; i++) {
                     const file = files[i];
-                    if (!file || !file.name) continue; // Tránh file rác không tên
+                    if (!file || !file.name) continue;
                     
                     const name = file.name.toLowerCase();
                     if (name.includes('.ds_store') || name.includes('thumbs.db')) continue;
@@ -260,10 +308,10 @@
                 }
 
                 if (dataFiles.length === 0 || atlasFiles.length === 0) {
-                    return logMessage('Thiếu file data (.json/.skel) hoặc .atlas.', 'error');
+                    return logMessage('Thiếu file .json/.skel hoặc .atlas.', 'error');
                 }
 
-                logMessage('Đang tải tài nguyên vào bộ nhớ (Base64)...', 'info');
+                logMessage('Đang nạp dữ liệu ảnh...', 'info');
                 for (const f of allFilesToEncode) globalRawURIs[f.name] = await fileToDataURI(f);
 
                 let projects = [];
@@ -278,21 +326,28 @@
                         if (matchedAtlas) projects.push({ name: baseName, data: d, atlas: matchedAtlas });
                     });
                 }
-
-                logMessage(`Tìm thấy ${projects.length} Character(s). Bắt đầu trích xuất...`, 'info');
                 
                 let parsedResults = [];
                 for (let i = 0; i < projects.length; i++) {
-                    logMessage(`Đang trích xuất: [${projects[i].name}] (${i+1}/${projects.length})...`, 'info');
                     const result = await parseSingleProject(projects[i]);
                     if (result && result.animations.length > 0) parsedResults.push(result);
                 }
 
                 if (parsedResults.length > 0) {
-                    buildMultiGallery(parsedResults);
-                    logMessage('Hoàn tất! Đã trích xuất xong toàn bộ.', 'success');
+                    buildSidebarList(parsedResults);
+                    
+                    // Chuyển UI
+                    uploadScreen.style.display = 'none';
+                    workspace.style.display = 'flex';
+                    
+                    // Auto-play animation đầu tiên của Skeleton đầu tiên
+                    const firstProj = parsedResults[0].projectInfo;
+                    const firstAnim = parsedResults[0].animations[0].name;
+                    const firstDOMItem = document.querySelector('.anim-item'); // Lấy element đầu tiên
+                    playAnimation(firstProj, firstAnim, firstDOMItem);
+
                 } else {
-                    logMessage('Lỗi: Cấu trúc file hỏng, không thể trích xuất animation.', 'error');
+                    logMessage('Không thể đọc cấu trúc file.', 'error');
                 }
             } catch (err) {
                 logMessage(`Lỗi nghiêm trọng: ${err.message}`, 'error');
@@ -311,7 +366,7 @@
                         document.getElementById('hidden-parser').innerHTML = '';
                         resolve({ projectInfo: project, animations: anims });
                     },
-                    error: function (player, reason) { resolve(null); }
+                    error: function () { resolve(null); }
                 };
                 if (project.data.name.toLowerCase().endsWith('.skel')) initConfig.skelUrl = project.data.name;
                 else initConfig.jsonUrl = project.data.name;
@@ -319,56 +374,58 @@
             });
         }
 
-        function buildMultiGallery(parsedResults) {
-            galleryContainer.style.display = 'block';
-            galleryContainer.innerHTML = '';
+        // --- Build Vertical Sidebar (Thay thế Grid cũ) ---
+        function buildSidebarList(parsedResults) {
+            animListContainer.innerHTML = '';
 
             parsedResults.forEach(data => {
                 const groupDiv = document.createElement('div');
-                groupDiv.className = 'project-group';
+                groupDiv.className = 'skeleton-group';
                 
-                const header = `
-                    <div class="project-header">
-                        <h2>
-                            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                            Character: ${data.projectInfo.name.toUpperCase()}
-                        </h2>
-                        <span>${data.animations.length} animations</span>
+                // Tiêu đề: Skeleton: xxx
+                const titleHtml = `
+                    <div class="skeleton-title">
+                        Skeleton: ${data.projectInfo.name}
+                        <span class="count">${data.animations.length}</span>
                     </div>
-                    <div class="grid"></div>
                 `;
-                groupDiv.innerHTML = header;
+                groupDiv.innerHTML = titleHtml;
                 
-                const gridContainer = groupDiv.querySelector('.grid');
-                
+                // Render list
                 data.animations.forEach(anim => {
-                    const card = document.createElement('div');
-                    card.className = 'anim-card';
-                    
-                    const icon = `<svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path></svg>`;
-                    
-                    card.innerHTML = `
-                        <div class="anim-icon">${icon}</div>
-                        <h3>${anim.name}</h3>
-                        <span>${anim.duration.toFixed(2)}s</span>
+                    const item = document.createElement('div');
+                    item.className = 'anim-item';
+                    item.innerHTML = `
+                        <span class="anim-item-name">${anim.name}</span>
+                        <span class="anim-item-time">${anim.duration.toFixed(2)}s</span>
                     `;
                     
-                    card.onclick = () => openPreviewModal(data.projectInfo, anim.name);
-                    gridContainer.appendChild(card);
+                    item.onclick = () => playAnimation(data.projectInfo, anim.name, item);
+                    groupDiv.appendChild(item);
                 });
 
-                galleryContainer.appendChild(groupDiv);
+                animListContainer.appendChild(groupDiv);
             });
         }
 
-        function openPreviewModal(projectConfig, animationName) {
-            previewModal.style.display = 'flex';
+        // --- Player Controller ---
+        function playAnimation(projectConfig, animationName, listItemElement) {
+            // Update UI Active State
+            if (activeListItem) activeListItem.classList.remove('active');
+            if (listItemElement) {
+                activeListItem = listItemElement;
+                activeListItem.classList.add('active');
+            }
+
+            // Update Overlay Text
+            playerInfo.style.display = 'block';
             animTitle.textContent = animationName;
-            animSubtitle.textContent = `Character: ${projectConfig.name}`;
+            animSubtitle.textContent = `Skeleton: ${projectConfig.name}`;
             
             activeProjectConfig = projectConfig;
             activeAnimation = animationName;
 
+            // Xử lý Spine Player (Khởi tạo mới hoặc Tái sử dụng)
             if (mainPlayer && mainPlayer.config.atlasUrl !== projectConfig.atlas.name) {
                 mainPlayer.dispose();
                 playerWrapper.innerHTML = '';
@@ -401,18 +458,6 @@
                 mainPlayer.animationState.setAnimation(0, animationName, true);
             }
         }
-
-        function closeModal() {
-            previewModal.style.display = 'none';
-            if (mainPlayer) {
-                mainPlayer.animationState.clearTracks();
-                mainPlayer.skeleton.setToSetupPose();
-            }
-        }
-
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && previewModal.style.display === 'flex') closeModal();
-        });
     </script>
 </body>
 </html>
