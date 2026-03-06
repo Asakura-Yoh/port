@@ -20,7 +20,7 @@
             margin: 0; padding: 20px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: var(--bg-color); color: var(--text-color);
             height: 100vh; overflow: hidden; display: flex; flex-direction: column;
-            position: relative; /* Setup cho z-index hoạt động chuẩn */
+            position: relative; z-index: 1; 
         }
 
         /* --- Global UI --- */
@@ -147,12 +147,10 @@
         .player-overlay-info p { margin: 5px 0 0 0; color: #aaa; font-size: 13px; }
         #player-wrapper { flex: 1; width: 100%; height: 100%; }
 
-        /* HACK: Chống đóng băng Render. Cần nổi lên nhưng vô hình */
+        /* HACK: Chống đóng băng Render */
         #hidden-parser {
             position: fixed; top: 20px; left: 20px; width: 256px; height: 256px;
-            z-index: 9999; /* Luôn nổi lên trên cùng để WebGL không tắt */
-            pointer-events: none; /* Click xuyên qua bình thường */
-            opacity: 0.02; /* Ẩn đi với người dùng nhưng trình duyệt vẫn vẽ */
+            z-index: 9999; pointer-events: none; opacity: 0.02; 
         }
     </style>
 </head>
@@ -213,7 +211,13 @@
     
     <script>
         const statusDisplay = document.getElementById('status-display');
-        window.onerror = function() { return true; }; 
+        
+        // Log lỗi nhẹ nhàng, không crash UI
+        window.onerror = function(msg, url, line) { 
+            console.error(`Silent Error at line ${line}: ${msg}`);
+            return true; 
+        }; 
+
         function logMessage(msg, type = 'info') {
             statusDisplay.style.display = 'block';
             statusDisplay.className = `status-${type}`;
@@ -373,7 +377,7 @@
             }
         }
 
-        // --- SAFE ASYNC THUMBNAIL GENERATOR ---
+        // --- FIXED ASYNC THUMBNAIL GENERATOR ---
         function generateThumbnailsForProject(project) {
             return new Promise((resolve) => {
                 let initConfig = {
@@ -382,25 +386,32 @@
                     showControls: false,
                     alpha: true,
                     backgroundColor: "#00000000",
+                    viewport: { transitionTime: 0 }, // Giữ camera đứng im khi chụp
                     success: async function (player) {
                         const anims = player.skeleton.data.animations;
                         const results = [];
                         const canvas = player.canvas;
 
-                        // Monkey-patch an toàn (sử dụng .bind để tránh mất context WebGL)
+                        // Tự động nhận diện hàm Render của Spine (Ver 4.x hay 3.x)
+                        const renderMethodName = typeof player.drawFrame === 'function' ? 'drawFrame' : 
+                                                 (typeof player.render === 'function' ? 'render' : null);
+
                         let captureResolve = null;
-                        const originalRender = player.render.bind(player);
-                        
-                        player.render = function() {
-                            originalRender();
-                            if (captureResolve) {
-                                try {
-                                    const data = canvas.toDataURL('image/png');
-                                    captureResolve(data);
-                                } catch(e) { captureResolve(null); }
-                                captureResolve = null;
-                            }
-                        };
+
+                        // Móc nối Hook vào quá trình vẽ nếu tìm thấy hàm
+                        if (renderMethodName) {
+                            const originalRender = player[renderMethodName].bind(player);
+                            player[renderMethodName] = function(...args) {
+                                originalRender(...args);
+                                if (captureResolve) {
+                                    try {
+                                        const data = canvas.toDataURL('image/png');
+                                        captureResolve(data);
+                                    } catch(e) { captureResolve(null); }
+                                    captureResolve = null;
+                                }
+                            };
+                        }
 
                         for (let i = 0; i < anims.length; i++) {
                             const a = anims[i];
@@ -410,18 +421,25 @@
                             player.skeleton.setToSetupPose();
                             player.animationState.setAnimation(0, a.name, true);
                             
-                            // Tiến frame chống tàng hình
                             player.animationState.update(Math.min(0.1, a.duration / 2));
                             player.animationState.apply(player.skeleton);
                             player.skeleton.updateWorldTransform();
 
-                            // Bật cờ chụp ảnh với Fallback chống treo (Timeout 400ms)
                             const thumbData = await new Promise(res => {
+                                // Nếu API thay đổi và không tìm thấy hàm drawFrame, dùng fallback timeout
+                                if (!renderMethodName) {
+                                    setTimeout(() => {
+                                        try { res(canvas.toDataURL('image/png')); } catch(e) { res(null); }
+                                    }, 100);
+                                    return;
+                                }
+
                                 captureResolve = res;
+                                // Fallback chống treo vĩnh viễn (Time-out sau 400ms)
                                 setTimeout(() => {
                                     if (captureResolve === res) { 
                                         captureResolve = null; 
-                                        res(null); // Giải phóng tiến trình nếu WebGL bị nghẽn
+                                        res(null); 
                                     }
                                 }, 400); 
                             });
