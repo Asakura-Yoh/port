@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spine 4.2 Web Previewer - Professional Suite</title>
+    <title>Spine 4.2 Previewer - True Color Edition</title>
     
     <script src="https://unpkg.com/pixi.js@8.x/dist/pixi.min.js"></script>
     <script src="https://unpkg.com/@esotericsoftware/spine-pixi-v8@4.2/dist/iife/spine-pixi-v8.js"></script>
@@ -14,22 +14,18 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg-dark); color: var(--text); display: flex; width: 100vw; height: 100vh; overflow: hidden; }
 
-        /* LEFT SIDEBAR */
         #sidebar-left { flex: 0 0 280px; background: var(--bg-panel); border-right: 1px solid #000; display: flex; flex-direction: column; }
         #drop-zone { margin: 15px; padding: 25px 10px; border: 2px dashed #444; text-align: center; cursor: pointer; border-radius: 6px; font-size: 12px; }
         #drop-zone:hover { border-color: var(--accent); background: #252526; }
-        .section-header { padding: 10px 15px; background: #252526; font-size: 11px; font-weight: bold; text-transform: uppercase; color: #777; border-bottom: 1px solid #000; }
         #asset-list { flex: 1; overflow-y: auto; padding: 10px; }
         .asset-item { background: #2d2d2d; padding: 12px; margin-bottom: 8px; border-radius: 4px; border-left: 4px solid #555; }
         .asset-item.ready { border-left-color: #4caf50; }
 
-        /* MAIN VIEW */
-        #main-view { flex: 1; position: relative; background: #000; display: flex; flex-direction: column; }
+        #main-view { flex: 1; position: relative; background: #1a1a1a; display: flex; flex-direction: column; }
         #canvas-container { flex: 1; position: relative; }
         canvas { width: 100%; height: 100%; display: block; }
         #loading-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.85); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }
 
-        /* RIGHT SIDEBAR (INSPECTOR) */
         #sidebar-right { flex: 0 0 320px; background: var(--bg-panel); border-left: 1px solid #000; display: flex; flex-direction: column; }
         .ins-header { padding: 15px; background: #252526; color: var(--accent); font-weight: bold; border-bottom: 1px solid #000; }
         .ins-section { padding: 15px; border-bottom: 1px solid var(--border); }
@@ -43,36 +39,24 @@
         .field-box span { position: absolute; left: 5px; top: 4px; font-size: 9px; color: #444; }
         input, select { width: 100%; background: #121212; border: 1px solid #333; color: #fff; padding: 5px 5px 5px 15px; border-radius: 2px; font-size: 12px; outline: none; }
         select { padding-left: 5px; }
-        input:focus { border-color: var(--accent); }
 
         .btn-ui { background: var(--accent); color: #fff; border: none; padding: 8px; border-radius: 3px; width: 100%; cursor: pointer; font-weight: bold; font-size: 12px; margin-top: 5px; }
-        .btn-ui:disabled { background: #444; opacity: 0.5; }
         .btn-del { background: #6e2e2e; margin-top: 15px; }
-
-        #toolbar { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.6); padding: 5px 10px; border-radius: 4px; font-size: 11px; color: #888; pointer-events: none; }
     </style>
 </head>
 <body>
 
     <div id="sidebar-left">
         <input type="file" id="file-folder" webkitdirectory directory multiple style="display:none">
-        <input type="file" id="file-single" multiple style="display:none">
-        
-        <div id="drop-zone">
-            <div id="dz-trigger">📁 Kéo thả Folder/Files vào đây<br><small>Hoặc click để chọn Folder</small></div>
-            <div style="margin-top: 10px;">
-                <button onclick="document.getElementById('file-single').click()" style="font-size:10px; background:#333; color:#aaa; border:none; padding:2px 5px; cursor:pointer">Chọn File lẻ</button>
-            </div>
+        <div id="drop-zone" onclick="document.getElementById('file-folder').click()">
+            📁 Click để chọn Folder Spine<br><small>Tự động nhận diện cấu trúc</small>
         </div>
-
-        <div class="section-header">Project Assets</div>
         <div id="asset-list"></div>
     </div>
 
     <div id="main-view">
-        <div id="toolbar">Drag to Move | Scroll to Scale | Click to Select</div>
         <div id="canvas-container"></div>
-        <div id="loading-overlay">🚀 <span id="load-status">Uploading to Server...</span></div>
+        <div id="loading-overlay">🚀 <span id="load-status">Processing Assets...</span></div>
     </div>
 
     <div id="sidebar-right">
@@ -100,14 +84,13 @@
                 <div class="prop-row"><div class="prop-name">Skin</div><select id="ins-skin"></select></div>
             </div>
             <div class="ins-section">
-                <button class="btn-ui btn-del" onclick="deleteActive()">Remove from Scene</button>
+                <button class="btn-ui btn-del" onclick="deleteActive()">Remove Object</button>
             </div>
         </div>
         <div id="ins-empty" style="padding: 20px; text-align: center; color: #444; font-size: 12px;">Chọn nhân vật để chỉnh sửa</div>
     </div>
 
 <script>
-    // --- SUPABASE & APP SETUP ---
     const SB_URL = 'https://jxifynhuxcigcomhfxad.supabase.co';
     const SB_KEY = 'sb_publishable_guA6fUpSMtATt1sZcPtK0g_vFVVlEig';
     const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
@@ -123,46 +106,17 @@
             resizeTo: document.getElementById('canvas-container'),
             backgroundColor: 0x1a1a1a,
             antialias: true,
-            resolution: window.devicePixelRatio || 1
+            resolution: window.devicePixelRatio || 1,
+            // Đảm bảo Canvas hỗ trợ Premultiplied Alpha tốt nhất
+            hello: true 
         });
         document.getElementById('canvas-container').appendChild(app.canvas);
         app.stage.eventMode = 'static';
         app.stage.on('pointerdown', (e) => { if(e.target === app.stage) select(null); });
     })();
 
-    // --- FILE HANDLING ---
-    const dz = document.getElementById('drop-zone');
     const fFolder = document.getElementById('file-folder');
-    const fSingle = document.getElementById('file-single');
-
-    document.getElementById('dz-trigger').onclick = () => fFolder.click();
-    [fFolder, fSingle].forEach(input => {
-        input.onchange = (e) => handleFiles(Array.from(e.target.files));
-    });
-
-    dz.ondragover = (e) => { e.preventDefault(); dz.style.borderColor = "#007acc"; };
-    dz.ondragleave = () => dz.style.borderColor = "#444";
-    dz.ondrop = async (e) => {
-        e.preventDefault(); dz.style.borderColor = "#444";
-        const files = [];
-        const items = e.dataTransfer.items;
-        for (let item of items) {
-            const entry = item.webkitGetAsEntry();
-            if (entry) await scanEntry(entry, files);
-        }
-        handleFiles(files);
-    };
-
-    async function scanEntry(entry, list) {
-        if (entry.isFile) {
-            const file = await new Promise(r => entry.file(r));
-            list.push(file);
-        } else if (entry.isDirectory) {
-            const reader = entry.createReader();
-            const entries = await new Promise(r => reader.readEntries(r));
-            for (let e of entries) await scanEntry(e, list);
-        }
-    }
+    fFolder.onchange = (e) => handleFiles(Array.from(e.target.files));
 
     function handleFiles(files) {
         files.forEach(f => {
@@ -191,7 +145,6 @@
         });
     }
 
-    // --- CORE PIPELINE ---
     async function uploadAndAdd(id) {
         const overlay = document.getElementById('loading-overlay');
         const status = document.getElementById('load-status');
@@ -202,21 +155,22 @@
             const uid = Date.now();
             const folder = `${id}_${uid}/`;
 
-            status.innerText = "Uploading PNG...";
+            status.innerText = "Step 1/3: Texture...";
             await supabaseClient.storage.from(BUCKET).upload(folder + group.png.name, group.png);
             
-            status.innerText = "Uploading Atlas...";
+            status.innerText = "Step 2/3: Atlas...";
             await supabaseClient.storage.from(BUCKET).upload(folder + group.atlas.name, group.atlas);
             const atlasUrl = supabaseClient.storage.from(BUCKET).getPublicUrl(folder + group.atlas.name).data.publicUrl;
 
-            status.innerText = "Uploading Skeleton...";
+            status.innerText = "Step 3/3: Skeleton...";
             const dataFile = group.json || group.skel;
             await supabaseClient.storage.from(BUCKET).upload(folder + dataFile.name, dataFile);
             const dataUrl = supabaseClient.storage.from(BUCKET).getPublicUrl(folder + dataFile.name).data.publicUrl;
 
-            // Load into Pixi with explicit formatting
             const atlasKey = `at_${uid}`;
             const dataKey = `sk_${uid}`;
+            
+            // Ép Pixi nạp ảnh với Alpha Mode chuẩn của Spine
             PIXI.Assets.add({ alias: atlasKey, src: atlasUrl, format: '.atlas' });
             PIXI.Assets.add({ alias: dataKey, src: dataUrl, format: group.json ? '.json' : '.skel' });
             
@@ -224,7 +178,7 @@
             const spineObj = spine.Spine.from({ skeleton: dataKey, atlas: atlasKey });
             
             spawn(spineObj, id);
-        } catch (e) { alert("Error: " + e.message); console.error(e); }
+        } catch (e) { alert("Error: " + e.message); }
         overlay.style.display = 'none';
     }
 
@@ -235,6 +189,12 @@
         obj.eventMode = 'static';
         obj.cursor = 'move';
         
+        // --- TỰ ĐỘNG CHẠY ANIMATION ĐẦU TIÊN ---
+        if (obj.state.data.skeletonData.animations.length > 0) {
+            const firstAnim = obj.state.data.skeletonData.animations[0].name;
+            obj.state.setAnimation(0, firstAnim, true);
+        }
+
         obj.on('pointerdown', (e) => { e.stopPropagation(); select(obj); });
         
         let drag = false;
@@ -253,9 +213,9 @@
         select(obj);
     }
 
-    // --- INSPECTOR ---
     function select(obj) {
-        if(activeObj) activeObj.alpha = 1;
+        // --- GIỮ NGUYÊN OPACITY (Xóa dòng activeObj.alpha = 0.7) ---
+        if(activeObj) activeObj.alpha = 1; 
         activeObj = obj;
         
         const content = document.getElementById('ins-content');
@@ -269,12 +229,11 @@
             return;
         }
 
-        activeObj.alpha = 0.7;
+        activeObj.alpha = 1; // Luôn giữ 100%
         content.style.display = 'block';
         empty.style.display = 'none';
         title.innerText = obj.name;
 
-        // Animations
         const aSel = document.getElementById('ins-anim');
         aSel.innerHTML = '';
         obj.skeleton.data.animations.forEach(a => {
@@ -284,7 +243,6 @@
         });
         if(obj.state.tracks[0]) aSel.value = obj.state.tracks[0].animation.name;
 
-        // Skins
         const sSel = document.getElementById('ins-skin');
         sSel.innerHTML = '';
         obj.skeleton.data.skins.forEach(s => {
