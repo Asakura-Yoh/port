@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spine 4.2 Web Previewer - Robust Backend Edition</title>
+    <title>Spine 4.2 Web Previewer - Pure Server Edition</title>
     
     <script src="https://unpkg.com/pixi.js@8.x/dist/pixi.min.js"></script>
     <script src="https://unpkg.com/@esotericsoftware/spine-pixi-v8@4.2/dist/iife/spine-pixi-v8.js"></script>
@@ -34,7 +34,7 @@
         canvas { width: 100%; height: 100%; display: block; }
         
         #toolbar { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); padding: 6px 12px; border-radius: 4px; font-size: 12px; pointer-events: none; z-index: 10; }
-        #loading-overlay { position: absolute; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 20; color: #fff; font-weight: bold; font-size: 18px; }
+        #loading-overlay { position: absolute; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.8); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 20; color: #fff; font-weight: bold; font-size: 18px; }
 
         #sidebar-right { width: 300px; background-color: var(--bg-panel); border-left: 1px solid #000; display: flex; flex-direction: column; z-index: 10; }
         .inspector-panel { padding: 15px; display: none; }
@@ -58,7 +58,10 @@
     <div id="main-view">
         <div id="canvas-wrapper">
             <div id="toolbar">Left Click: Select/Move | Scroll Wheel: Scale</div>
-            <div id="loading-overlay">Đang Upload Server & Khởi tạo... 🚀</div>
+            <div id="loading-overlay">
+                <div style="margin-bottom: 10px;">Đang Upload Server & Khởi tạo... 🚀</div>
+                <div id="loading-status" style="font-size: 14px; font-weight: normal; color: #aaa;"></div>
+            </div>
         </div>
     </div>
 
@@ -77,7 +80,7 @@
 
 <script>
     // ==========================================
-    // 1. APP STATE & KHỞI TẠO UI (Đưa lên ưu tiên số 1)
+    // KHỞI TẠO APP & SUPABASE
     // ==========================================
     const spineFiles = {};
     let activeSpineObj = null;
@@ -85,28 +88,54 @@
     let supabaseClient = null;
     const BUCKET_NAME = 'spine-assets';
 
+    try {
+        const SUPABASE_URL = 'https://jxifynhuxcigcomhfxad.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_guA6fUpSMtATt1sZcPtK0g_vFVVlEig';
+        if (window.supabase) supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    } catch (e) { console.error("Lỗi Supabase:", e); }
+
+    (async function initEngine() {
+        app = new PIXI.Application();
+        await app.init({
+            width: 1920, height: 1080,
+            backgroundColor: 0x333333,
+            resolution: window.devicePixelRatio || 1,
+            autoDensity: true
+        });
+        document.getElementById('canvas-wrapper').appendChild(app.canvas);
+
+        app.stage.eventMode = 'static';
+        app.stage.hitArea = new PIXI.Rectangle(0, 0, 1920, 1080);
+        app.stage.on('pointerdown', (e) => { if (e.target === app.stage) selectObject(null); });
+
+        app.canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            if (!activeSpineObj) return;
+            const scaleFactor = e.deltaY < 0 ? 1.1 : 0.9;
+            activeSpineObj.scale.x *= scaleFactor;
+            activeSpineObj.scale.y *= scaleFactor;
+        });
+    })();
+
+    // ==========================================
+    // XỬ LÝ KÉO THẢ & CHỌN FILE
+    // ==========================================
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
     
-    // Đảm bảo Click và Giao diện luôn sống dù API có sập
     dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
     dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
     dropZone.addEventListener('click', () => fileInput.click());
-
-    fileInput.addEventListener('change', (e) => { 
-        processFiles(Array.from(e.target.files)); 
-        fileInput.value = ''; 
-    });
+    fileInput.addEventListener('change', (e) => { processFiles(Array.from(e.target.files)); fileInput.value = ''; });
 
     dropZone.addEventListener('drop', async (e) => {
         e.preventDefault();
         dropZone.classList.remove('dragover');
         const files = [];
-        const items = e.dataTransfer.items;
-        if (items) {
+        if (e.dataTransfer.items) {
             const promises = [];
-            for (let i = 0; i < items.length; i++) {
-                const item = items[i].webkitGetAsEntry();
+            for (let i = 0; i < e.dataTransfer.items.length; i++) {
+                const item = e.dataTransfer.items[i].webkitGetAsEntry();
                 if (item) promises.push(traverseFileTree(item, files));
             }
             await Promise.all(promises);
@@ -118,9 +147,8 @@
 
     function traverseFileTree(item, filesList) {
         return new Promise((resolve) => {
-            if (item.isFile) {
-                item.file((file) => { filesList.push(file); resolve(); });
-            } else if (item.isDirectory) {
+            if (item.isFile) { item.file((file) => { filesList.push(file); resolve(); }); } 
+            else if (item.isDirectory) {
                 const dirReader = item.createReader();
                 dirReader.readEntries(async (entries) => {
                     const promises = [];
@@ -171,61 +199,14 @@
     }
 
     // ==========================================
-    // 2. KẾT NỐI BACKEND (Bọc Try/Catch chống treo máy)
-    // ==========================================
-    try {
-        const SUPABASE_URL = 'https://jxifynhuxcigcomhfxad.supabase.co';
-        const SUPABASE_KEY = 'sb_publishable_guA6fUpSMtATt1sZcPtK0g_vFVVlEig';
-        if (window.supabase) {
-            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        } else {
-            console.error("Supabase SDK chưa được nạp. Có thể do nghẽn mạng.");
-        }
-    } catch (e) {
-        console.error("Lỗi khởi tạo Backend:", e);
-    }
-
-    // ==========================================
-    // 3. KHỞI TẠO ENGINE GAME
-    // ==========================================
-    (async function initEngine() {
-        try {
-            app = new PIXI.Application();
-            await app.init({
-                width: 1920, height: 1080,
-                backgroundColor: 0x333333,
-                resolution: window.devicePixelRatio || 1,
-                autoDensity: true
-            });
-            document.getElementById('canvas-wrapper').appendChild(app.canvas);
-
-            app.stage.eventMode = 'static';
-            app.stage.hitArea = new PIXI.Rectangle(0, 0, 1920, 1080);
-            app.stage.on('pointerdown', (e) => { if (e.target === app.stage) selectObject(null); });
-
-            app.canvas.addEventListener('wheel', (e) => {
-                e.preventDefault();
-                if (!activeSpineObj) return;
-                const scaleFactor = e.deltaY < 0 ? 1.1 : 0.9;
-                activeSpineObj.scale.x *= scaleFactor;
-                activeSpineObj.scale.y *= scaleFactor;
-            });
-        } catch(e) {
-            console.error("Lỗi khởi tạo WebGL:", e);
-        }
-    })();
-
-    // ==========================================
-    // 4. LUỒNG UPLOAD & HIỂN THỊ CHÍNH
+    // THE PURE PIPELINE - CHUẨN MỰC GAME SERVER
     // ==========================================
     async function spawnToScene(baseName) {
         const loadingUI = document.getElementById('loading-overlay');
+        const statusText = document.getElementById('loading-status');
         const btn = document.getElementById(`btn-${baseName}`);
         
-        if (!supabaseClient) {
-            alert("Hệ thống Máy chủ chưa sẵn sàng. Vui lòng tải lại trang (F5) hoặc tắt Adblock.");
-            return;
-        }
+        if (!supabaseClient) { alert("Lỗi Backend. F5 lại trang nhé."); return; }
 
         try {
             loadingUI.style.display = 'flex';
@@ -233,39 +214,42 @@
 
             const files = spineFiles[baseName];
             const uid = Date.now();
-            const folderPath = `${baseName}_${uid}/`;
+            const folderPath = `${baseName}_${uid}/`; // Gom tất cả vào 1 folder
 
-            // BƯỚC 1: UPLOAD PNG
+            // 1. UPLOAD PNG NGUYÊN BẢN
+            statusText.innerText = "Đang tải ảnh lên máy chủ...";
             const pngPath = folderPath + files.png.name;
-            const { error: pngErr } = await supabaseClient.storage.from(BUCKET_NAME).upload(pngPath, files.png);
+            const { error: pngErr } = await supabaseClient.storage.from(BUCKET_NAME).upload(pngPath, files.png, { contentType: 'image/png' });
             if (pngErr) throw new Error("Lỗi upload PNG: " + pngErr.message);
-            const pngUrl = supabaseClient.storage.from(BUCKET_NAME).getPublicUrl(pngPath).data.publicUrl;
 
-            // BƯỚC 2: SỬA VÀ UPLOAD ATLAS
-            let atlasText = await files.atlas.text();
-            const pngNameMatch = atlasText.match(/^(.+\.(?:png|jpg|jpeg))$/m);
-            if (pngNameMatch) {
-                atlasText = atlasText.replace(pngNameMatch[1].trim(), pngUrl);
-            }
+            // 2. UPLOAD ATLAS NGUYÊN BẢN (KHÔNG CHỈNH SỬA TEXT)
+            statusText.innerText = "Đang cấu hình Atlas...";
             const atlasPath = folderPath + files.atlas.name;
-            const { error: atlasErr } = await supabaseClient.storage.from(BUCKET_NAME).upload(atlasPath, atlasText, { contentType: 'text/plain' });
+            const { error: atlasErr } = await supabaseClient.storage.from(BUCKET_NAME).upload(atlasPath, files.atlas, { contentType: 'text/plain' });
             if (atlasErr) throw new Error("Lỗi upload Atlas: " + atlasErr.message);
             const atlasUrl = supabaseClient.storage.from(BUCKET_NAME).getPublicUrl(atlasPath).data.publicUrl;
 
-            // BƯỚC 3: UPLOAD JSON / SKEL
+            // 3. UPLOAD KHUNG XƯƠNG (JSON / SKEL)
+            statusText.innerText = "Đang truyền tải Dữ liệu xương...";
+            const isJson = !!files.json;
             const dataFile = files.json || files.skel;
             const dataPath = folderPath + dataFile.name;
-            const { error: dataErr } = await supabaseClient.storage.from(BUCKET_NAME).upload(dataPath, dataFile);
+            const mimeType = isJson ? 'application/json' : 'application/octet-stream';
+            
+            const { error: dataErr } = await supabaseClient.storage.from(BUCKET_NAME).upload(dataPath, dataFile, { contentType: mimeType });
             if (dataErr) throw new Error("Lỗi upload Dữ liệu: " + dataErr.message);
             const dataUrl = supabaseClient.storage.from(BUCKET_NAME).getPublicUrl(dataPath).data.publicUrl;
 
-            // BƯỚC 4: PIXIJS RENDER TỪ URL THẬT
+            // 4. CHUYỂN GIAO CHO ENGINE
+            statusText.innerText = "Đang nạp vào WebGL...";
             const atlasAlias = `atlas_${uid}`;
             const dataAlias = `data_${uid}`;
 
-            PIXI.Assets.add({ alias: atlasAlias, src: atlasUrl });
-            PIXI.Assets.add({ alias: dataAlias, src: dataUrl });
+            // Ép định dạng rõ ràng để PixiJS không bao giờ bị nhầm lẫn
+            PIXI.Assets.add({ alias: atlasAlias, src: atlasUrl, format: '.atlas' });
+            PIXI.Assets.add({ alias: dataAlias, src: dataUrl, format: isJson ? '.json' : '.skel' });
 
+            // Trình duyệt tự động load Atlas. Atlas sẽ tự động load ảnh PNG cùng thư mục. Hoàn hảo!
             await PIXI.Assets.load([atlasAlias, dataAlias]);
 
             const spineDisplayObj = spine.Spine.from({
