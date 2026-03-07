@@ -3,72 +3,72 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spine 4.2 Pro Previewer - Perfect Center Lock</title>
+    <title>Spine 4.2 Pro Previewer - Perfect Border Fit</title>
     
     <script src="https://unpkg.com/pixi.js@8.x/dist/pixi.min.js"></script>
     <script src="https://unpkg.com/@esotericsoftware/spine-pixi-v8@4.2/dist/iife/spine-pixi-v8.js"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     
     <style>
-        :root { --bg-dark: #0a0a0a; --bg-panel: #1a1a1b; --accent: #007acc; --text: #cccccc; --border: #444444; }
+        :root { --bg-dark: #121212; --bg-panel: #1e1e1e; --accent: #007acc; --text: #cccccc; --border: #333333; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg-dark); color: var(--text); display: flex; width: 100vw; height: 100vh; overflow: hidden; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg-dark); color: var(--text); display: flex; width: 100vw; height: 100vh; overflow: hidden; position: relative; }
 
-        /* SIDEBARS - Transition mượt mà */
-        .sidebar { background: var(--bg-panel); border: 1px solid #000; display: flex; flex-direction: column; transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1); width: 300px; z-index: 10; flex-shrink: 0; position: relative; }
+        /* SIDEBARS */
+        .sidebar { background: var(--bg-panel); border: 1px solid #000; display: flex; flex-direction: column; transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease; width: 300px; z-index: 10; flex-shrink: 0; }
         .sidebar.hidden { width: 0 !important; opacity: 0; pointer-events: none; border: none; }
         
         #sidebar-left { border-right: 1px solid #000; }
         #sidebar-right { border-left: 1px solid #000; }
 
-        /* TOGGLE BUTTONS - Cố định ngoài Sidebar */
+        /* TOGGLE BUTTONS */
         .toggle-btn {
             position: fixed; top: 15px; width: 32px; height: 32px; 
-            background: #252526; color: #fff; border: 1px solid #555; 
+            background: #252526; color: #fff; border: 1px solid #444; 
             cursor: pointer; display: flex; align-items: center; justify-content: center;
-            z-index: 100; font-size: 14px; border-radius: 4px; transition: all 0.3s ease;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            z-index: 100; font-size: 14px; border-radius: 4px; transition: all 0.4s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         }
         .toggle-btn:hover { background: var(--accent); border-color: var(--accent); }
-        #toggle-l { left: 310px; } 
-        #toggle-r { right: 310px; }
-        .btn-collapsed-l { left: 10px !important; }
-        .btn-collapsed-r { right: 10px !important; }
+        #toggle-l { left: 315px; } 
+        #toggle-r { right: 315px; }
+        .btn-collapsed-l { left: 15px !important; }
+        .btn-collapsed-r { right: 15px !important; }
 
-        /* MAIN VIEWPORT - Khóa chặt căn giữa tuyệt đối */
+        /* MAIN VIEWPORT - CENTERED */
         #main-view { 
             flex: 1; 
-            background: #000; 
+            background: #0b0b0b; 
             display: flex; 
             justify-content: center; 
             align-items: center;     
             position: relative; 
             overflow: hidden; 
-            padding: 20px; /* Chừa lề nhỏ để viền không dính sát mép */
+            padding: 20px; /* Tạo khoảng trống nhỏ để không dính sát mép sidebar */
         }
         
-        /* KHUNG WRAPPER 16:9 CHUẨN MỰC */
+        /* FIXED: CANVAS WRAPPER - VIỀN KHÍT 16:9 */
         #canvas-wrapper { 
-            position: relative;
             aspect-ratio: 16 / 9; 
-            /* Mấu chốt: Luôn to nhất có thể nhưng không bao giờ vượt quá vùng chứa */
-            width: 100%;
-            height: 100%;
+            position: relative;
+            /* Thay đổi quan trọng ở đây để viền ôm khít */
+            width: 100%; 
+            height: auto; 
             max-width: 100%;
             max-height: 100%;
-            border: 1px solid var(--border); /* Viền bao sát khít nội dung */
-            background: #1a1a1a;
-            display: flex;
-            justify-content: center;
+            
+            display: flex; 
+            justify-content: center; 
             align-items: center;
-            box-shadow: 0 0 50px rgba(0,0,0,0.8);
+            border: 1px solid #444; /* Viền xám mảnh */
+            background: #1a1a1a; 
+            box-shadow: 0 0 30px rgba(0,0,0,0.6);
         }
-        
-        #canvas-container { width: 100%; height: 100%; }
+        #canvas-container { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
         canvas { width: 100%; height: 100%; display: block; object-fit: contain; }
 
         /* UI ELEMENTS */
-        #bottom-info { position: absolute; bottom: 15px; background: rgba(0,0,0,0.85); padding: 4px 15px; border-radius: 20px; font-size: 10px; color: #666; display: flex; gap: 20px; z-index: 5; }
+        #bottom-info { position: absolute; bottom: 20px; background: rgba(0,0,0,0.8); padding: 6px 20px; border-radius: 20px; font-size: 11px; color: #666; display: flex; gap: 25px; z-index: 5; }
         .scale-badge { color: var(--accent); font-weight: bold; }
         #drop-zone { margin: 15px; padding: 25px 10px; border: 2px dashed #444; text-align: center; cursor: pointer; border-radius: 6px; font-size: 11px; margin-top: 60px; }
         #asset-list { flex: 1; overflow-y: auto; padding: 10px; }
@@ -79,7 +79,7 @@
         .prop-row { display: flex; align-items: center; margin-bottom: 12px; font-size: 12px; gap: 10px; }
         input, select { background: #121212; border: 1px solid #333; color: #fff; padding: 5px; font-size: 11px; width: 100%; outline: none; }
         .btn-ui { background: var(--accent); color: #fff; border: none; padding: 10px; cursor: pointer; width: 100%; font-weight: bold; border-radius: 4px; }
-        #loading-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }
+        #loading-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.85); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }
     </style>
 </head>
 <body>
@@ -90,7 +90,7 @@
     <div id="sidebar-left" class="sidebar">
         <input type="file" id="file-folder" webkitdirectory directory multiple style="display:none">
         <div id="drop-zone" onclick="document.getElementById('file-folder').click()">
-            📁 Drop Folder Spine Here<br><small>1920 x 1080</small>
+            📁 Drop Folder Spine Here<br><small>Canvas: 1920 x 1080</small>
         </div>
         <div id="asset-list"></div>
     </div>
@@ -101,7 +101,7 @@
         </div>
         
         <div id="bottom-info">
-            <span>Drag: Move | Scroll: Scale | Grid 1920x1080</span>
+            <span>Drag: Move | Scroll: Scale | Grid: 1920x1080</span>
             <span>View Scale: <span id="view-scale" class="scale-badge">100%</span></span>
         </div>
         
@@ -130,7 +130,8 @@
     const SB_URL = 'https://jxifynhuxcigcomhfxad.supabase.co';
     const SB_KEY = 'sb_publishable_guA6fUpSMtATt1sZcPtK0g_vFVVlEig';
     const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
-    
+    const BUCKET = 'spine-assets';
+
     const spineFiles = {};
     let activeObj = null;
     let app = null;
@@ -167,10 +168,7 @@
             btn.classList.toggle('btn-collapsed-r');
         }
         
-        // Cập nhật lại UI sau khi sidebar trượt xong
-        setTimeout(() => {
-            updateScaleDisplay();
-        }, 310);
+        setTimeout(updateScaleDisplay, 450);
     }
 
     function updateScaleDisplay() {
@@ -180,7 +178,6 @@
         document.getElementById('view-scale').innerText = Math.round(scale) + "%";
     }
 
-    // --- ASSET HANDLING ---
     const fFolder = document.getElementById('file-folder');
     fFolder.onchange = (e) => handleFiles(Array.from(e.target.files));
 
@@ -214,13 +211,13 @@
             const uid = Date.now();
             const folder = `${id}_${uid}/`;
 
-            await supabaseClient.storage.from('spine-assets').upload(folder + group.png.name, group.png);
-            await supabaseClient.storage.from('spine-assets').upload(folder + group.atlas.name, group.atlas);
-            const atlasUrl = supabaseClient.storage.from('spine-assets').getPublicUrl(folder + group.atlas.name).data.publicUrl;
+            await supabaseClient.storage.from(BUCKET).upload(folder + group.png.name, group.png);
+            await supabaseClient.storage.from(BUCKET).upload(folder + group.atlas.name, group.atlas);
+            const atlasUrl = supabaseClient.storage.from(BUCKET).getPublicUrl(folder + group.atlas.name).data.publicUrl;
 
             const dataFile = group.json || group.skel;
-            await supabaseClient.storage.from('spine-assets').upload(folder + dataFile.name, dataFile);
-            const dataUrl = supabaseClient.storage.from('spine-assets').getPublicUrl(folder + dataFile.name).data.publicUrl;
+            await supabaseClient.storage.from(BUCKET).upload(folder + dataFile.name, dataFile);
+            const dataUrl = supabaseClient.storage.from(BUCKET).getPublicUrl(folder + dataFile.name).data.publicUrl;
 
             const atlasKey = `at_${uid}`;
             const dataKey = `sk_${uid}`;
