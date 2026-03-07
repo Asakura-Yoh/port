@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spine 4.2 Web Previewer - Ultimate Edition</title>
+    <title>Spine 4.2 Web Previewer - Stable Edition</title>
     
     <script src="https://unpkg.com/pixi.js@8.x/dist/pixi.min.js"></script>
     <script src="https://unpkg.com/@esotericsoftware/spine-pixi-v8@4.2/dist/iife/spine-pixi-v8.js"></script>
@@ -320,58 +320,60 @@
         });
     }
 
-    // --- BULLETPROOF SPINE PIPELINE ---
+    // --- BULLETPROOF SPINE PIPELINE (MANUAL PARSING) ---
     async function spawnToScene(baseName) {
         try {
             const files = spineFiles[baseName];
-            const uniqueId = "spine_" + Date.now(); // Cache collision prevention
-
-            // 1. Process PNG (Bảo toàn định dạng bằng Blob MIME Type)
+            const uniqueId = "spine_" + Date.now();
             const texAlias = `${uniqueId}.png`;
-            const texBlob = new Blob([await files.png.arrayBuffer()], { type: 'image/png' });
-            const texUrl = URL.createObjectURL(texBlob) + '#.png';
+
+            // 1. Chỉ Load PNG qua PixiJS
+            const texUrl = URL.createObjectURL(files.png);
             PIXI.Assets.add({ alias: texAlias, src: texUrl });
 
-            // 2. Process Atlas (Thay thế Tên Ảnh một cách an toàn nhất)
+            // 2. Load và thay thế an toàn nội dung Atlas
             let atlasText = await files.atlas.text();
             let lines = atlasText.split(/\r?\n/);
-            for(let i=0; i<lines.length; i++) {
-                // Chỉ thay đổi dòng khai báo tên ảnh gốc, giữ nguyên các vùng Region
+            for(let i = 0; i < lines.length; i++) {
                 if(lines[i].trim() === files.png.name.trim()) {
-                    lines[i] = texAlias; 
+                    lines[i] = texAlias;
                 }
             }
             const atlasAlias = `${uniqueId}.atlas`;
             const atlasBlob = new Blob([lines.join('\n')], { type: 'text/plain' });
-            const atlasUrl = URL.createObjectURL(atlasBlob) + '#.atlas';
-            PIXI.Assets.add({ alias: atlasAlias, src: atlasUrl });
-
-            // 3. Process Data (.json / .skel)
-            let dataAlias, dataUrl;
-            if (files.json) {
-                dataAlias = `${uniqueId}.json`;
-                // Ép chuẩn JSON thay vì để Text thô, ngăn lỗi null Skeleton
-                const dataBlob = new Blob([await files.json.text()], { type: 'application/json' });
-                dataUrl = URL.createObjectURL(dataBlob) + '#.json';
-            } else {
-                dataAlias = `${uniqueId}.skel`;
-                const dataBlob = new Blob([await files.skel.arrayBuffer()], { type: 'application/octet-stream' });
-                dataUrl = URL.createObjectURL(dataBlob) + '#.skel';
-            }
-            PIXI.Assets.add({ alias: dataAlias, src: dataUrl });
-
-            // 4. Load & Construct
-            await PIXI.Assets.load([texAlias, atlasAlias, dataAlias]);
-
-            const spineDisplayObj = spine.Spine.from({
-                skeleton: dataAlias,
-                atlas: atlasAlias
+            PIXI.Assets.add({ 
+                alias: atlasAlias, 
+                src: URL.createObjectURL(atlasBlob), 
+                data: { extension: '.atlas' } 
             });
+
+            // 3. Đợi PixiJS nạp xong Ảnh và Atlas vào bộ nhớ đệm
+            await PIXI.Assets.load([texAlias, atlasAlias]);
+            const loadedAtlas = PIXI.Assets.cache.get(atlasAlias);
+
+            // 4. TỰ TAY PARSE DỮ LIỆU (Bypass lỗi PixiJS JSON null)
+            const atlasLoader = new spine.AtlasAttachmentLoader(loadedAtlas);
+            let skeletonData;
+
+            if (files.json) {
+                const skeletonJson = new spine.SkeletonJson(atlasLoader);
+                // Ép kiểu dữ liệu chuẩn Object bằng JSON.parse cục bộ
+                const rawJsonObj = JSON.parse(await files.json.text());
+                skeletonData = skeletonJson.readSkeletonData(rawJsonObj);
+            } else if (files.skel) {
+                const skeletonBinary = new spine.SkeletonBinary(atlasLoader);
+                const buffer = new Uint8Array(await files.skel.arrayBuffer());
+                skeletonData = skeletonBinary.readSkeletonData(buffer);
+            }
+
+            // 5. Khởi tạo đối tượng Spine từ SkeletonData sạch
+            const spineDisplayObj = new spine.Spine(skeletonData);
 
             spineDisplayObj.name = baseName;
             spineDisplayObj.x = 1920 / 2;
             spineDisplayObj.y = 1080 / 2;
             
+            // Chạy Animation mặc định đầu tiên
             if (spineDisplayObj.skeleton.data.animations.length > 0) {
                 const firstAnim = spineDisplayObj.skeleton.data.animations[0].name;
                 spineDisplayObj.state.setAnimation(0, firstAnim, true);
