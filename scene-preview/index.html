@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spine 4.2 Web Previewer - Cloudflare Edition</title>
+    <title>Spine 4.2 Web Previewer - Cloudflare Master Edition</title>
     
     <script src="https://unpkg.com/pixi.js@8.x/dist/pixi.min.js"></script>
     <script src="https://unpkg.com/@esotericsoftware/spine-pixi-v8@4.2/dist/iife/spine-pixi-v8.js"></script>
@@ -180,57 +180,47 @@
         });
     }
 
-    // --- BULLETPROOF CLOUDFLARE PIPELINE (EXPLICIT FORMATTING) ---
+    // --- BULLETPROOF DRAG & DROP PIPELINE ---
     async function spawnToScene(baseName) {
         try {
             const files = spineFiles[baseName];
-            const uniqueId = Date.now();
+            const uid = Date.now(); // Định danh độc nhất chống cache trùng lặp
 
-            // 1. FORCE LOAD TEXTURE FIRST
-            const texAlias = `tex_${baseName}_${uniqueId}`;
-            // explicitly tell PixiJS this is a .png so it parses correctly even from a blob URL
-            PIXI.Assets.add({ 
-                alias: texAlias, 
-                src: URL.createObjectURL(files.png),
-                format: '.png' 
-            });
-            await PIXI.Assets.load(texAlias); // Must await to prevent WebGL sync issues
+            // 1. IMAGE: Nạp ảnh và ép định dạng #.png
+            const pngAlias = `png_${uid}`;
+            const pngUrl = URL.createObjectURL(files.png) + '#.png'; 
+            PIXI.Assets.add({ alias: pngAlias, src: pngUrl });
 
-            // 2. PREPARE ATLAS
+            // 2. ATLAS: Thay tên file ảnh bên trong Atlas bằng tên định danh (Alias)
             const atlasText = await files.atlas.text();
-            let lines = atlasText.split(/\r?\n/);
+            const lines = atlasText.split(/\r?\n/);
             for (let i = 0; i < lines.length; i++) {
                 if (lines[i].trim().match(/\.(png|jpg|jpeg)$/i)) {
-                    lines[i] = texAlias; // Connect Atlas directly to the loaded texture alias
+                    lines[i] = pngAlias; // Ép Atlas tìm đúng cái ảnh vừa nạp
                     break;
                 }
             }
             const atlasBlob = new Blob([lines.join('\n')], { type: 'text/plain' });
-            const atlasAlias = `atlas_${baseName}_${uniqueId}`;
-            PIXI.Assets.add({ 
-                alias: atlasAlias, 
-                src: URL.createObjectURL(atlasBlob),
-                format: '.atlas' // Explicit hint
-            });
+            const atlasAlias = `atlas_${uid}`;
+            const atlasUrl = URL.createObjectURL(atlasBlob) + '#.atlas'; // Ép Pixi hiểu đây là Atlas
+            PIXI.Assets.add({ alias: atlasAlias, src: atlasUrl });
 
-            // 3. PREPARE SKELETON DATA
+            // 3. SKELETON DATA: Đóng gói an toàn tuyệt đối
             const isJson = !!files.json;
+            const dataFile = files.json || files.skel;
             const dataExt = isJson ? '.json' : '.skel';
-            const dataBlob = isJson 
-                ? new Blob([await files.json.text()], { type: 'application/json' })
-                : new Blob([await files.skel.arrayBuffer()], { type: 'application/octet-stream' });
-                
-            const dataAlias = `data_${baseName}_${uniqueId}`;
-            PIXI.Assets.add({ 
-                alias: dataAlias, 
-                src: URL.createObjectURL(dataBlob),
-                format: dataExt // Explicit hint
-            });
+            const mimeType = isJson ? 'application/json' : 'application/octet-stream';
+            
+            // Dùng arrayBuffer để không làm hỏng dữ liệu Nhị phân (Binary) hoặc lỗi Font JSON
+            const dataBlob = new Blob([await dataFile.arrayBuffer()], { type: mimeType });
+            const dataAlias = `data_${uid}`;
+            const dataUrl = URL.createObjectURL(dataBlob) + '#' + dataExt; // Ép Pixi hiểu đây là JSON/SKEL
+            PIXI.Assets.add({ alias: dataAlias, src: dataUrl });
 
-            // 4. LOAD TEXT DATA
-            await PIXI.Assets.load([atlasAlias, dataAlias]);
+            // 4. CHẠY PIPELINE (Đợi nạp xong 100%)
+            await PIXI.Assets.load([pngAlias, atlasAlias, dataAlias]);
 
-            // 5. ASSEMBLE SPINE
+            // 5. KHỞI TẠO SPINE
             const spineDisplayObj = spine.Spine.from({
                 skeleton: dataAlias,
                 atlas: atlasAlias
@@ -251,7 +241,7 @@
 
         } catch (error) {
             console.error("Spine Pipeline Error:", error);
-            alert("Error loading asset: Please check F12 Console. \n" + error.message);
+            alert("Lỗi Load Asset: F12 để xem chi tiết.\n" + error.message);
         }
     }
 
