@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spine 4.2 Pro Previewer - Hierarchy & Layers Edition</title>
+    <title>Spine 4.2 Pro Previewer - Hierarchy & Duplicate Edition</title>
     
     <script src="https://unpkg.com/pixi.js@8.x/dist/pixi.min.js"></script>
     <script src="https://unpkg.com/@esotericsoftware/spine-pixi-v8@4.2/dist/iife/spine-pixi-v8.js"></script>
@@ -35,7 +35,7 @@
         .btn-collapsed-l { left: 15px !important; }
         .btn-collapsed-r { right: 15px !important; }
 
-        /* MAIN VIEWPORT - CENTERED WITH BORDER (GIỮ NGUYÊN) */
+        /* MAIN VIEWPORT */
         #main-view { 
             flex: 1; 
             background: #0b0b0b; 
@@ -49,11 +49,8 @@
         #canvas-wrapper { 
             aspect-ratio: 16 / 9; 
             position: relative;
-            
-            /* CÔNG THỨC GIỮ VIỀN KHÍT 100% ĐÃ CHỐT */
             width: min(98%, calc(94vh * 16 / 9)); 
             max-height: 94vh;
-            
             display: flex; 
             justify-content: center; 
             align-items: center;
@@ -77,7 +74,8 @@
         .ins-header-main { padding: 20px 15px; background: #252526; color: var(--accent); font-weight: bold; font-size: 14px; margin-top: 60px; border-bottom: 1px solid #000; }
         .prop-row { display: flex; align-items: center; margin-bottom: 12px; font-size: 12px; gap: 10px; }
         input, select { background: #121212; border: 1px solid #333; color: #fff; padding: 5px; font-size: 11px; width: 100%; outline: none; }
-        .btn-ui { background: var(--accent); color: #fff; border: none; padding: 8px; cursor: pointer; width: 100%; font-weight: bold; border-radius: 4px; }
+        .btn-ui { background: var(--accent); color: #fff; border: none; padding: 8px; cursor: pointer; width: 100%; font-weight: bold; border-radius: 4px; transition: 0.2s; }
+        .btn-ui:hover { filter: brightness(1.2); }
         #loading-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.85); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }
 
         /* RIGHT SIDEBAR (HIERARCHY & LAYERS) CSS */
@@ -151,7 +149,7 @@
         });
         document.getElementById('canvas-container').appendChild(app.canvas);
         
-        // BẬT TÍNH NĂNG Z-INDEX CỦA PIXIJS
+        // Bật tính năng sắp xếp Layer (Z-Index)
         app.stage.sortableChildren = true;
         
         app.stage.eventMode = 'static';
@@ -234,7 +232,12 @@
             PIXI.Assets.add({ alias: dataKey, src: dataUrl, format: group.json ? '.json' : '.skel' });
             
             await PIXI.Assets.load([atlasKey, dataKey]);
+            
             const spineObj = spine.Spine.from({ skeleton: dataKey, atlas: atlasKey });
+            
+            // Lưu Data Keys để dành cho việc Duplicate sau này
+            spineObj.skeletonKey = dataKey;
+            spineObj.atlasKey = atlasKey;
             
             spawn(spineObj, id);
         } catch (e) { alert(e.message); }
@@ -243,7 +246,6 @@
 
     // --- SCENE & HIERARCHY LOGIC ---
     function spawn(obj, name) {
-        // Khởi tạo thông số định danh
         obj.uid = 'spine_' + Date.now() + '_' + Math.floor(Math.random()*1000);
         obj.name = name;
         obj.x = LOGICAL_WIDTH / 2; obj.y = LOGICAL_HEIGHT / 2;
@@ -265,7 +267,6 @@
                 obj.x = (e.clientX - rect.left) * scaleX;
                 obj.y = (e.clientY - rect.top) * scaleY;
                 
-                // Cập nhật số liệu trong bảng Inspector trực tiếp
                 const layerDOM = document.getElementById(obj.uid);
                 if(layerDOM) {
                     layerDOM.querySelector('.ins-x').value = Math.round(obj.x);
@@ -277,7 +278,6 @@
 
         app.stage.addChild(obj);
         
-        // Thêm Layer vào Danh sách bên phải
         createHierarchyNode(obj);
         select(obj);
         checkEmptyState();
@@ -297,18 +297,21 @@
             <div class="layer-body">
                 <div class="prop-row">
                     <div style="width:60px">Layer Z</div>
-                    <input type="number" class="ins-z" title="Thứ tự lớp (Lớn nằm trên)">
+                    <input type="number" class="ins-z" title="Thứ tự lớp (Số lớn nằm trên)">
                 </div>
                 <div class="prop-row"><div style="width:60px">Pos X</div><input type="number" class="ins-x" value="${Math.round(obj.x)}"></div>
                 <div class="prop-row"><div style="width:60px">Pos Y</div><input type="number" class="ins-y" value="${Math.round(obj.y)}"></div>
-                <div class="prop-row"><div style="width:60px">Scale</div><input type="number" class="ins-scale" step="0.05" value="1.00"></div>
+                <div class="prop-row"><div style="width:60px">Scale</div><input type="number" class="ins-scale" step="0.05" value="${obj.scale.x.toFixed(2)}"></div>
                 <div class="prop-row"><select class="ins-anim"></select></div>
                 <div class="prop-row"><select class="ins-skin"></select></div>
-                <button class="btn-ui btn-remove" style="background:#8b2a2a; margin-top:5px;">Remove Asset</button>
+                
+                <div style="display: flex; gap: 8px; margin-top: 10px;">
+                    <button class="btn-ui btn-duplicate" style="background:#007acc; flex:1;">Duplicate</button>
+                    <button class="btn-ui btn-remove" style="background:#8b2a2a; flex:1;">Remove</button>
+                </div>
             </div>
         `;
 
-        // Đổ Data cho Anim & Skin
         const aSel = div.querySelector('.ins-anim');
         obj.skeleton.data.animations.forEach(a => {
             const opt = document.createElement('option'); opt.value = opt.text = a.name; aSel.add(opt);
@@ -322,14 +325,12 @@
         if(obj.skeleton.skin) sSel.value = obj.skeleton.skin.name;
 
         // BẮT SỰ KIỆN TƯƠNG TÁC
-        // 1. Tắt mở thuộc tính
         const header = div.querySelector('.layer-header');
         header.addEventListener('click', () => {
             div.classList.toggle('expanded');
             select(obj);
         });
 
-        // 2. Kéo thả Header để sắp xếp
         header.addEventListener('dragstart', (e) => {
             e.dataTransfer.setData('text/plain', obj.uid);
             setTimeout(() => div.classList.add('dragging'), 0);
@@ -338,21 +339,62 @@
             div.classList.remove('dragging');
         });
 
-        // 3. Nhập số liệu thay đổi
         div.querySelector('.ins-x').oninput = (e) => obj.x = Number(e.target.value);
         div.querySelector('.ins-y').oninput = (e) => obj.y = Number(e.target.value);
         div.querySelector('.ins-scale').oninput = (e) => obj.scale.set(Number(e.target.value));
         div.querySelector('.ins-anim').onchange = (e) => obj.state.setAnimation(0, e.target.value, true);
         div.querySelector('.ins-skin').onchange = (e) => { obj.skeleton.setSkinByName(e.target.value); obj.skeleton.setSlotsToSetupPose(); };
         
-        // 4. Sửa số thứ tự Layer Z thủ công
         div.querySelector('.ins-z').onchange = (e) => {
             obj.zIndex = Number(e.target.value);
             app.stage.sortChildren();
             reorderDOMBasedOnZIndex();
         };
 
-        // 5. Nút Xóa
+        // EVENT: NÚT DUPLICATE
+        div.querySelector('.btn-duplicate').onclick = (e) => {
+            e.stopPropagation();
+            
+            // Khởi tạo bản sao từ bộ nhớ cache của PIXI
+            const clone = spine.Spine.from({ skeleton: obj.skeletonKey, atlas: obj.atlasKey });
+            clone.skeletonKey = obj.skeletonKey;
+            clone.atlasKey = obj.atlasKey;
+            
+            // Lưu giữ trạng thái gốc (đúng 100% yêu cầu)
+            const currentAnim = obj.state.tracks[0] ? obj.state.tracks[0].animation.name : null;
+            const currentSkin = obj.skeleton.skin ? obj.skeleton.skin.name : null;
+            const currentX = obj.x;
+            const currentY = obj.y;
+            const currentScale = obj.scale.x;
+            
+            // Đẩy vào Scene
+            spawn(clone, obj.name + ' (Copy)');
+            
+            // Set thông số y hệt bản gốc
+            clone.x = currentX;
+            clone.y = currentY;
+            clone.scale.set(currentScale);
+            
+            if (currentSkin) {
+                clone.skeleton.setSkinByName(currentSkin);
+                clone.skeleton.setSlotsToSetupPose();
+            }
+            if (currentAnim) {
+                clone.state.setAnimation(0, currentAnim, true);
+            }
+            
+            // Cập nhật Data lên thanh UI Inspector
+            const newLayerDOM = document.getElementById(clone.uid);
+            if (newLayerDOM) {
+                newLayerDOM.querySelector('.ins-x').value = Math.round(clone.x);
+                newLayerDOM.querySelector('.ins-y').value = Math.round(clone.y);
+                newLayerDOM.querySelector('.ins-scale').value = clone.scale.x.toFixed(2);
+                if (currentAnim) newLayerDOM.querySelector('.ins-anim').value = currentAnim;
+                if (currentSkin) newLayerDOM.querySelector('.ins-skin').value = currentSkin;
+            }
+        };
+
+        // EVENT: NÚT REMOVE
         div.querySelector('.btn-remove').onclick = (e) => {
             e.stopPropagation();
             app.stage.removeChild(obj);
@@ -361,8 +403,8 @@
             checkEmptyState();
         };
 
-        list.prepend(div); // Thêm lên đầu danh sách (Lớp trên cùng)
-        updateZIndexesFromDOM(); // Tự động tính toán lại Z-Order cho mọi layer
+        list.prepend(div); 
+        updateZIndexesFromDOM(); 
     }
 
     function select(obj) {
@@ -388,7 +430,7 @@
         else empty.style.display = 'none';
     }
 
-    // --- HỆ THỐNG QUẢN LÝ LAYER (KÉO THẢ) ---
+    // --- HỆ THỐNG KÉO THẢ (DRAG & DROP) ---
     function setupDragAndDropList() {
         const list = document.getElementById('hierarchy-list');
         list.addEventListener('dragover', e => {
@@ -403,7 +445,7 @@
         
         list.addEventListener('drop', e => {
             e.preventDefault();
-            updateZIndexesFromDOM(); // Khi thả ra, gán lại số thứ tự từ trên xuống dưới
+            updateZIndexesFromDOM(); // Update số Layer Z sau khi thả
         });
     }
 
@@ -419,17 +461,17 @@
 
     function updateZIndexesFromDOM() {
         const items = document.querySelectorAll('.layer-item');
-        let z = items.length; // Thằng đứng đầu mảng DOM = Lớp hiển thị cao nhất
+        let z = items.length; // Phần tử trên cùng của List DOM sẽ nằm cao nhất trên Canvas
         items.forEach(item => {
             const uid = item.id;
             const targetObj = app.stage.children.find(c => c.uid === uid);
             if (targetObj) {
                 targetObj.zIndex = z;
-                item.querySelector('.ins-z').value = z; // Hiện số vào input
+                item.querySelector('.ins-z').value = z; 
             }
             z--;
         });
-        app.stage.sortChildren(); // Báo PixiJS vẽ lại
+        app.stage.sortChildren();
     }
 
     function reorderDOMBasedOnZIndex() {
@@ -438,9 +480,9 @@
         items.sort((a, b) => {
             const zA = Number(a.querySelector('.ins-z').value);
             const zB = Number(b.querySelector('.ins-z').value);
-            return zB - zA; // Sắp xếp từ lớn xuống bé
+            return zB - zA; 
         });
-        items.forEach(item => list.appendChild(item)); // Ráp lại DOM
+        items.forEach(item => list.appendChild(item)); 
     }
 </script>
 </body>
