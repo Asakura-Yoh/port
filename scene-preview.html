@@ -102,17 +102,18 @@
             border-radius: 4px;
             font-size: 12px;
             pointer-events: none;
+            z-index: 10;
         }
     </style>
 </head>
 <body>
 
     <div id="sidebar">
-        <input type="file" id="file-input" multiple accept=".json,.atlas,.png" style="display: none;">
+        <input type="file" id="file-input" multiple webkitdirectory directory style="display: none;">
         
         <div id="drop-zone">
-            📁 Kéo thả hoặc <strong>Click</strong> vào đây<br>
-            <small>để tải lên file (.json, .atlas, .png)</small>
+            📁 Kéo thả Folder / Files<br>
+            hoặc <strong>Click</strong> vào đây<br>
         </div>
         <div class="section-title">Project Assets</div>
         <div id="asset-list"></div>
@@ -145,7 +146,6 @@
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
     
-    // 1. Drag & Drop events
     dropZone.addEventListener('dragover', (e) => {
         e.preventDefault();
         dropZone.classList.add('dragover');
@@ -153,20 +153,58 @@
 
     dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
 
-    dropZone.addEventListener('drop', (e) => {
+    // Handle Drag & Drop (Supports Folders via WebKit API)
+    dropZone.addEventListener('drop', async (e) => {
         e.preventDefault();
         dropZone.classList.remove('dragover');
-        processFiles(Array.from(e.dataTransfer.files));
+        
+        const files = [];
+        const items = e.dataTransfer.items;
+        
+        if (items) {
+            // Traverse all dropped items (could be files or folders)
+            const promises = [];
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i].webkitGetAsEntry();
+                if (item) promises.push(traverseFileTree(item, files));
+            }
+            await Promise.all(promises);
+        } else {
+            // Fallback for older browsers
+            files.push(...Array.from(e.dataTransfer.files));
+        }
+        
+        processFiles(files);
     });
 
-    // 2. Click to upload events
-    dropZone.addEventListener('click', () => {
-        fileInput.click(); // Trigger hidden input
-    });
+    // Recursive directory traversal
+    function traverseFileTree(item, filesList) {
+        return new Promise((resolve) => {
+            if (item.isFile) {
+                item.file((file) => {
+                    filesList.push(file);
+                    resolve();
+                });
+            } else if (item.isDirectory) {
+                const dirReader = item.createReader();
+                dirReader.readEntries(async (entries) => {
+                    const promises = [];
+                    for (let i = 0; i < entries.length; i++) {
+                        promises.push(traverseFileTree(entries[i], filesList));
+                    }
+                    await Promise.all(promises);
+                    resolve();
+                });
+            }
+        });
+    }
+
+    // Handle Click (Folder selection)
+    dropZone.addEventListener('click', () => fileInput.click());
 
     fileInput.addEventListener('change', (e) => {
         processFiles(Array.from(e.target.files));
-        fileInput.value = ''; // Reset input to allow selecting the same files again
+        fileInput.value = ''; 
     });
 
     // --- FILE PROCESSING ---
@@ -175,7 +213,9 @@
             const nameMatch = file.name.match(/(.+)\.(json|atlas|png)$/i);
             if (!nameMatch) return;
 
-            const baseName = nameMatch[1];
+            // Extract base name ignoring paths (for folder uploads)
+            const fullName = nameMatch[1];
+            const baseName = fullName.substring(fullName.lastIndexOf('/') + 1).substring(fullName.lastIndexOf('\\') + 1);
             const ext = nameMatch[2].toLowerCase();
 
             if (!spineFiles[baseName]) spineFiles[baseName] = {};
@@ -205,7 +245,7 @@
                         ${group.png ? '✓ PNG' : ''}
                     </small>
                 </div>
-                ${isReady ? '<button style="padding:4px 8px; cursor:pointer; background:#007acc; color:#fff; border:none; border-radius:3px;" onclick="spawnToScene(\'' + name + '\')">Add</button>' : ''}
+                ${isReady ? `<button style="padding:4px 8px; cursor:pointer; background:#007acc; color:#fff; border:none; border-radius:3px;" onclick="spawnToScene('${name}')">Add</button>` : ''}
             `;
             listContainer.appendChild(div);
         });
@@ -220,12 +260,13 @@
         const atlasText = await files.atlas.text();
         const jsonText = await files.json.text();
 
-        const atlas = new PIXI.spine.core.TextureAtlas(atlasText, (line, callback) => {
+        // FIXED ERROR: Removed '.core' from PIXI.spine classes for v4+ compatibility
+        const atlas = new PIXI.spine.TextureAtlas(atlasText, (line, callback) => {
             callback(PIXI.BaseTexture.from(pngUrl));
         });
 
-        const atlasLoader = new PIXI.spine.core.AtlasAttachmentLoader(atlas);
-        const skeletonJson = new PIXI.spine.core.SkeletonJson(atlasLoader);
+        const atlasLoader = new PIXI.spine.AtlasAttachmentLoader(atlas);
+        const skeletonJson = new PIXI.spine.SkeletonJson(atlasLoader);
         
         const rawJsonData = JSON.parse(jsonText);
         return skeletonJson.readSkeletonData(rawJsonData);
@@ -251,7 +292,7 @@
 
         } catch (error) {
             console.error("Spine Parsing Error:", error);
-            alert("Có lỗi khi parse file Spine. Vui lòng check console (F12).");
+            alert("Lỗi Parse: Mở F12 Console để xem chi tiết. \n" + error.message);
         }
     }
 
