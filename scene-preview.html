@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spine 4.2 Web Previewer - Raw Memory Parser</title>
+    <title>Spine 4.2 Web Previewer - Final Base64 Edition</title>
     
     <script src="https://unpkg.com/pixi.js@8.x/dist/pixi.min.js"></script>
     <script src="https://unpkg.com/@esotericsoftware/spine-pixi-v8@4.2/dist/iife/spine-pixi-v8.js"></script>
@@ -132,29 +132,17 @@
         }
 
         .inspector-panel { padding: 15px; display: none; }
-
         .inspector-group { margin-bottom: 15px; }
         .inspector-group label { display: block; font-size: 12px; margin-bottom: 5px; color: #aaa; }
         .inspector-group select {
-            width: 100%;
-            padding: 6px;
-            background: #333;
-            color: #fff;
-            border: 1px solid var(--border);
-            border-radius: 3px;
-            outline: none;
+            width: 100%; padding: 6px; background: #333; color: #fff;
+            border: 1px solid var(--border); border-radius: 3px; outline: none;
         }
         .inspector-group select:focus { border-color: var(--accent); }
 
         .btn-delete {
-            width: 100%;
-            padding: 8px;
-            background: #a83232;
-            color: white;
-            border: none;
-            border-radius: 3px;
-            cursor: pointer;
-            margin-top: 10px;
+            width: 100%; padding: 8px; background: #a83232; color: white;
+            border: none; border-radius: 3px; cursor: pointer; margin-top: 10px;
         }
         .btn-delete:hover { background: #c23a3a; }
     </style>
@@ -163,10 +151,7 @@
 
     <div id="sidebar-left">
         <input type="file" id="file-input" multiple webkitdirectory directory style="display: none;">
-        <div id="drop-zone">
-            📁 Kéo thả Folder / Files<br>
-            hoặc <strong>Click</strong> vào đây
-        </div>
+        <div id="drop-zone">📁 Kéo thả Folder / Files<br>hoặc <strong>Click</strong> vào đây</div>
         <div class="section-title">Project Assets</div>
         <div id="asset-list"></div>
     </div>
@@ -191,10 +176,12 @@
     </div>
 
 <script>
+    // --- APP STATE ---
     const spineFiles = {};
     let activeSpineObj = null;
     let app = null;
 
+    // --- INIT PIXI v8 ENGINE ---
     (async function initEngine() {
         app = new PIXI.Application();
         await app.init({
@@ -218,6 +205,7 @@
         });
     })();
 
+    // --- DRAG & DROP LOGIC ---
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
     
@@ -299,39 +287,62 @@
         });
     }
 
-    // --- ELITE RAW MEMORY PARSING (NO PIXI ASSET LOADER BUGS) ---
+    // --- HELPER: Convert File to Base64 Data URL ---
+    function fileToBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = error => reject(error);
+        });
+    }
+
+    // --- BULLETPROOF SPINE PIPELINE: BASE64 DATA URI ---
     async function spawnToScene(baseName) {
         try {
             const files = spineFiles[baseName];
+            const uniqueId = "spine_" + Date.now();
 
-            // 1. Nạp ảnh PNG trực tiếp qua URL ảo (Chỉ dùng cho ảnh, an toàn 100%)
-            const imgUrl = URL.createObjectURL(files.png);
-            const pixiTexture = await PIXI.Assets.load(imgUrl);
+            // 1. TEXTURE: Chuyển đổi PNG thành Base64 để Pixi đọc an toàn tuyệt đối
+            const texAlias = `tex_${uniqueId}.png`;
+            const texDataUrl = await fileToBase64(files.png);
+            PIXI.Assets.add({ alias: texAlias, src: texDataUrl });
 
-            // 2. Đọc Atlas trực tiếp bằng text thô, tự định nghĩa Texture (Bypass lỗi findRegion)
+            // 2. ATLAS: Đọc Text, thay tên ảnh và mã hóa Base64
             const atlasText = await files.atlas.text();
-            const textureAtlas = new spine.TextureAtlas(atlasText, (path) => {
-                // Spine yêu cầu file ảnh nào, ta mặc kệ! Trả luôn ảnh PNG đang có.
-                return pixiTexture; 
-            });
-
-            // 3. Khởi tạo Loader bằng Atlas vừa tạo
-            const atlasLoader = new spine.AtlasAttachmentLoader(textureAtlas);
-            let skeletonData;
-
-            // 4. Đọc dữ liệu Khung xương trực tiếp từ text/array buffer (Bypass lỗi null skeleton)
-            if (files.json) {
-                const skeletonJson = new spine.SkeletonJson(atlasLoader);
-                const rawJsonData = JSON.parse(await files.json.text());
-                skeletonData = skeletonJson.readSkeletonData(rawJsonData);
-            } else if (files.skel) {
-                const skeletonBinary = new spine.SkeletonBinary(atlasLoader);
-                const buffer = new Uint8Array(await files.skel.arrayBuffer());
-                skeletonData = skeletonBinary.readSkeletonData(buffer);
+            let lines = atlasText.split(/\r?\n/);
+            for (let i = 0; i < lines.length; i++) {
+                if (lines[i].trim().match(/\.(png|jpg|jpeg)$/i)) {
+                    lines[i] = texAlias; // Chỉ thay dòng khai báo tên ảnh đầu tiên
+                    break; 
+                }
             }
+            const modifiedAtlasText = lines.join('\n');
+            // Mã hóa an toàn hỗ trợ cả tiếng Việt/Unicode
+            const atlasBase64 = 'data:text/plain;base64,' + btoa(unescape(encodeURIComponent(modifiedAtlasText)));
+            const atlasAlias = `atlas_${uniqueId}.atlas`;
+            PIXI.Assets.add({ alias: atlasAlias, src: atlasBase64 });
 
-            // 5. Khởi tạo Nhân vật Spine!
-            const spineDisplayObj = new spine.Spine(skeletonData);
+            // 3. SKELETON DATA: Xử lý file .json hoặc .skel sang Base64
+            let dataAlias, dataUrl;
+            if (files.json) {
+                dataAlias = `data_${uniqueId}.json`;
+                const jsonText = await files.json.text();
+                dataUrl = 'data:application/json;base64,' + btoa(unescape(encodeURIComponent(jsonText)));
+            } else {
+                dataAlias = `data_${uniqueId}.skel`;
+                dataUrl = await fileToBase64(files.skel); // fileToBase64 xử lý nhị phân cực tốt
+            }
+            PIXI.Assets.add({ alias: dataAlias, src: dataUrl });
+
+            // 4. LOAD THE OFFICIAL WAY
+            await PIXI.Assets.load([texAlias, atlasAlias, dataAlias]);
+
+            // 5. CONSTRUCT THE OFFICIAL WAY
+            const spineDisplayObj = spine.Spine.from({
+                skeleton: dataAlias,
+                atlas: atlasAlias
+            });
 
             spineDisplayObj.name = baseName;
             spineDisplayObj.x = 1920 / 2;
@@ -347,8 +358,8 @@
             selectObject(spineDisplayObj);
 
         } catch (error) {
-            console.error("Raw Parsing Error:", error);
-            alert("Lỗi Load Asset: " + error.message);
+            console.error("Pipeline Error:", error);
+            alert("Lỗi Load Asset: Mở F12 để xem chi tiết. \n" + error.message);
         }
     }
 
