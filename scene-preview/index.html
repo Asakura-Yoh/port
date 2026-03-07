@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spine 4.2 Pro Previewer - Clear Viewport Edition</title>
+    <title>Spine 4.2 Pro Previewer - Hierarchy & Layers Edition</title>
     
     <script src="https://unpkg.com/pixi.js@8.x/dist/pixi.min.js"></script>
     <script src="https://unpkg.com/@esotericsoftware/spine-pixi-v8@4.2/dist/iife/spine-pixi-v8.js"></script>
@@ -35,10 +35,10 @@
         .btn-collapsed-l { left: 15px !important; }
         .btn-collapsed-r { right: 15px !important; }
 
-        /* MAIN VIEWPORT - CENTERED WITH BORDER */
+        /* MAIN VIEWPORT - CENTERED WITH BORDER (GIỮ NGUYÊN) */
         #main-view { 
             flex: 1; 
-            background: #0b0b0b; /* Nền ngoài tối hơn để làm nổi bật khung preview */
+            background: #0b0b0b; 
             display: flex; 
             justify-content: center; 
             align-items: center;     
@@ -50,17 +50,15 @@
             aspect-ratio: 16 / 9; 
             position: relative;
             
-            /* LỜI GIẢI TOÀN DIỆN CHO VIỆC VIỀN KHÔNG KHÍT: */
-            /* Hàm min() sẽ chọn kích thước tối ưu nhất để viền ôm sát rạt vào 16:9 */
+            /* CÔNG THỨC GIỮ VIỀN KHÍT 100% ĐÃ CHỐT */
             width: min(98%, calc(94vh * 16 / 9)); 
             max-height: 94vh;
             
             display: flex; 
             justify-content: center; 
             align-items: center;
-            /* ĐƯỜNG VIỀN PHÂN BIỆT ĐÃ ĐƯỢC BO KHÍT */
             border: 1px solid #444; 
-            background: #1a1a1a; /* Màu nền nội tại của canvas */
+            background: #1a1a1a; 
             box-shadow: 0 0 20px rgba(0,0,0,0.5);
         }
         #canvas-container { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
@@ -70,17 +68,32 @@
         #bottom-info { position: absolute; bottom: 20px; background: rgba(0,0,0,0.8); padding: 6px 20px; border-radius: 20px; font-size: 11px; color: #666; display: flex; gap: 25px; z-index: 5; }
         .scale-badge { color: var(--accent); font-weight: bold; }
 
-        /* ASSETS & INSPECTOR UI */
+        /* LEFT SIDEBAR UI */
         #drop-zone { margin: 15px; padding: 25px 10px; border: 2px dashed #444; text-align: center; cursor: pointer; border-radius: 6px; font-size: 11px; margin-top: 60px; }
         #asset-list { flex: 1; overflow-y: auto; padding: 10px; }
         .asset-item { background: #2d2d2d; padding: 12px; margin-bottom: 8px; border-radius: 4px; border-left: 4px solid #555; }
         .asset-item.ready { border-left-color: #4caf50; }
-        .ins-header { padding: 20px 15px; background: #252526; color: var(--accent); font-weight: bold; font-size: 14px; margin-top: 60px; border-bottom: 1px solid #000; }
-        .ins-section { padding: 15px; border-bottom: 1px solid var(--border); }
+        
+        .ins-header-main { padding: 20px 15px; background: #252526; color: var(--accent); font-weight: bold; font-size: 14px; margin-top: 60px; border-bottom: 1px solid #000; }
         .prop-row { display: flex; align-items: center; margin-bottom: 12px; font-size: 12px; gap: 10px; }
         input, select { background: #121212; border: 1px solid #333; color: #fff; padding: 5px; font-size: 11px; width: 100%; outline: none; }
-        .btn-ui { background: var(--accent); color: #fff; border: none; padding: 10px; cursor: pointer; width: 100%; font-weight: bold; border-radius: 4px; }
+        .btn-ui { background: var(--accent); color: #fff; border: none; padding: 8px; cursor: pointer; width: 100%; font-weight: bold; border-radius: 4px; }
         #loading-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.85); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }
+
+        /* RIGHT SIDEBAR (HIERARCHY & LAYERS) CSS */
+        #hierarchy-list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+        .layer-item { background: #252526; border: 1px solid #333; border-radius: 4px; overflow: hidden; transition: border-color 0.2s; }
+        .layer-item.active { border-color: var(--accent); box-shadow: 0 0 5px rgba(0,122,204,0.3); }
+        .layer-item.dragging { opacity: 0.4; border: 1px dashed var(--accent); }
+        
+        .layer-header { padding: 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #2d2d2d; font-size: 12px; font-weight: bold; user-select: none; }
+        .layer-header:hover { background: #383838; }
+        .layer-header .drag-handle { cursor: grab; padding-right: 10px; color: #888; font-size: 14px; }
+        .layer-header .toggle-icon { font-size: 10px; color: #666; transition: transform 0.2s; display: inline-block; }
+        .layer-item.expanded .toggle-icon { transform: rotate(90deg); }
+        
+        .layer-body { padding: 15px; background: #1a1a1a; border-top: 1px solid #111; display: none; }
+        .layer-item.expanded .layer-body { display: block; }
     </style>
 </head>
 <body>
@@ -110,20 +123,9 @@
     </div>
 
     <div id="sidebar-right" class="sidebar">
-        <div class="ins-header" id="ins-title">Inspector</div>
-        <div id="ins-content" style="display: none;">
-            <div class="ins-section">
-                <div class="prop-row"><div style="width:50px">Pos X</div><input type="number" id="ins-x"></div>
-                <div class="prop-row"><div style="width:50px">Pos Y</div><input type="number" id="ins-y"></div>
-                <div class="prop-row"><div style="width:50px">Scale</div><input type="number" id="ins-scale" step="0.05"></div>
-            </div>
-            <div class="ins-section">
-                <div class="prop-row"><select id="ins-anim"></select></div>
-                <div class="prop-row"><select id="ins-skin"></select></div>
-            </div>
-            <div class="ins-section">
-                <button class="btn-ui" style="background:#6e2e2e" onclick="deleteActive()">Remove Asset</button>
-            </div>
+        <div class="ins-header-main">Scene Layers</div>
+        <div id="hierarchy-list">
+            <div id="empty-state" style="padding: 20px; text-align: center; color: #555; font-size: 11px;">No assets in scene</div>
         </div>
     </div>
 
@@ -148,15 +150,20 @@
             resolution: window.devicePixelRatio || 1, autoDensity: true
         });
         document.getElementById('canvas-container').appendChild(app.canvas);
+        
+        // BẬT TÍNH NĂNG Z-INDEX CỦA PIXIJS
+        app.stage.sortableChildren = true;
+        
         app.stage.eventMode = 'static';
         app.stage.hitArea = new PIXI.Rectangle(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
         app.stage.on('pointerdown', (e) => { if(e.target === app.stage) select(null); });
         
         updateScaleDisplay();
         window.addEventListener('resize', updateScaleDisplay);
+        setupDragAndDropList();
     })();
 
-    // --- UI LOGIC ---
+    // --- UI VIEWPORT LOGIC ---
     function toggleSidebar(side) {
         const el = document.getElementById(`sidebar-${side}`);
         const btn = document.getElementById(`toggle-${side === 'left' ? 'l' : 'r'}`);
@@ -179,7 +186,7 @@
         document.getElementById('view-scale').innerText = Math.round(scale) + "%";
     }
 
-    // --- ASSET PIPELINE ---
+    // --- ASSET UPLOAD LOGIC ---
     const fFolder = document.getElementById('file-folder');
     fFolder.onchange = (e) => handleFiles(Array.from(e.target.files));
 
@@ -234,7 +241,10 @@
         document.getElementById('loading-overlay').style.display = 'none';
     }
 
+    // --- SCENE & HIERARCHY LOGIC ---
     function spawn(obj, name) {
+        // Khởi tạo thông số định danh
+        obj.uid = 'spine_' + Date.now() + '_' + Math.floor(Math.random()*1000);
         obj.name = name;
         obj.x = LOGICAL_WIDTH / 2; obj.y = LOGICAL_HEIGHT / 2;
         obj.eventMode = 'static'; obj.cursor = 'move';
@@ -254,61 +264,183 @@
                 const scaleY = LOGICAL_HEIGHT / rect.height;
                 obj.x = (e.clientX - rect.left) * scaleX;
                 obj.y = (e.clientY - rect.top) * scaleY;
-                syncIns();
+                
+                // Cập nhật số liệu trong bảng Inspector trực tiếp
+                const layerDOM = document.getElementById(obj.uid);
+                if(layerDOM) {
+                    layerDOM.querySelector('.ins-x').value = Math.round(obj.x);
+                    layerDOM.querySelector('.ins-y').value = Math.round(obj.y);
+                }
             }
         });
         window.addEventListener('pointerup', () => drag = false);
 
         app.stage.addChild(obj);
+        
+        // Thêm Layer vào Danh sách bên phải
+        createHierarchyNode(obj);
         select(obj);
+        checkEmptyState();
     }
 
-    function select(obj) {
-        if(activeObj) activeObj.alpha = 1; 
-        activeObj = obj;
-        const content = document.getElementById('ins-content');
-        if(!obj) { content.style.display = 'none'; return; }
+    function createHierarchyNode(obj) {
+        const list = document.getElementById('hierarchy-list');
+        const div = document.createElement('div');
+        div.className = 'layer-item expanded active';
+        div.id = obj.uid;
+        
+        div.innerHTML = `
+            <div class="layer-header" draggable="true">
+                <div><span class="drag-handle">↕</span> <span class="layer-name">${obj.name}</span></div>
+                <div class="toggle-icon">▶</div>
+            </div>
+            <div class="layer-body">
+                <div class="prop-row">
+                    <div style="width:60px">Layer Z</div>
+                    <input type="number" class="ins-z" title="Thứ tự lớp (Lớn nằm trên)">
+                </div>
+                <div class="prop-row"><div style="width:60px">Pos X</div><input type="number" class="ins-x" value="${Math.round(obj.x)}"></div>
+                <div class="prop-row"><div style="width:60px">Pos Y</div><input type="number" class="ins-y" value="${Math.round(obj.y)}"></div>
+                <div class="prop-row"><div style="width:60px">Scale</div><input type="number" class="ins-scale" step="0.05" value="1.00"></div>
+                <div class="prop-row"><select class="ins-anim"></select></div>
+                <div class="prop-row"><select class="ins-skin"></select></div>
+                <button class="btn-ui btn-remove" style="background:#8b2a2a; margin-top:5px;">Remove Asset</button>
+            </div>
+        `;
 
-        content.style.display = 'block';
-        document.getElementById('ins-title').innerText = obj.name;
-
-        const aSel = document.getElementById('ins-anim');
-        aSel.innerHTML = '';
+        // Đổ Data cho Anim & Skin
+        const aSel = div.querySelector('.ins-anim');
         obj.skeleton.data.animations.forEach(a => {
-            const opt = document.createElement('option');
-            opt.value = opt.text = a.name; aSel.add(opt);
+            const opt = document.createElement('option'); opt.value = opt.text = a.name; aSel.add(opt);
         });
         if(obj.state.tracks[0]) aSel.value = obj.state.tracks[0].animation.name;
 
-        const sSel = document.getElementById('ins-skin');
-        sSel.innerHTML = '';
+        const sSel = div.querySelector('.ins-skin');
         obj.skeleton.data.skins.forEach(s => {
-            const opt = document.createElement('option');
-            opt.value = opt.text = s.name; sSel.add(opt);
+            const opt = document.createElement('option'); opt.value = opt.text = s.name; sSel.add(opt);
         });
         if(obj.skeleton.skin) sSel.value = obj.skeleton.skin.name;
 
-        syncIns();
+        // BẮT SỰ KIỆN TƯƠNG TÁC
+        // 1. Tắt mở thuộc tính
+        const header = div.querySelector('.layer-header');
+        header.addEventListener('click', () => {
+            div.classList.toggle('expanded');
+            select(obj);
+        });
+
+        // 2. Kéo thả Header để sắp xếp
+        header.addEventListener('dragstart', (e) => {
+            e.dataTransfer.setData('text/plain', obj.uid);
+            setTimeout(() => div.classList.add('dragging'), 0);
+        });
+        header.addEventListener('dragend', () => {
+            div.classList.remove('dragging');
+        });
+
+        // 3. Nhập số liệu thay đổi
+        div.querySelector('.ins-x').oninput = (e) => obj.x = Number(e.target.value);
+        div.querySelector('.ins-y').oninput = (e) => obj.y = Number(e.target.value);
+        div.querySelector('.ins-scale').oninput = (e) => obj.scale.set(Number(e.target.value));
+        div.querySelector('.ins-anim').onchange = (e) => obj.state.setAnimation(0, e.target.value, true);
+        div.querySelector('.ins-skin').onchange = (e) => { obj.skeleton.setSkinByName(e.target.value); obj.skeleton.setSlotsToSetupPose(); };
+        
+        // 4. Sửa số thứ tự Layer Z thủ công
+        div.querySelector('.ins-z').onchange = (e) => {
+            obj.zIndex = Number(e.target.value);
+            app.stage.sortChildren();
+            reorderDOMBasedOnZIndex();
+        };
+
+        // 5. Nút Xóa
+        div.querySelector('.btn-remove').onclick = (e) => {
+            e.stopPropagation();
+            app.stage.removeChild(obj);
+            div.remove();
+            if(activeObj === obj) select(null);
+            checkEmptyState();
+        };
+
+        list.prepend(div); // Thêm lên đầu danh sách (Lớp trên cùng)
+        updateZIndexesFromDOM(); // Tự động tính toán lại Z-Order cho mọi layer
     }
 
-    function syncIns() {
-        if(!activeObj) return;
-        document.getElementById('ins-x').value = Math.round(activeObj.x);
-        document.getElementById('ins-y').value = Math.round(activeObj.y);
-        document.getElementById('ins-scale').value = activeObj.scale.x.toFixed(2);
+    function select(obj) {
+        if(activeObj) {
+            activeObj.alpha = 1;
+            const prev = document.getElementById(activeObj.uid);
+            if(prev) prev.classList.remove('active');
+        }
+        activeObj = obj;
+        if(obj) {
+            const current = document.getElementById(obj.uid);
+            if(current) {
+                current.classList.add('active');
+                current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
     }
 
-    document.getElementById('ins-x').oninput = (e) => activeObj.x = Number(e.target.value);
-    document.getElementById('ins-y').oninput = (e) => activeObj.y = Number(e.target.value);
-    document.getElementById('ins-scale').oninput = (e) => activeObj.scale.set(Number(e.target.value));
-    document.getElementById('ins-anim').onchange = (e) => activeObj.state.setAnimation(0, e.target.value, true);
-    document.getElementById('ins-skin').onchange = (e) => {
-        activeObj.skeleton.setSkinByName(e.target.value);
-        activeObj.skeleton.setSlotsToSetupPose();
-    };
+    function checkEmptyState() {
+        const list = document.getElementById('hierarchy-list');
+        const empty = document.getElementById('empty-state');
+        if(list.querySelectorAll('.layer-item').length === 0) empty.style.display = 'block';
+        else empty.style.display = 'none';
+    }
 
-    function deleteActive() {
-        if(activeObj) { app.stage.removeChild(activeObj); select(null); }
+    // --- HỆ THỐNG QUẢN LÝ LAYER (KÉO THẢ) ---
+    function setupDragAndDropList() {
+        const list = document.getElementById('hierarchy-list');
+        list.addEventListener('dragover', e => {
+            e.preventDefault();
+            const afterElement = getDragAfterElement(list, e.clientY);
+            const dragging = document.querySelector('.dragging');
+            if(dragging) {
+                if (afterElement == null) list.appendChild(dragging);
+                else list.insertBefore(dragging, afterElement);
+            }
+        });
+        
+        list.addEventListener('drop', e => {
+            e.preventDefault();
+            updateZIndexesFromDOM(); // Khi thả ra, gán lại số thứ tự từ trên xuống dưới
+        });
+    }
+
+    function getDragAfterElement(container, y) {
+        const draggableElements = [...container.querySelectorAll('.layer-item:not(.dragging)')];
+        return draggableElements.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+            if (offset < 0 && offset > closest.offset) return { offset: offset, element: child };
+            else return closest;
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+
+    function updateZIndexesFromDOM() {
+        const items = document.querySelectorAll('.layer-item');
+        let z = items.length; // Thằng đứng đầu mảng DOM = Lớp hiển thị cao nhất
+        items.forEach(item => {
+            const uid = item.id;
+            const targetObj = app.stage.children.find(c => c.uid === uid);
+            if (targetObj) {
+                targetObj.zIndex = z;
+                item.querySelector('.ins-z').value = z; // Hiện số vào input
+            }
+            z--;
+        });
+        app.stage.sortChildren(); // Báo PixiJS vẽ lại
+    }
+
+    function reorderDOMBasedOnZIndex() {
+        const list = document.getElementById('hierarchy-list');
+        const items = Array.from(list.querySelectorAll('.layer-item'));
+        items.sort((a, b) => {
+            const zA = Number(a.querySelector('.ins-z').value);
+            const zB = Number(b.querySelector('.ins-z').value);
+            return zB - zA; // Sắp xếp từ lớn xuống bé
+        });
+        items.forEach(item => list.appendChild(item)); // Ráp lại DOM
     }
 </script>
 </body>
