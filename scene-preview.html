@@ -157,7 +157,6 @@
             margin-top: 10px;
         }
         .btn-delete:hover { background: #c23a3a; }
-
     </style>
 </head>
 <body>
@@ -180,23 +179,12 @@
 
     <div id="sidebar-right">
         <div class="section-title">Inspector</div>
-        
         <div id="inspector-content" class="inspector-panel">
             <div style="font-size: 16px; font-weight: bold; margin-bottom: 15px; color: var(--accent);" id="insp-name">Spine Object</div>
-            
-            <div class="inspector-group">
-                <label>Animation</label>
-                <select id="insp-anim"></select>
-            </div>
-
-            <div class="inspector-group">
-                <label>Skin</label>
-                <select id="insp-skin"></select>
-            </div>
-
+            <div class="inspector-group"><label>Animation</label><select id="insp-anim"></select></div>
+            <div class="inspector-group"><label>Skin</label><select id="insp-skin"></select></div>
             <button class="btn-delete" onclick="deleteActiveObject()">Xóa khỏi Scene</button>
         </div>
-        
         <div id="inspector-empty" style="padding: 20px; text-align: center; color: #666; font-size: 13px;">
             Click vào một nhân vật để xem thuộc tính.
         </div>
@@ -320,60 +308,70 @@
         });
     }
 
-    // --- BULLETPROOF SPINE PIPELINE (MANUAL PARSING) ---
+    // --- BULLETPROOF SPINE PIPELINE (SMART TEXTURE MAPPING) ---
     async function spawnToScene(baseName) {
         try {
             const files = spineFiles[baseName];
             const uniqueId = "spine_" + Date.now();
-            const texAlias = `${uniqueId}.png`;
 
-            // 1. Chỉ Load PNG qua PixiJS
-            const texUrl = URL.createObjectURL(files.png);
-            PIXI.Assets.add({ alias: texAlias, src: texUrl });
-
-            // 2. Load và thay thế an toàn nội dung Atlas
-            let atlasText = await files.atlas.text();
-            let lines = atlasText.split(/\r?\n/);
-            for(let i = 0; i < lines.length; i++) {
-                if(lines[i].trim() === files.png.name.trim()) {
-                    lines[i] = texAlias;
+            // 1. Đọc nội dung Atlas
+            const atlasText = await files.atlas.text();
+            
+            // 2. SMART MAPPING: Tìm chính xác tên file ảnh mà Atlas đòi hỏi (dù nó có nằm trong folder nào đi nữa)
+            let expectedPngName = files.png.name; // Default fallback
+            const lines = atlasText.split(/\r?\n/);
+            for (const line of lines) {
+                const trimmedLine = line.trim();
+                if (trimmedLine.endsWith('.png') || trimmedLine.endsWith('.jpg')) {
+                    expectedPngName = trimmedLine; // Tìm thấy tên ảnh thực tế trong Atlas!
+                    break;
                 }
             }
-            const atlasAlias = `${uniqueId}.atlas`;
-            const atlasBlob = new Blob([lines.join('\n')], { type: 'text/plain' });
+
+            // 3. Đổi tên trong Atlas thành tên Độc nhất để tránh cache lộn xộn
+            const uniquePngAlias = `${baseName}_${uniqueId}.png`;
+            const modifiedAtlasText = atlasText.replace(expectedPngName, uniquePngAlias);
+
+            // 4. Bơm ảnh PNG vào Asset Loader với tên Độc nhất
             PIXI.Assets.add({ 
-                alias: atlasAlias, 
-                src: URL.createObjectURL(atlasBlob), 
-                data: { extension: '.atlas' } 
+                alias: uniquePngAlias, 
+                src: URL.createObjectURL(files.png) + '#.png' 
             });
 
-            // 3. Đợi PixiJS nạp xong Ảnh và Atlas vào bộ nhớ đệm
-            await PIXI.Assets.load([texAlias, atlasAlias]);
-            const loadedAtlas = PIXI.Assets.cache.get(atlasAlias);
+            // 5. Bơm Atlas vào Asset Loader
+            const atlasAlias = `${baseName}_${uniqueId}.atlas`;
+            const atlasBlob = new Blob([modifiedAtlasText], { type: 'text/plain' });
+            PIXI.Assets.add({ 
+                alias: atlasAlias, 
+                src: URL.createObjectURL(atlasBlob) + '#.atlas' 
+            });
 
-            // 4. TỰ TAY PARSE DỮ LIỆU (Bypass lỗi PixiJS JSON null)
-            const atlasLoader = new spine.AtlasAttachmentLoader(loadedAtlas);
-            let skeletonData;
+            // 6. Bơm JSON/SKEL vào Asset Loader (Ép chuẩn định dạng MIME)
+            const isJson = !!files.json;
+            const dataExt = isJson ? '.json' : '.skel';
+            const dataAlias = `${baseName}_${uniqueId}${dataExt}`;
+            const dataBlob = isJson 
+                ? new Blob([await files.json.text()], { type: 'application/json' })
+                : new Blob([await files.skel.arrayBuffer()], { type: 'application/octet-stream' });
+                
+            PIXI.Assets.add({ 
+                alias: dataAlias, 
+                src: URL.createObjectURL(dataBlob) + '#' + dataExt 
+            });
 
-            if (files.json) {
-                const skeletonJson = new spine.SkeletonJson(atlasLoader);
-                // Ép kiểu dữ liệu chuẩn Object bằng JSON.parse cục bộ
-                const rawJsonObj = JSON.parse(await files.json.text());
-                skeletonData = skeletonJson.readSkeletonData(rawJsonObj);
-            } else if (files.skel) {
-                const skeletonBinary = new spine.SkeletonBinary(atlasLoader);
-                const buffer = new Uint8Array(await files.skel.arrayBuffer());
-                skeletonData = skeletonBinary.readSkeletonData(buffer);
-            }
+            // 7. Load toàn bộ Asset vào bộ nhớ RAM
+            await PIXI.Assets.load([uniquePngAlias, atlasAlias, dataAlias]);
 
-            // 5. Khởi tạo đối tượng Spine từ SkeletonData sạch
-            const spineDisplayObj = new spine.Spine(skeletonData);
+            // 8. Khởi tạo Nhân vật!
+            const spineDisplayObj = spine.Spine.from({
+                skeleton: dataAlias,
+                atlas: atlasAlias
+            });
 
             spineDisplayObj.name = baseName;
             spineDisplayObj.x = 1920 / 2;
             spineDisplayObj.y = 1080 / 2;
             
-            // Chạy Animation mặc định đầu tiên
             if (spineDisplayObj.skeleton.data.animations.length > 0) {
                 const firstAnim = spineDisplayObj.skeleton.data.animations[0].name;
                 spineDisplayObj.state.setAnimation(0, firstAnim, true);
@@ -385,7 +383,7 @@
 
         } catch (error) {
             console.error("Spine Pipeline Error:", error);
-            alert("Lỗi Load Asset: " + error.message);
+            alert("Lỗi Load Asset: Mở F12 để xem chi tiết. \n" + error.message);
         }
     }
 
@@ -401,7 +399,6 @@
             selectObject(obj);
             dragging = true;
             app.stage.setChildIndex(obj, app.stage.children.length - 1);
-            
             dragStartPos = { x: event.global.x - obj.x, y: event.global.y - obj.y };
         });
 
