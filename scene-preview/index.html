@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spine 4.2 Pro Previewer - Smart Duplicate Edition</title>
+    <title>Spine 4.2 Pro Previewer - Hierarchy & Duplicate Edition</title>
     
     <script src="https://unpkg.com/pixi.js@8.x/dist/pixi.min.js"></script>
     <script src="https://unpkg.com/@esotericsoftware/spine-pixi-v8@4.2/dist/iife/spine-pixi-v8.js"></script>
@@ -13,6 +13,12 @@
         :root { --bg-dark: #121212; --bg-panel: #1e1e1e; --accent: #007acc; --text: #cccccc; --border: #333333; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg-dark); color: var(--text); display: flex; width: 100vw; height: 100vh; overflow: hidden; position: relative; }
+
+        /* --- SCROLLBAR CHUYÊN NGHIỆP --- */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-panel); border-left: 1px solid #222; }
+        ::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
         /* SIDEBARS */
         .sidebar { background: var(--bg-panel); border: 1px solid #000; display: flex; flex-direction: column; transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease; width: 300px; z-index: 10; flex-shrink: 0; }
@@ -67,8 +73,8 @@
 
         /* LEFT SIDEBAR UI */
         #drop-zone { margin: 15px; padding: 25px 10px; border: 2px dashed #444; text-align: center; cursor: pointer; border-radius: 6px; font-size: 11px; margin-top: 60px; }
-        #asset-list { flex: 1; overflow-y: auto; padding: 10px; }
-        .asset-item { background: #2d2d2d; padding: 12px; margin-bottom: 8px; border-radius: 4px; border-left: 4px solid #555; }
+        #asset-list { flex: 1; overflow-y: auto; padding: 10px; cursor: grab; }
+        .asset-item { background: #2d2d2d; padding: 12px; margin-bottom: 8px; border-radius: 4px; border-left: 4px solid #555; cursor: default; }
         .asset-item.ready { border-left-color: #4caf50; }
         
         .ins-header-main { padding: 20px 15px; background: #252526; color: var(--accent); font-weight: bold; font-size: 14px; margin-top: 60px; border-bottom: 1px solid #000; }
@@ -79,8 +85,8 @@
         #loading-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.85); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }
 
         /* RIGHT SIDEBAR (HIERARCHY & LAYERS) CSS */
-        #hierarchy-list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
-        .layer-item { background: #252526; border: 1px solid #333; border-radius: 4px; overflow: hidden; transition: border-color 0.2s; }
+        #hierarchy-list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; cursor: grab; }
+        .layer-item { background: #252526; border: 1px solid #333; border-radius: 4px; overflow: hidden; transition: border-color 0.2s; cursor: default; }
         .layer-item.active { border-color: var(--accent); box-shadow: 0 0 5px rgba(0,122,204,0.3); }
         .layer-item.dragging { opacity: 0.4; border: 1px dashed var(--accent); }
         
@@ -113,7 +119,7 @@
         </div>
         
         <div id="bottom-info">
-            <span>Drag: Move | Scroll: Scale | Grid: 1920x1080</span>
+            <span>Drag: Move Asset | Grid: 1920x1080</span>
             <span>View Scale: <span id="view-scale" class="scale-badge">100%</span></span>
         </div>
         
@@ -156,7 +162,46 @@
         updateScaleDisplay();
         window.addEventListener('resize', updateScaleDisplay);
         setupDragAndDropList();
+        
+        enableDragScroll('asset-list');
+        enableDragScroll('hierarchy-list');
     })();
+
+    // --- TÍNH NĂNG CẦM KÉO ĐỂ CUỘN CHUỘT ---
+    function enableDragScroll(elementId) {
+        const el = document.getElementById(elementId);
+        let isDown = false;
+        let startY;
+        let scrollTop;
+
+        el.addEventListener('mousedown', (e) => {
+            if (['INPUT', 'SELECT', 'OPTION', 'BUTTON'].includes(e.target.tagName)) return;
+            if (e.target.closest('.layer-header')) return;
+
+            isDown = true;
+            el.style.cursor = 'grabbing';
+            startY = e.pageY - el.offsetTop;
+            scrollTop = el.scrollTop;
+        });
+
+        el.addEventListener('mouseleave', () => {
+            isDown = false;
+            el.style.cursor = 'grab';
+        });
+
+        el.addEventListener('mouseup', () => {
+            isDown = false;
+            el.style.cursor = 'grab';
+        });
+
+        el.addEventListener('mousemove', (e) => {
+            if (!isDown) return;
+            e.preventDefault();
+            const y = e.pageY - el.offsetTop;
+            const walk = (y - startY) * 1.5; 
+            el.scrollTop = scrollTop - walk;
+        });
+    }
 
     function toggleSidebar(side) {
         const el = document.getElementById(`sidebar-${side}`);
@@ -202,7 +247,7 @@
             const ready = (g.json || g.skel) && g.atlas && g.png;
             const div = document.createElement('div');
             div.className = `asset-item ${ready ? 'ready' : ''}`;
-            div.innerHTML = `<b>${g.name}</b><br><button class="btn-ui" ${!ready ? 'disabled' : ''} onclick="uploadAndAdd('${g.name}')">Add to Scene</button>`;
+            div.innerHTML = `<b>${g.name}</b><br><button class="btn-ui" style="margin-top:8px" ${!ready ? 'disabled' : ''} onclick="uploadAndAdd('${g.name}')">Add to Scene</button>`;
             list.appendChild(div);
         });
     }
@@ -341,7 +386,6 @@
             reorderDOMBasedOnZIndex();
         };
 
-        // EVENT: LOGIC ĐỔI TÊN THÔNG MINH CHO DUPLICATE
         div.querySelector('.btn-duplicate').onclick = (e) => {
             e.stopPropagation();
             
@@ -355,7 +399,6 @@
             const currentY = obj.y;
             const currentScale = obj.scale.x;
             
-            // Xử lý tên: Tách base name và tìm số thứ tự lớn nhất
             let baseName = obj.name;
             const nameMatch = obj.name.match(/^(.*)_(\d+)$/);
             if (nameMatch) {
@@ -372,7 +415,7 @@
                     }
                 }
             });
-            const newName = baseName + '_' + (maxNum + 1); // Tăng dần 1, 2, 3...
+            const newName = baseName + '_' + (maxNum + 1); 
             
             spawn(clone, newName);
             
