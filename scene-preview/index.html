@@ -3,374 +3,307 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spine 4.2 Web Previewer - Pure Server Edition</title>
+    <title>Spine 4.2 Web Previewer - Unity Inspector Edition</title>
     
     <script src="https://unpkg.com/pixi.js@8.x/dist/pixi.min.js"></script>
     <script src="https://unpkg.com/@esotericsoftware/spine-pixi-v8@4.2/dist/iife/spine-pixi-v8.js"></script>
-    
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     
     <style>
-        :root { --bg-dark: #1e1e1e; --bg-panel: #252526; --bg-canvas: #333333; --accent: #007acc; --text: #cccccc; --border: #3e3e42; }
+        :root { --bg-dark: #1e1e1e; --bg-panel: #252526; --bg-canvas: #333333; --accent: #007acc; --text: #cccccc; --border: #3e3e42; --input-bg: #3c3c3c; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: var(--bg-dark); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
 
-        #sidebar-left { width: 280px; background-color: var(--bg-panel); border-right: 1px solid #000; display: flex; flex-direction: column; z-index: 10; }
-        #drop-zone { padding: 20px; text-align: center; border: 2px dashed #555; margin: 10px; background-color: #2d2d30; cursor: pointer; transition: 0.2s; font-size: 14px; }
-        #drop-zone:hover { background-color: #3e3e42; border-color: #888; }
+        /* SIDEBAR LEFT */
+        #sidebar-left { width: 300px; background-color: var(--bg-panel); border-right: 1px solid #000; display: flex; flex-direction: column; }
+        #drop-zone { padding: 30px 20px; text-align: center; border: 2px dashed #555; margin: 15px; background-color: #2d2d30; cursor: pointer; border-radius: 8px; font-size: 13px; }
         #drop-zone.dragover { border-color: var(--accent); background-color: #1a2a3a; }
-        .section-title { padding: 8px 12px; background-color: #383838; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
         #asset-list { flex-grow: 1; overflow-y: auto; padding: 10px; }
-        .asset-item { background: #3e3e42; padding: 10px; margin-bottom: 5px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
-        .asset-item.ready { border-left: 4px solid #4caf50; }
-        .asset-item.missing { border-left: 4px solid #f44336; }
-        
-        button.btn-add { padding: 6px 12px; cursor: pointer; background: var(--accent); color: #fff; border: none; border-radius: 3px; font-weight: bold; transition: 0.2s; }
-        button.btn-add:hover { background: #005f9e; }
-        button.btn-add:disabled { background: #555; cursor: not-allowed; }
+        .asset-item { background: #333; padding: 12px; margin-bottom: 8px; border-radius: 6px; border-left: 4px solid #555; transition: 0.2s; }
+        .asset-item.ready { border-left-color: #4caf50; }
+        .asset-item.loading { opacity: 0.6; pointer-events: none; }
 
-        #main-view { flex-grow: 1; display: flex; justify-content: center; align-items: center; background-color: #111; padding: 20px; position: relative; }
-        #canvas-wrapper { width: 100%; max-width: 1920px; aspect-ratio: 16 / 9; background-color: var(--bg-canvas); box-shadow: 0 0 20px rgba(0,0,0,0.8); position: relative; overflow: hidden; }
+        /* MAIN VIEW */
+        #main-view { flex-grow: 1; display: flex; flex-direction: column; background-color: #111; position: relative; }
+        #canvas-wrapper { flex-grow: 1; position: relative; overflow: hidden; background-image: radial-gradient(#333 1px, transparent 1px); background-size: 20px 20px; }
         canvas { width: 100%; height: 100%; display: block; }
-        
-        #toolbar { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); padding: 6px 12px; border-radius: 4px; font-size: 12px; pointer-events: none; z-index: 10; }
-        #loading-overlay { position: absolute; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.8); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 20; color: #fff; font-weight: bold; font-size: 18px; }
 
-        #sidebar-right { width: 300px; background-color: var(--bg-panel); border-left: 1px solid #000; display: flex; flex-direction: column; z-index: 10; }
-        .inspector-panel { padding: 15px; display: none; }
-        .inspector-group { margin-bottom: 15px; }
-        .inspector-group label { display: block; font-size: 12px; margin-bottom: 5px; color: #aaa; }
-        .inspector-group select { width: 100%; padding: 6px; background: #333; color: #fff; border: 1px solid var(--border); border-radius: 3px; outline: none; }
-        .inspector-group select:focus { border-color: var(--accent); }
-        .btn-delete { width: 100%; padding: 8px; background: #a83232; color: white; border: none; border-radius: 3px; cursor: pointer; margin-top: 10px; }
-        .btn-delete:hover { background: #c23a3a; }
+        /* SIDEBAR RIGHT (INSPECTOR) */
+        #sidebar-right { width: 320px; background-color: var(--bg-panel); border-left: 1px solid #000; display: flex; flex-direction: column; }
+        .inspector-section { padding: 15px; border-bottom: 1px solid var(--border); }
+        .section-header { font-size: 11px; font-weight: bold; text-transform: uppercase; color: #888; margin-bottom: 12px; display: flex; justify-content: space-between; }
+        
+        .property-row { display: flex; align-items: center; margin-bottom: 8px; font-size: 12px; }
+        .property-label { width: 80px; color: #bbb; }
+        .property-inputs { flex-grow: 1; display: flex; gap: 5px; }
+        
+        input[type="number"], select {
+            background: var(--input-bg); border: 1px solid #222; color: #eee;
+            padding: 4px 6px; border-radius: 3px; font-size: 12px; width: 100%; outline: none;
+        }
+        input:focus, select:focus { border-color: var(--accent); }
+        .input-group { position: relative; display: flex; align-items: center; flex: 1; }
+        .input-prefix { position: absolute; left: 5px; color: #666; font-size: 10px; pointer-events: none; }
+        .input-group input { padding-left: 18px; }
+
+        .btn-main { background: var(--accent); color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; width: 100%; font-weight: bold; margin-top: 10px; }
+        .btn-main:hover { background: #005f9e; }
+        .btn-delete { background: #6e2e2e; margin-top: 20px; }
+
+        #loading-overlay { position: absolute; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.8); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 100; color: #fff; }
     </style>
 </head>
 <body>
 
     <div id="sidebar-left">
-        <input type="file" id="file-input" multiple accept=".json,.skel,.atlas,.png,.jpg" style="display: none;">
-        <div id="drop-zone">📁 Kéo thả Folder / Files<br>hoặc <strong>Click</strong> vào đây</div>
-        <div class="section-title">Project Assets</div>
+        <input type="file" id="file-input" multiple webkitdirectory directory style="display: none;">
+        <div id="drop-zone">📁 Kéo thả Folder Spine vào đây<br><span style="font-size: 11px; color: #777;">(Tự động nhận diện cấu trúc)</span></div>
+        <div class="section-header" style="padding: 0 15px;">Project Assets</div>
         <div id="asset-list"></div>
     </div>
 
     <div id="main-view">
         <div id="canvas-wrapper">
-            <div id="toolbar">Left Click: Select/Move | Scroll Wheel: Scale</div>
-            <div id="loading-overlay">
-                <div style="margin-bottom: 10px;">Đang Upload Server & Khởi tạo... 🚀</div>
-                <div id="loading-status" style="font-size: 14px; font-weight: normal; color: #aaa;"></div>
-            </div>
+            <div id="loading-overlay">🚀 <span id="load-msg">Uploading...</span></div>
         </div>
     </div>
 
     <div id="sidebar-right">
-        <div class="section-title">Inspector</div>
-        <div id="inspector-content" class="inspector-panel">
-            <div style="font-size: 16px; font-weight: bold; margin-bottom: 15px; color: var(--accent);" id="insp-name">Spine Object</div>
-            <div class="inspector-group"><label>Animation</label><select id="insp-anim"></select></div>
-            <div class="inspector-group"><label>Skin</label><select id="insp-skin"></select></div>
-            <button class="btn-delete" onclick="deleteActiveObject()">Xóa khỏi Scene</button>
+        <div class="inspector-section" style="background: #2d2d2d;">
+            <div style="font-size: 14px; font-weight: bold; color: var(--accent);" id="ins-title">No Object Selected</div>
         </div>
-        <div id="inspector-empty" style="padding: 20px; text-align: center; color: #666; font-size: 13px;">
-            Click vào một nhân vật để xem thuộc tính.
+
+        <div id="inspector-body" style="display: none;">
+            <div class="inspector-section">
+                <div class="section-header">Transform</div>
+                <div class="property-row">
+                    <div class="property-label">Position</div>
+                    <div class="property-inputs">
+                        <div class="input-group"><span class="input-prefix">X</span><input type="number" id="field-x" step="10"></div>
+                        <div class="input-group"><span class="input-prefix">Y</span><input type="number" id="field-y" step="10"></div>
+                    </div>
+                </div>
+                <div class="property-row">
+                    <div class="property-label">Scale</div>
+                    <div class="property-inputs">
+                        <div class="input-group"><span class="input-prefix">S</span><input type="number" id="field-scale" step="0.1" value="1"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="inspector-section">
+                <div class="section-header">Spine Renderer</div>
+                <div class="property-row">
+                    <div class="property-label">Animation</div>
+                    <select id="sel-anim"></select>
+                </div>
+                <div class="property-row">
+                    <div class="property-label">Skin</div>
+                    <select id="sel-skin"></select>
+                </div>
+            </div>
+
+            <div class="inspector-section">
+                <button class="btn-main btn-delete" onclick="removeActive()">Remove from Scene</button>
+            </div>
         </div>
     </div>
 
 <script>
-    // ==========================================
-    // KHỞI TẠO APP & SUPABASE
-    // ==========================================
-    const spineFiles = {};
-    let activeSpineObj = null;
+    // CONFIG SUPABASE
+    const SUPABASE_URL = 'https://jxifynhuxcigcomhfxad.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_guA6fUpSMtATt1sZcPtK0g_vFVVlEig';
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const BUCKET = 'spine-assets';
+
+    const spineGroups = {};
+    let activeObj = null;
     let app = null;
-    let supabaseClient = null;
-    const BUCKET_NAME = 'spine-assets';
 
-    try {
-        const SUPABASE_URL = 'https://jxifynhuxcigcomhfxad.supabase.co';
-        const SUPABASE_KEY = 'sb_publishable_guA6fUpSMtATt1sZcPtK0g_vFVVlEig';
-        if (window.supabase) supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    } catch (e) { console.error("Lỗi Supabase:", e); }
-
-    (async function initEngine() {
+    // INIT PIXI
+    (async () => {
         app = new PIXI.Application();
-        await app.init({
-            width: 1920, height: 1080,
-            backgroundColor: 0x333333,
-            resolution: window.devicePixelRatio || 1,
-            autoDensity: true
-        });
+        await app.init({ width: 1920, height: 1080, backgroundColor: 0x333333, resolution: window.devicePixelRatio || 1, autoDensity: true });
         document.getElementById('canvas-wrapper').appendChild(app.canvas);
-
         app.stage.eventMode = 'static';
-        app.stage.hitArea = new PIXI.Rectangle(0, 0, 1920, 1080);
-        app.stage.on('pointerdown', (e) => { if (e.target === app.stage) selectObject(null); });
-
-        app.canvas.addEventListener('wheel', (e) => {
-            e.preventDefault();
-            if (!activeSpineObj) return;
-            const scaleFactor = e.deltaY < 0 ? 1.1 : 0.9;
-            activeSpineObj.scale.x *= scaleFactor;
-            activeSpineObj.scale.y *= scaleFactor;
-        });
+        app.stage.on('pointerdown', (e) => { if(e.target === app.stage) select(null); });
     })();
 
-    // ==========================================
-    // XỬ LÝ KÉO THẢ & CHỌN FILE
-    // ==========================================
+    // FOLDER LOADING LOGIC
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
+
+    dropZone.onclick = () => fileInput.click();
+    fileInput.onchange = (e) => handleFiles(Array.from(e.target.files));
     
-    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
-    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-    dropZone.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', (e) => { processFiles(Array.from(e.target.files)); fileInput.value = ''; });
-
-    dropZone.addEventListener('drop', async (e) => {
-        e.preventDefault();
-        dropZone.classList.remove('dragover');
+    dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('dragover'); };
+    dropZone.ondragleave = () => dropZone.classList.remove('dragover');
+    dropZone.ondrop = async (e) => {
+        e.preventDefault(); dropZone.classList.remove('dragover');
         const files = [];
-        if (e.dataTransfer.items) {
-            const promises = [];
-            for (let i = 0; i < e.dataTransfer.items.length; i++) {
-                const item = e.dataTransfer.items[i].webkitGetAsEntry();
-                if (item) promises.push(traverseFileTree(item, files));
-            }
-            await Promise.all(promises);
-        } else {
-            files.push(...Array.from(e.dataTransfer.files));
+        const items = e.dataTransfer.items;
+        for (let item of items) {
+            const entry = item.webkitGetAsEntry();
+            if (entry) await scanEntry(entry, files);
         }
-        processFiles(files);
-    });
+        handleFiles(files);
+    };
 
-    function traverseFileTree(item, filesList) {
-        return new Promise((resolve) => {
-            if (item.isFile) { item.file((file) => { filesList.push(file); resolve(); }); } 
-            else if (item.isDirectory) {
-                const dirReader = item.createReader();
-                dirReader.readEntries(async (entries) => {
-                    const promises = [];
-                    for (let i = 0; i < entries.length; i++) promises.push(traverseFileTree(entries[i], filesList));
-                    await Promise.all(promises);
-                    resolve();
-                });
-            }
-        });
+    async function scanEntry(entry, list) {
+        if (entry.isFile) {
+            const file = await new Promise(r => entry.file(r));
+            list.push(file);
+        } else if (entry.isDirectory) {
+            const reader = entry.createReader();
+            const entries = await new Promise(r => reader.readEntries(r));
+            for (let e of entries) await scanEntry(e, list);
+        }
     }
 
-    function processFiles(files) {
-        files.forEach(file => {
-            const nameMatch = file.name.match(/(.+)\.(json|skel|atlas|png)$/i);
-            if (!nameMatch) return;
-            const fullName = nameMatch[1];
-            const baseName = fullName.substring(fullName.lastIndexOf('/') + 1).substring(fullName.lastIndexOf('\\') + 1);
-            const ext = nameMatch[2].toLowerCase();
-            if (!spineFiles[baseName]) spineFiles[baseName] = {};
-            spineFiles[baseName][ext] = file;
+    function handleFiles(files) {
+        files.forEach(f => {
+            const match = f.name.match(/(.+)\.(json|skel|atlas|png)$/i);
+            if (!match) return;
+            const id = match[1];
+            if (!spineGroups[id]) spineGroups[id] = { name: id };
+            spineGroups[id][match[2].toLowerCase()] = f;
         });
-        renderAssetList();
+        updateList();
     }
 
-    function renderAssetList() {
-        const listContainer = document.getElementById('asset-list');
-        listContainer.innerHTML = '';
-        Object.keys(spineFiles).forEach(name => {
-            const group = spineFiles[name];
-            const hasData = group.json || group.skel;
-            const isReady = hasData && group.atlas && group.png;
-            
+    function updateList() {
+        const list = document.getElementById('asset-list');
+        list.innerHTML = '';
+        Object.values(spineGroups).forEach(g => {
+            const ready = (g.json || g.skel) && g.atlas && g.png;
             const div = document.createElement('div');
-            div.className = `asset-item ${isReady ? 'ready' : 'missing'}`;
+            div.className = `asset-item ${ready ? 'ready' : ''}`;
             div.innerHTML = `
-                <div>
-                    <strong>${name}</strong><br>
-                    <small style="color:#888">
-                        ${group.json ? '✓ JSON ' : (group.skel ? '✓ SKEL ' : '')}
-                        ${group.atlas ? '✓ Atlas ' : ''}
-                        ${group.png ? '✓ PNG' : ''}
-                    </small>
-                </div>
-                ${isReady ? `<button class="btn-add" id="btn-${name}" onclick="spawnToScene('${name}')">Upload & Add</button>` : ''}
+                <div style="font-weight:bold; margin-bottom:5px;">${g.name}</div>
+                <button class="btn-main" ${!ready ? 'disabled' : ''} onclick="uploadAndSpawn('${g.name}')">
+                    ${ready ? 'Upload & Add' : 'Missing Files'}
+                </button>
             `;
-            listContainer.appendChild(div);
+            list.appendChild(div);
         });
     }
 
-    // ==========================================
-    // THE PURE PIPELINE - CHUẨN MỰC GAME SERVER
-    // ==========================================
-    async function spawnToScene(baseName) {
-        const loadingUI = document.getElementById('loading-overlay');
-        const statusText = document.getElementById('loading-status');
-        const btn = document.getElementById(`btn-${baseName}`);
-        
-        if (!supabaseClient) { alert("Lỗi Backend. F5 lại trang nhé."); return; }
+    // UPLOAD & SPAWN
+    async function uploadAndSpawn(id) {
+        const overlay = document.getElementById('loading-overlay');
+        const msg = document.getElementById('load-msg');
+        overlay.style.display = 'flex';
 
         try {
-            loadingUI.style.display = 'flex';
-            if(btn) { btn.disabled = true; btn.innerText = "Đang xử lý..."; }
-
-            const files = spineFiles[baseName];
+            const group = spineGroups[id];
             const uid = Date.now();
-            const folderPath = `${baseName}_${uid}/`; // Gom tất cả vào 1 folder
+            const path = `${id}_${uid}/`;
 
-            // 1. UPLOAD PNG NGUYÊN BẢN
-            statusText.innerText = "Đang tải ảnh lên máy chủ...";
-            const pngPath = folderPath + files.png.name;
-            const { error: pngErr } = await supabaseClient.storage.from(BUCKET_NAME).upload(pngPath, files.png, { contentType: 'image/png' });
-            if (pngErr) throw new Error("Lỗi upload PNG: " + pngErr.message);
-
-            // 2. UPLOAD ATLAS NGUYÊN BẢN (KHÔNG CHỈNH SỬA TEXT)
-            statusText.innerText = "Đang cấu hình Atlas...";
-            const atlasPath = folderPath + files.atlas.name;
-            const { error: atlasErr } = await supabaseClient.storage.from(BUCKET_NAME).upload(atlasPath, files.atlas, { contentType: 'text/plain' });
-            if (atlasErr) throw new Error("Lỗi upload Atlas: " + atlasErr.message);
-            const atlasUrl = supabaseClient.storage.from(BUCKET_NAME).getPublicUrl(atlasPath).data.publicUrl;
-
-            // 3. UPLOAD KHUNG XƯƠNG (JSON / SKEL)
-            statusText.innerText = "Đang truyền tải Dữ liệu xương...";
-            const isJson = !!files.json;
-            const dataFile = files.json || files.skel;
-            const dataPath = folderPath + dataFile.name;
-            const mimeType = isJson ? 'application/json' : 'application/octet-stream';
+            msg.innerText = "Uploading Texture...";
+            await supabaseClient.storage.from(BUCKET).upload(path + group.png.name, group.png);
             
-            const { error: dataErr } = await supabaseClient.storage.from(BUCKET_NAME).upload(dataPath, dataFile, { contentType: mimeType });
-            if (dataErr) throw new Error("Lỗi upload Dữ liệu: " + dataErr.message);
-            const dataUrl = supabaseClient.storage.from(BUCKET_NAME).getPublicUrl(dataPath).data.publicUrl;
+            msg.innerText = "Processing Atlas...";
+            await supabaseClient.storage.from(BUCKET).upload(path + group.atlas.name, group.atlas);
+            const atlasUrl = supabaseClient.storage.from(BUCKET).getPublicUrl(path + group.atlas.name).data.publicUrl;
 
-            // 4. CHUYỂN GIAO CHO ENGINE
-            statusText.innerText = "Đang nạp vào WebGL...";
-            const atlasAlias = `atlas_${uid}`;
-            const dataAlias = `data_${uid}`;
+            msg.innerText = "Uploading Skeleton...";
+            const dataFile = group.json || group.skel;
+            await supabaseClient.storage.from(BUCKET).upload(path + dataFile.name, dataFile);
+            const dataUrl = supabaseClient.storage.from(BUCKET).getPublicUrl(path + dataFile.name).data.publicUrl;
 
-            // Ép định dạng rõ ràng để PixiJS không bao giờ bị nhầm lẫn
+            msg.innerText = "Initializing Spine...";
+            const atlasAlias = `at_${uid}`;
+            const dataAlias = `sk_${uid}`;
+            
             PIXI.Assets.add({ alias: atlasAlias, src: atlasUrl, format: '.atlas' });
-            PIXI.Assets.add({ alias: dataAlias, src: dataUrl, format: isJson ? '.json' : '.skel' });
-
-            // Trình duyệt tự động load Atlas. Atlas sẽ tự động load ảnh PNG cùng thư mục. Hoàn hảo!
-            await PIXI.Assets.load([atlasAlias, dataAlias]);
-
-            const spineDisplayObj = spine.Spine.from({
-                skeleton: dataAlias,
-                atlas: atlasAlias
-            });
-
-            spineDisplayObj.name = baseName;
-            spineDisplayObj.x = 1920 / 2;
-            spineDisplayObj.y = 1080 / 2;
+            PIXI.Assets.add({ alias: dataAlias, src: dataUrl, format: group.json ? '.json' : '.skel' });
             
-            if (spineDisplayObj.skeleton.data.animations.length > 0) {
-                const firstAnim = spineDisplayObj.skeleton.data.animations[0].name;
-                spineDisplayObj.state.setAnimation(0, firstAnim, true);
-            }
+            await PIXI.Assets.load([atlasAlias, dataAlias]);
+            const spineObj = spine.Spine.from({ skeleton: dataAlias, atlas: atlasAlias });
 
-            setupInteractions(spineDisplayObj);
-            app.stage.addChild(spineDisplayObj);
-            selectObject(spineDisplayObj);
+            spineObj.x = 1920/2; spineObj.y = 1080/2;
+            spineObj.eventMode = 'dynamic';
+            spineObj.on('pointerdown', (e) => { e.stopPropagation(); select(spineObj); });
+            
+            // Drag logic
+            let drag = false;
+            spineObj.on('pointerdown', () => drag = true);
+            app.stage.on('pointermove', (e) => {
+                if(drag && activeObj === spineObj) {
+                    activeObj.position.copyFrom(e.global);
+                    syncInspector();
+                }
+            });
+            window.addEventListener('pointerup', () => drag = false);
 
-            if(btn) { btn.innerText = "Hoàn tất"; }
-
-        } catch (error) {
-            console.error("Pipeline Error:", error);
-            alert("Đã xảy ra lỗi: \n" + error.message);
-            if(btn) { btn.disabled = false; btn.innerText = "Upload & Add"; }
-        } finally {
-            loadingUI.style.display = 'none';
-        }
+            app.stage.addChild(spineObj);
+            select(spineObj);
+        } catch (e) { alert(e.message); }
+        overlay.style.display = 'none';
     }
 
-    // --- TRANSFORM CONTROLS ---
-    function setupInteractions(obj) {
-        obj.eventMode = 'dynamic';
-        obj.cursor = 'move';
-        let dragging = false;
-        let dragStartPos = { x: 0, y: 0 };
+    // INSPECTOR LOGIC
+    function select(obj) {
+        if(activeObj) activeObj.alpha = 1;
+        activeObj = obj;
+        const body = document.getElementById('inspector-body');
+        const title = document.getElementById('ins-title');
 
-        obj.on('pointerdown', (event) => {
-            event.stopPropagation();
-            selectObject(obj);
-            dragging = true;
-            app.stage.setChildIndex(obj, app.stage.children.length - 1);
-            dragStartPos = { x: event.global.x - obj.x, y: event.global.y - obj.y };
-        });
-
-        const onDragEnd = () => { dragging = false; };
-        obj.on('pointerup', onDragEnd);
-        obj.on('pointerupoutside', onDragEnd);
-
-        obj.on('pointermove', (event) => {
-            if (dragging) {
-                obj.x = event.global.x - dragStartPos.x;
-                obj.y = event.global.y - dragStartPos.y;
-            }
-        });
-    }
-
-    // --- INSPECTOR LOGIC ---
-    const inspPanel = document.getElementById('inspector-content');
-    const inspEmpty = document.getElementById('inspector-empty');
-    const inspName = document.getElementById('insp-name');
-    const animSelect = document.getElementById('insp-anim');
-    const skinSelect = document.getElementById('insp-skin');
-
-    function selectObject(obj) {
-        if (activeSpineObj) activeSpineObj.alpha = 1.0;
-        activeSpineObj = obj;
-
-        if (!obj) {
-            inspPanel.style.display = 'none';
-            inspEmpty.style.display = 'block';
+        if(!obj) {
+            body.style.display = 'none';
+            title.innerText = "No Object Selected";
             return;
         }
 
-        obj.alpha = 0.8;
-        inspEmpty.style.display = 'none';
-        inspPanel.style.display = 'block';
-        inspName.textContent = obj.name || "Spine Object";
+        activeObj.alpha = 0.8;
+        body.style.display = 'block';
+        title.innerText = obj.name || "Spine Object";
 
-        animSelect.innerHTML = '';
-        obj.skeleton.data.animations.forEach(anim => {
-            const option = document.createElement('option');
-            option.value = anim.name;
-            option.textContent = anim.name;
-            animSelect.appendChild(option);
+        // Setup Anims
+        const animSel = document.getElementById('sel-anim');
+        animSel.innerHTML = '';
+        obj.skeleton.data.animations.forEach(a => {
+            const opt = document.createElement('option');
+            opt.value = opt.innerText = a.name;
+            animSel.appendChild(opt);
         });
         
-        if (obj.state.tracks[0] && obj.state.tracks[0].animation) {
-            animSelect.value = obj.state.tracks[0].animation.name;
-        }
-
-        skinSelect.innerHTML = '';
-        obj.skeleton.data.skins.forEach(skin => {
-            const option = document.createElement('option');
-            option.value = skin.name;
-            option.textContent = skin.name;
-            skinSelect.appendChild(option);
+        // Setup Skins
+        const skinSel = document.getElementById('sel-skin');
+        skinSel.innerHTML = '';
+        obj.skeleton.data.skins.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = opt.innerText = s.name;
+            skinSel.appendChild(opt);
         });
-        
-        if (obj.skeleton.skin) {
-            skinSelect.value = obj.skeleton.skin.name;
-        }
+
+        syncInspector();
     }
 
-    animSelect.addEventListener('change', (e) => {
-        if (activeSpineObj) activeSpineObj.state.setAnimation(0, e.target.value, true);
-    });
+    function syncInspector() {
+        if(!activeObj) return;
+        document.getElementById('field-x').value = Math.round(activeObj.x);
+        document.getElementById('field-y').value = Math.round(activeObj.y);
+        document.getElementById('field-scale').value = activeObj.scale.x.toFixed(2);
+    }
 
-    skinSelect.addEventListener('change', (e) => {
-        if (activeSpineObj) {
-            activeSpineObj.skeleton.setSkinByName(e.target.value);
-            activeSpineObj.skeleton.setSlotsToSetupPose();
-        }
-    });
+    // Input listeners
+    document.getElementById('field-x').oninput = (e) => activeObj.x = Number(e.target.value);
+    document.getElementById('field-y').oninput = (e) => activeObj.y = Number(e.target.value);
+    document.getElementById('field-scale').oninput = (e) => {
+        const val = Number(e.target.value);
+        activeObj.scale.set(val);
+    };
+    document.getElementById('sel-anim').onchange = (e) => activeObj.state.setAnimation(0, e.target.value, true);
+    document.getElementById('sel-skin').onchange = (e) => {
+        activeObj.skeleton.setSkinByName(e.target.value);
+        activeObj.skeleton.setSlotsToSetupPose();
+    };
 
-    function deleteActiveObject() {
-        if (activeSpineObj) {
-            app.stage.removeChild(activeSpineObj);
-            activeSpineObj.destroy({ children: true });
-            selectObject(null);
+    function removeActive() {
+        if(activeObj) {
+            app.stage.removeChild(activeObj);
+            select(null);
         }
     }
 </script>
