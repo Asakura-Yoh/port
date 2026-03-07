@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spine 4.2 Web Previewer - Supabase Backend Edition</title>
+    <title>Spine 4.2 Web Previewer - Robust Backend Edition</title>
     
     <script src="https://unpkg.com/pixi.js@8.x/dist/pixi.min.js"></script>
     <script src="https://unpkg.com/@esotericsoftware/spine-pixi-v8@4.2/dist/iife/spine-pixi-v8.js"></script>
     
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     
     <style>
         :root { --bg-dark: #1e1e1e; --bg-panel: #252526; --bg-canvas: #333333; --accent: #007acc; --text: #cccccc; --border: #3e3e42; }
@@ -49,7 +49,7 @@
 <body>
 
     <div id="sidebar-left">
-        <input type="file" id="file-input" multiple webkitdirectory directory style="display: none;">
+        <input type="file" id="file-input" multiple accept=".json,.skel,.atlas,.png,.jpg" style="display: none;">
         <div id="drop-zone">📁 Kéo thả Folder / Files<br>hoặc <strong>Click</strong> vào đây</div>
         <div class="section-title">Project Assets</div>
         <div id="asset-list"></div>
@@ -77,50 +77,26 @@
 
 <script>
     // ==========================================
-    // 🔗 KẾT NỐI SUPABASE BACKEND (ĐÃ FIX TÊN BIẾN)
+    // 1. APP STATE & KHỞI TẠO UI (Đưa lên ưu tiên số 1)
     // ==========================================
-    const SUPABASE_URL = 'https://jxifynhuxcigcomhfxad.supabase.co';
-    const SUPABASE_KEY = 'sb_publishable_guA6fUpSMtATt1sZcPtK0g_vFVVlEig';
-    
-    // Sử dụng window.supabase để trích xuất thư viện gốc, tránh lỗi Shadowing
-    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    const BUCKET_NAME = 'spine-assets';
-
-    // --- APP STATE ---
     const spineFiles = {};
     let activeSpineObj = null;
     let app = null;
+    let supabaseClient = null;
+    const BUCKET_NAME = 'spine-assets';
 
-    // --- INIT PIXI ENGINE ---
-    (async function initEngine() {
-        app = new PIXI.Application();
-        await app.init({
-            width: 1920, height: 1080,
-            backgroundColor: 0x333333,
-            resolution: window.devicePixelRatio || 1,
-            autoDensity: true
-        });
-        document.getElementById('canvas-wrapper').appendChild(app.canvas);
-
-        app.stage.eventMode = 'static';
-        app.stage.hitArea = new PIXI.Rectangle(0, 0, 1920, 1080);
-        app.stage.on('pointerdown', (e) => { if (e.target === app.stage) selectObject(null); });
-
-        app.canvas.addEventListener('wheel', (e) => {
-            e.preventDefault();
-            if (!activeSpineObj) return;
-            const scaleFactor = e.deltaY < 0 ? 1.1 : 0.9;
-            activeSpineObj.scale.x *= scaleFactor;
-            activeSpineObj.scale.y *= scaleFactor;
-        });
-    })();
-
-    // --- DRAG & DROP LOGIC ---
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
     
+    // Đảm bảo Click và Giao diện luôn sống dù API có sập
     dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
     dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', (e) => { 
+        processFiles(Array.from(e.target.files)); 
+        fileInput.value = ''; 
+    });
 
     dropZone.addEventListener('drop', async (e) => {
         e.preventDefault();
@@ -128,3 +104,291 @@
         const files = [];
         const items = e.dataTransfer.items;
         if (items) {
+            const promises = [];
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i].webkitGetAsEntry();
+                if (item) promises.push(traverseFileTree(item, files));
+            }
+            await Promise.all(promises);
+        } else {
+            files.push(...Array.from(e.dataTransfer.files));
+        }
+        processFiles(files);
+    });
+
+    function traverseFileTree(item, filesList) {
+        return new Promise((resolve) => {
+            if (item.isFile) {
+                item.file((file) => { filesList.push(file); resolve(); });
+            } else if (item.isDirectory) {
+                const dirReader = item.createReader();
+                dirReader.readEntries(async (entries) => {
+                    const promises = [];
+                    for (let i = 0; i < entries.length; i++) promises.push(traverseFileTree(entries[i], filesList));
+                    await Promise.all(promises);
+                    resolve();
+                });
+            }
+        });
+    }
+
+    function processFiles(files) {
+        files.forEach(file => {
+            const nameMatch = file.name.match(/(.+)\.(json|skel|atlas|png)$/i);
+            if (!nameMatch) return;
+            const fullName = nameMatch[1];
+            const baseName = fullName.substring(fullName.lastIndexOf('/') + 1).substring(fullName.lastIndexOf('\\') + 1);
+            const ext = nameMatch[2].toLowerCase();
+            if (!spineFiles[baseName]) spineFiles[baseName] = {};
+            spineFiles[baseName][ext] = file;
+        });
+        renderAssetList();
+    }
+
+    function renderAssetList() {
+        const listContainer = document.getElementById('asset-list');
+        listContainer.innerHTML = '';
+        Object.keys(spineFiles).forEach(name => {
+            const group = spineFiles[name];
+            const hasData = group.json || group.skel;
+            const isReady = hasData && group.atlas && group.png;
+            
+            const div = document.createElement('div');
+            div.className = `asset-item ${isReady ? 'ready' : 'missing'}`;
+            div.innerHTML = `
+                <div>
+                    <strong>${name}</strong><br>
+                    <small style="color:#888">
+                        ${group.json ? '✓ JSON ' : (group.skel ? '✓ SKEL ' : '')}
+                        ${group.atlas ? '✓ Atlas ' : ''}
+                        ${group.png ? '✓ PNG' : ''}
+                    </small>
+                </div>
+                ${isReady ? `<button class="btn-add" id="btn-${name}" onclick="spawnToScene('${name}')">Upload & Add</button>` : ''}
+            `;
+            listContainer.appendChild(div);
+        });
+    }
+
+    // ==========================================
+    // 2. KẾT NỐI BACKEND (Bọc Try/Catch chống treo máy)
+    // ==========================================
+    try {
+        const SUPABASE_URL = 'https://jxifynhuxcigcomhfxad.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_guA6fUpSMtATt1sZcPtK0g_vFVVlEig';
+        if (window.supabase) {
+            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        } else {
+            console.error("Supabase SDK chưa được nạp. Có thể do nghẽn mạng.");
+        }
+    } catch (e) {
+        console.error("Lỗi khởi tạo Backend:", e);
+    }
+
+    // ==========================================
+    // 3. KHỞI TẠO ENGINE GAME
+    // ==========================================
+    (async function initEngine() {
+        try {
+            app = new PIXI.Application();
+            await app.init({
+                width: 1920, height: 1080,
+                backgroundColor: 0x333333,
+                resolution: window.devicePixelRatio || 1,
+                autoDensity: true
+            });
+            document.getElementById('canvas-wrapper').appendChild(app.canvas);
+
+            app.stage.eventMode = 'static';
+            app.stage.hitArea = new PIXI.Rectangle(0, 0, 1920, 1080);
+            app.stage.on('pointerdown', (e) => { if (e.target === app.stage) selectObject(null); });
+
+            app.canvas.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                if (!activeSpineObj) return;
+                const scaleFactor = e.deltaY < 0 ? 1.1 : 0.9;
+                activeSpineObj.scale.x *= scaleFactor;
+                activeSpineObj.scale.y *= scaleFactor;
+            });
+        } catch(e) {
+            console.error("Lỗi khởi tạo WebGL:", e);
+        }
+    })();
+
+    // ==========================================
+    // 4. LUỒNG UPLOAD & HIỂN THỊ CHÍNH
+    // ==========================================
+    async function spawnToScene(baseName) {
+        const loadingUI = document.getElementById('loading-overlay');
+        const btn = document.getElementById(`btn-${baseName}`);
+        
+        if (!supabaseClient) {
+            alert("Hệ thống Máy chủ chưa sẵn sàng. Vui lòng tải lại trang (F5) hoặc tắt Adblock.");
+            return;
+        }
+
+        try {
+            loadingUI.style.display = 'flex';
+            if(btn) { btn.disabled = true; btn.innerText = "Đang xử lý..."; }
+
+            const files = spineFiles[baseName];
+            const uid = Date.now();
+            const folderPath = `${baseName}_${uid}/`;
+
+            // BƯỚC 1: UPLOAD PNG
+            const pngPath = folderPath + files.png.name;
+            const { error: pngErr } = await supabaseClient.storage.from(BUCKET_NAME).upload(pngPath, files.png);
+            if (pngErr) throw new Error("Lỗi upload PNG: " + pngErr.message);
+            const pngUrl = supabaseClient.storage.from(BUCKET_NAME).getPublicUrl(pngPath).data.publicUrl;
+
+            // BƯỚC 2: SỬA VÀ UPLOAD ATLAS
+            let atlasText = await files.atlas.text();
+            const pngNameMatch = atlasText.match(/^(.+\.(?:png|jpg|jpeg))$/m);
+            if (pngNameMatch) {
+                atlasText = atlasText.replace(pngNameMatch[1].trim(), pngUrl);
+            }
+            const atlasPath = folderPath + files.atlas.name;
+            const { error: atlasErr } = await supabaseClient.storage.from(BUCKET_NAME).upload(atlasPath, atlasText, { contentType: 'text/plain' });
+            if (atlasErr) throw new Error("Lỗi upload Atlas: " + atlasErr.message);
+            const atlasUrl = supabaseClient.storage.from(BUCKET_NAME).getPublicUrl(atlasPath).data.publicUrl;
+
+            // BƯỚC 3: UPLOAD JSON / SKEL
+            const dataFile = files.json || files.skel;
+            const dataPath = folderPath + dataFile.name;
+            const { error: dataErr } = await supabaseClient.storage.from(BUCKET_NAME).upload(dataPath, dataFile);
+            if (dataErr) throw new Error("Lỗi upload Dữ liệu: " + dataErr.message);
+            const dataUrl = supabaseClient.storage.from(BUCKET_NAME).getPublicUrl(dataPath).data.publicUrl;
+
+            // BƯỚC 4: PIXIJS RENDER TỪ URL THẬT
+            const atlasAlias = `atlas_${uid}`;
+            const dataAlias = `data_${uid}`;
+
+            PIXI.Assets.add({ alias: atlasAlias, src: atlasUrl });
+            PIXI.Assets.add({ alias: dataAlias, src: dataUrl });
+
+            await PIXI.Assets.load([atlasAlias, dataAlias]);
+
+            const spineDisplayObj = spine.Spine.from({
+                skeleton: dataAlias,
+                atlas: atlasAlias
+            });
+
+            spineDisplayObj.name = baseName;
+            spineDisplayObj.x = 1920 / 2;
+            spineDisplayObj.y = 1080 / 2;
+            
+            if (spineDisplayObj.skeleton.data.animations.length > 0) {
+                const firstAnim = spineDisplayObj.skeleton.data.animations[0].name;
+                spineDisplayObj.state.setAnimation(0, firstAnim, true);
+            }
+
+            setupInteractions(spineDisplayObj);
+            app.stage.addChild(spineDisplayObj);
+            selectObject(spineDisplayObj);
+
+            if(btn) { btn.innerText = "Hoàn tất"; }
+
+        } catch (error) {
+            console.error("Pipeline Error:", error);
+            alert("Đã xảy ra lỗi: \n" + error.message);
+            if(btn) { btn.disabled = false; btn.innerText = "Upload & Add"; }
+        } finally {
+            loadingUI.style.display = 'none';
+        }
+    }
+
+    // --- TRANSFORM CONTROLS ---
+    function setupInteractions(obj) {
+        obj.eventMode = 'dynamic';
+        obj.cursor = 'move';
+        let dragging = false;
+        let dragStartPos = { x: 0, y: 0 };
+
+        obj.on('pointerdown', (event) => {
+            event.stopPropagation();
+            selectObject(obj);
+            dragging = true;
+            app.stage.setChildIndex(obj, app.stage.children.length - 1);
+            dragStartPos = { x: event.global.x - obj.x, y: event.global.y - obj.y };
+        });
+
+        const onDragEnd = () => { dragging = false; };
+        obj.on('pointerup', onDragEnd);
+        obj.on('pointerupoutside', onDragEnd);
+
+        obj.on('pointermove', (event) => {
+            if (dragging) {
+                obj.x = event.global.x - dragStartPos.x;
+                obj.y = event.global.y - dragStartPos.y;
+            }
+        });
+    }
+
+    // --- INSPECTOR LOGIC ---
+    const inspPanel = document.getElementById('inspector-content');
+    const inspEmpty = document.getElementById('inspector-empty');
+    const inspName = document.getElementById('insp-name');
+    const animSelect = document.getElementById('insp-anim');
+    const skinSelect = document.getElementById('insp-skin');
+
+    function selectObject(obj) {
+        if (activeSpineObj) activeSpineObj.alpha = 1.0;
+        activeSpineObj = obj;
+
+        if (!obj) {
+            inspPanel.style.display = 'none';
+            inspEmpty.style.display = 'block';
+            return;
+        }
+
+        obj.alpha = 0.8;
+        inspEmpty.style.display = 'none';
+        inspPanel.style.display = 'block';
+        inspName.textContent = obj.name || "Spine Object";
+
+        animSelect.innerHTML = '';
+        obj.skeleton.data.animations.forEach(anim => {
+            const option = document.createElement('option');
+            option.value = anim.name;
+            option.textContent = anim.name;
+            animSelect.appendChild(option);
+        });
+        
+        if (obj.state.tracks[0] && obj.state.tracks[0].animation) {
+            animSelect.value = obj.state.tracks[0].animation.name;
+        }
+
+        skinSelect.innerHTML = '';
+        obj.skeleton.data.skins.forEach(skin => {
+            const option = document.createElement('option');
+            option.value = skin.name;
+            option.textContent = skin.name;
+            skinSelect.appendChild(option);
+        });
+        
+        if (obj.skeleton.skin) {
+            skinSelect.value = obj.skeleton.skin.name;
+        }
+    }
+
+    animSelect.addEventListener('change', (e) => {
+        if (activeSpineObj) activeSpineObj.state.setAnimation(0, e.target.value, true);
+    });
+
+    skinSelect.addEventListener('change', (e) => {
+        if (activeSpineObj) {
+            activeSpineObj.skeleton.setSkinByName(e.target.value);
+            activeSpineObj.skeleton.setSlotsToSetupPose();
+        }
+    });
+
+    function deleteActiveObject() {
+        if (activeSpineObj) {
+            app.stage.removeChild(activeSpineObj);
+            activeSpineObj.destroy({ children: true });
+            selectObject(null);
+        }
+    }
+</script>
+</body>
+</html>
