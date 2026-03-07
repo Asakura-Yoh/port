@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spine 4.2 Web Previewer - Elite Edition</title>
+    <title>Spine 4.2 Web Previewer - Ultimate Edition</title>
     
     <script src="https://unpkg.com/pixi.js@8.x/dist/pixi.min.js"></script>
     <script src="https://unpkg.com/@esotericsoftware/spine-pixi-v8@4.2/dist/iife/spine-pixi-v8.js"></script>
@@ -324,49 +324,45 @@
     async function spawnToScene(baseName) {
         try {
             const files = spineFiles[baseName];
-            const uniqueId = Date.now(); // Cache collision prevention
+            const uniqueId = "spine_" + Date.now(); // Cache collision prevention
 
-            // 1. Process PNG (Explicitly declare format to Pixi)
-            const safePngAlias = `${baseName}_texture_${uniqueId}.png`;
-            PIXI.Assets.add({ 
-                alias: safePngAlias, 
-                src: URL.createObjectURL(files.png),
-                format: '.png', 
-                data: { extension: '.png' } 
-            });
+            // 1. Process PNG (Bảo toàn định dạng bằng Blob MIME Type)
+            const texAlias = `${uniqueId}.png`;
+            const texBlob = new Blob([await files.png.arrayBuffer()], { type: 'image/png' });
+            const texUrl = URL.createObjectURL(texBlob) + '#.png';
+            PIXI.Assets.add({ alias: texAlias, src: texUrl });
 
-            // 2. Read Atlas Text & Extract actual Image Name using Regex
+            // 2. Process Atlas (Thay thế Tên Ảnh một cách an toàn nhất)
             let atlasText = await files.atlas.text();
-            // This Regex finds the first line ending with .png/.jpg to accurately swap the name
-            const imageMatch = atlasText.match(/^(.+\.(?:png|jpg|jpeg))$/m);
-            const originalImageName = imageMatch ? imageMatch[1].trim() : files.png.name;
-            atlasText = atlasText.replace(originalImageName, safePngAlias);
+            let lines = atlasText.split(/\r?\n/);
+            for(let i=0; i<lines.length; i++) {
+                // Chỉ thay đổi dòng khai báo tên ảnh gốc, giữ nguyên các vùng Region
+                if(lines[i].trim() === files.png.name.trim()) {
+                    lines[i] = texAlias; 
+                }
+            }
+            const atlasAlias = `${uniqueId}.atlas`;
+            const atlasBlob = new Blob([lines.join('\n')], { type: 'text/plain' });
+            const atlasUrl = URL.createObjectURL(atlasBlob) + '#.atlas';
+            PIXI.Assets.add({ alias: atlasAlias, src: atlasUrl });
 
-            // 3. Process Atlas Data
-            const atlasBlob = new Blob([atlasText], { type: 'text/plain' });
-            const atlasAlias = `${baseName}_atlas_${uniqueId}.atlas`;
-            PIXI.Assets.add({ 
-                alias: atlasAlias, 
-                src: URL.createObjectURL(atlasBlob),
-                format: '.atlas', 
-                data: { extension: '.atlas' } // CRUCIAL: Forces Spine Atlas Parser
-            });
+            // 3. Process Data (.json / .skel)
+            let dataAlias, dataUrl;
+            if (files.json) {
+                dataAlias = `${uniqueId}.json`;
+                // Ép chuẩn JSON thay vì để Text thô, ngăn lỗi null Skeleton
+                const dataBlob = new Blob([await files.json.text()], { type: 'application/json' });
+                dataUrl = URL.createObjectURL(dataBlob) + '#.json';
+            } else {
+                dataAlias = `${uniqueId}.skel`;
+                const dataBlob = new Blob([await files.skel.arrayBuffer()], { type: 'application/octet-stream' });
+                dataUrl = URL.createObjectURL(dataBlob) + '#.skel';
+            }
+            PIXI.Assets.add({ alias: dataAlias, src: dataUrl });
 
-            // 4. Process Skeleton Data (.json or .skel)
-            const dataFile = files.json || files.skel;
-            const dataExt = files.json ? '.json' : '.skel';
-            const dataAlias = `${baseName}_data_${uniqueId}${dataExt}`;
-            PIXI.Assets.add({ 
-                alias: dataAlias, 
-                src: URL.createObjectURL(dataFile),
-                format: dataExt,
-                data: { extension: dataExt } // CRUCIAL: Forces Spine JSON/Binary Parser
-            });
+            // 4. Load & Construct
+            await PIXI.Assets.load([texAlias, atlasAlias, dataAlias]);
 
-            // 5. Load everything properly via Pixi Pipeline
-            await PIXI.Assets.load([safePngAlias, atlasAlias, dataAlias]);
-
-            // 6. Build Object
             const spineDisplayObj = spine.Spine.from({
                 skeleton: dataAlias,
                 atlas: atlasAlias
