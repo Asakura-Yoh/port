@@ -153,7 +153,6 @@
 
     dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
 
-    // Handle Drag & Drop (Supports Folders via WebKit API)
     dropZone.addEventListener('drop', async (e) => {
         e.preventDefault();
         dropZone.classList.remove('dragover');
@@ -162,7 +161,6 @@
         const items = e.dataTransfer.items;
         
         if (items) {
-            // Traverse all dropped items (could be files or folders)
             const promises = [];
             for (let i = 0; i < items.length; i++) {
                 const item = items[i].webkitGetAsEntry();
@@ -170,14 +168,12 @@
             }
             await Promise.all(promises);
         } else {
-            // Fallback for older browsers
             files.push(...Array.from(e.dataTransfer.files));
         }
         
         processFiles(files);
     });
 
-    // Recursive directory traversal
     function traverseFileTree(item, filesList) {
         return new Promise((resolve) => {
             if (item.isFile) {
@@ -199,7 +195,6 @@
         });
     }
 
-    // Handle Click (Folder selection)
     dropZone.addEventListener('click', () => fileInput.click());
 
     fileInput.addEventListener('change', (e) => {
@@ -213,7 +208,6 @@
             const nameMatch = file.name.match(/(.+)\.(json|atlas|png)$/i);
             if (!nameMatch) return;
 
-            // Extract base name ignoring paths (for folder uploads)
             const fullName = nameMatch[1];
             const baseName = fullName.substring(fullName.lastIndexOf('/') + 1).substring(fullName.lastIndexOf('\\') + 1);
             const ext = nameMatch[2].toLowerCase();
@@ -224,7 +218,6 @@
         renderAssetList();
     }
 
-    // --- RENDER SIDEBAR UI ---
     function renderAssetList() {
         const listContainer = document.getElementById('asset-list');
         listContainer.innerHTML = '';
@@ -251,24 +244,44 @@
         });
     }
 
-    // --- CLIENT-SIDE SPINE PARSER ---
+    // --- ELITE CLIENT-SIDE SPINE PARSER (AUTO-VERSIONING) ---
     async function loadLocalSpine(baseName) {
         const files = spineFiles[baseName];
         const pngUrl = URL.createObjectURL(files.png);
-        const texture = await PIXI.Assets.load(pngUrl);
+        await PIXI.Assets.load(pngUrl); // Preload texture
 
         const atlasText = await files.atlas.text();
         const jsonText = await files.json.text();
+        const rawJsonData = JSON.parse(jsonText);
 
-        // FIXED ERROR: Removed '.core' from PIXI.spine classes for v4+ compatibility
+        // 1. Dò tìm phiên bản Spine từ file JSON
+        const version = rawJsonData?.skeleton?.spine || "3.8";
+        console.log(`[Spine Parser] Phân tích asset '${baseName}' phiên bản: ${version}`);
+
+        // 2. Map tới đúng namespace của Runtime tương ứng
+        let spineRuntime = PIXI.spine.spine41 || PIXI.spine.spine40 || PIXI.spine.spine38; // Default fallback
+        
+        if (version.startsWith("3.8") || version.startsWith("3.7")) {
+            spineRuntime = PIXI.spine.spine38;
+        } else if (version.startsWith("4.0")) {
+            spineRuntime = PIXI.spine.spine40;
+        } else if (version.startsWith("4.1") || version.startsWith("4.2")) {
+            spineRuntime = PIXI.spine.spine41;
+        }
+
+        if (!spineRuntime) {
+            throw new Error(`Thư viện hiện tại không hỗ trợ Spine version ${version}`);
+        }
+
+        // 3. Khởi tạo TextureAtlas (Class dùng chung cho mọi version)
         const atlas = new PIXI.spine.TextureAtlas(atlasText, (line, callback) => {
             callback(PIXI.BaseTexture.from(pngUrl));
         });
 
-        const atlasLoader = new PIXI.spine.AtlasAttachmentLoader(atlas);
-        const skeletonJson = new PIXI.spine.SkeletonJson(atlasLoader);
+        // 4. Khởi tạo Loader & Parser theo đúng chuẩn của Runtime
+        const atlasLoader = new spineRuntime.AtlasAttachmentLoader(atlas);
+        const skeletonJson = new spineRuntime.SkeletonJson(atlasLoader);
         
-        const rawJsonData = JSON.parse(jsonText);
         return skeletonJson.readSkeletonData(rawJsonData);
     }
 
