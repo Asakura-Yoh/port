@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spine 4.2 Web Previewer - Stable Edition</title>
+    <title>Spine 4.2 Web Previewer - Raw Memory Parser</title>
     
     <script src="https://unpkg.com/pixi.js@8.x/dist/pixi.min.js"></script>
     <script src="https://unpkg.com/@esotericsoftware/spine-pixi-v8@4.2/dist/iife/spine-pixi-v8.js"></script>
@@ -191,12 +191,10 @@
     </div>
 
 <script>
-    // --- APP STATE ---
     const spineFiles = {};
     let activeSpineObj = null;
     let app = null;
 
-    // --- INIT PIXI v8 ENGINE ---
     (async function initEngine() {
         app = new PIXI.Application();
         await app.init({
@@ -220,7 +218,6 @@
         });
     })();
 
-    // --- DRAG & DROP LOGIC ---
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
     
@@ -230,10 +227,8 @@
     dropZone.addEventListener('drop', async (e) => {
         e.preventDefault();
         dropZone.classList.remove('dragover');
-        
         const files = [];
         const items = e.dataTransfer.items;
-        
         if (items) {
             const promises = [];
             for (let i = 0; i < items.length; i++) {
@@ -270,11 +265,9 @@
         files.forEach(file => {
             const nameMatch = file.name.match(/(.+)\.(json|skel|atlas|png)$/i);
             if (!nameMatch) return;
-
             const fullName = nameMatch[1];
             const baseName = fullName.substring(fullName.lastIndexOf('/') + 1).substring(fullName.lastIndexOf('\\') + 1);
             const ext = nameMatch[2].toLowerCase();
-
             if (!spineFiles[baseName]) spineFiles[baseName] = {};
             spineFiles[baseName][ext] = file;
         });
@@ -284,7 +277,6 @@
     function renderAssetList() {
         const listContainer = document.getElementById('asset-list');
         listContainer.innerHTML = '';
-
         Object.keys(spineFiles).forEach(name => {
             const group = spineFiles[name];
             const hasData = group.json || group.skel;
@@ -292,7 +284,6 @@
             
             const div = document.createElement('div');
             div.className = `asset-item ${isReady ? 'ready' : 'missing'}`;
-            
             div.innerHTML = `
                 <div>
                     <strong>${name}</strong><br>
@@ -308,65 +299,39 @@
         });
     }
 
-    // --- BULLETPROOF SPINE PIPELINE (SMART TEXTURE MAPPING) ---
+    // --- ELITE RAW MEMORY PARSING (NO PIXI ASSET LOADER BUGS) ---
     async function spawnToScene(baseName) {
         try {
             const files = spineFiles[baseName];
-            const uniqueId = "spine_" + Date.now();
 
-            // 1. Đọc nội dung Atlas
+            // 1. Nạp ảnh PNG trực tiếp qua URL ảo (Chỉ dùng cho ảnh, an toàn 100%)
+            const imgUrl = URL.createObjectURL(files.png);
+            const pixiTexture = await PIXI.Assets.load(imgUrl);
+
+            // 2. Đọc Atlas trực tiếp bằng text thô, tự định nghĩa Texture (Bypass lỗi findRegion)
             const atlasText = await files.atlas.text();
-            
-            // 2. SMART MAPPING: Tìm chính xác tên file ảnh mà Atlas đòi hỏi (dù nó có nằm trong folder nào đi nữa)
-            let expectedPngName = files.png.name; // Default fallback
-            const lines = atlasText.split(/\r?\n/);
-            for (const line of lines) {
-                const trimmedLine = line.trim();
-                if (trimmedLine.endsWith('.png') || trimmedLine.endsWith('.jpg')) {
-                    expectedPngName = trimmedLine; // Tìm thấy tên ảnh thực tế trong Atlas!
-                    break;
-                }
+            const textureAtlas = new spine.TextureAtlas(atlasText, (path) => {
+                // Spine yêu cầu file ảnh nào, ta mặc kệ! Trả luôn ảnh PNG đang có.
+                return pixiTexture; 
+            });
+
+            // 3. Khởi tạo Loader bằng Atlas vừa tạo
+            const atlasLoader = new spine.AtlasAttachmentLoader(textureAtlas);
+            let skeletonData;
+
+            // 4. Đọc dữ liệu Khung xương trực tiếp từ text/array buffer (Bypass lỗi null skeleton)
+            if (files.json) {
+                const skeletonJson = new spine.SkeletonJson(atlasLoader);
+                const rawJsonData = JSON.parse(await files.json.text());
+                skeletonData = skeletonJson.readSkeletonData(rawJsonData);
+            } else if (files.skel) {
+                const skeletonBinary = new spine.SkeletonBinary(atlasLoader);
+                const buffer = new Uint8Array(await files.skel.arrayBuffer());
+                skeletonData = skeletonBinary.readSkeletonData(buffer);
             }
 
-            // 3. Đổi tên trong Atlas thành tên Độc nhất để tránh cache lộn xộn
-            const uniquePngAlias = `${baseName}_${uniqueId}.png`;
-            const modifiedAtlasText = atlasText.replace(expectedPngName, uniquePngAlias);
-
-            // 4. Bơm ảnh PNG vào Asset Loader với tên Độc nhất
-            PIXI.Assets.add({ 
-                alias: uniquePngAlias, 
-                src: URL.createObjectURL(files.png) + '#.png' 
-            });
-
-            // 5. Bơm Atlas vào Asset Loader
-            const atlasAlias = `${baseName}_${uniqueId}.atlas`;
-            const atlasBlob = new Blob([modifiedAtlasText], { type: 'text/plain' });
-            PIXI.Assets.add({ 
-                alias: atlasAlias, 
-                src: URL.createObjectURL(atlasBlob) + '#.atlas' 
-            });
-
-            // 6. Bơm JSON/SKEL vào Asset Loader (Ép chuẩn định dạng MIME)
-            const isJson = !!files.json;
-            const dataExt = isJson ? '.json' : '.skel';
-            const dataAlias = `${baseName}_${uniqueId}${dataExt}`;
-            const dataBlob = isJson 
-                ? new Blob([await files.json.text()], { type: 'application/json' })
-                : new Blob([await files.skel.arrayBuffer()], { type: 'application/octet-stream' });
-                
-            PIXI.Assets.add({ 
-                alias: dataAlias, 
-                src: URL.createObjectURL(dataBlob) + '#' + dataExt 
-            });
-
-            // 7. Load toàn bộ Asset vào bộ nhớ RAM
-            await PIXI.Assets.load([uniquePngAlias, atlasAlias, dataAlias]);
-
-            // 8. Khởi tạo Nhân vật!
-            const spineDisplayObj = spine.Spine.from({
-                skeleton: dataAlias,
-                atlas: atlasAlias
-            });
+            // 5. Khởi tạo Nhân vật Spine!
+            const spineDisplayObj = new spine.Spine(skeletonData);
 
             spineDisplayObj.name = baseName;
             spineDisplayObj.x = 1920 / 2;
@@ -382,8 +347,8 @@
             selectObject(spineDisplayObj);
 
         } catch (error) {
-            console.error("Spine Pipeline Error:", error);
-            alert("Lỗi Load Asset: Mở F12 để xem chi tiết. \n" + error.message);
+            console.error("Raw Parsing Error:", error);
+            alert("Lỗi Load Asset: " + error.message);
         }
     }
 
