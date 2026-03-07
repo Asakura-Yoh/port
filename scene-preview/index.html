@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spine 4.2 Pro Previewer - Perfect 16:9 Center</title>
+    <title>Spine 4.2 Pro Previewer - Clear Viewport Edition</title>
     
     <script src="https://unpkg.com/pixi.js@8.x/dist/pixi.min.js"></script>
     <script src="https://unpkg.com/@esotericsoftware/spine-pixi-v8@4.2/dist/iife/spine-pixi-v8.js"></script>
@@ -35,44 +35,42 @@
         .btn-collapsed-l { left: 15px !important; }
         .btn-collapsed-r { right: 15px !important; }
 
-        /* MAIN VIEWPORT - ĐÃ HIỆU CHỈNH CĂN GIỮA TUYỆT ĐỐI */
+        /* MAIN VIEWPORT - CENTERED WITH BORDER */
         #main-view { 
             flex: 1; 
-            min-width: 0; /* Quan trọng để flex container có thể co lại */
-            background: #0b0b0b; 
+            background: #0b0b0b; /* Nền ngoài tối hơn để làm nổi bật khung preview */
             display: flex; 
             justify-content: center; 
             align-items: center;     
             position: relative; 
             overflow: hidden; 
-            padding: 30px; 
         }
         
-        /* CANVAS WRAPPER - VIỀN KHÍT 16:9 & SCALE THÔNG MINH */
         #canvas-wrapper { 
             aspect-ratio: 16 / 9; 
             position: relative;
-            /* Thay đổi mấu chốt để viền bo khít: không dùng width 100% cố định */
-            width: auto; 
-            height: auto; 
-            max-width: 100%;
-            max-height: 100%;
-            
+            width: 100%; 
+            /* CHỈNH SỬA Ở ĐÂY: Đã xóa dòng height: 100%; để viền bo khít */
+            max-width: 98%; /* Chừa một khoảng lề nhỏ để thấy rõ đường viền */
+            max-height: 98%;
             display: flex; 
             justify-content: center; 
             align-items: center;
-            border: 1px solid #444; /* Viền bao sát khít */
-            background: #1a1a1a; 
-            box-shadow: 0 0 30px rgba(0,0,0,0.6);
+            /* ĐƯỜNG VIỀN PHÂN BIỆT */
+            border: 1px solid #444; 
+            background: #1a1a1a; /* Màu nền nội tại của canvas */
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
         }
         #canvas-container { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
-        canvas { width: 100%; height: 100%; display: block; object-fit: contain; }
+        
+        /* CHỈNH SỬA Ở ĐÂY: Đảm bảo canvas lấp đầy hoàn toàn khung chứa 16:9 */
+        canvas { width: 100%; height: 100%; display: block; }
 
         /* BOTTOM INFO */
         #bottom-info { position: absolute; bottom: 20px; background: rgba(0,0,0,0.8); padding: 6px 20px; border-radius: 20px; font-size: 11px; color: #666; display: flex; gap: 25px; z-index: 5; }
         .scale-badge { color: var(--accent); font-weight: bold; }
 
-        /* UI ELEMENTS */
+        /* ASSETS & INSPECTOR UI */
         #drop-zone { margin: 15px; padding: 25px 10px; border: 2px dashed #444; text-align: center; cursor: pointer; border-radius: 6px; font-size: 11px; margin-top: 60px; }
         #asset-list { flex: 1; overflow-y: auto; padding: 10px; }
         .asset-item { background: #2d2d2d; padding: 12px; margin-bottom: 8px; border-radius: 4px; border-left: 4px solid #555; }
@@ -158,6 +156,7 @@
         window.addEventListener('resize', updateScaleDisplay);
     })();
 
+    // --- UI LOGIC ---
     function toggleSidebar(side) {
         const el = document.getElementById(`sidebar-${side}`);
         const btn = document.getElementById(`toggle-${side === 'left' ? 'l' : 'r'}`);
@@ -171,18 +170,16 @@
             btn.classList.toggle('btn-collapsed-r');
         }
         
-        // Thời gian chờ khớp với CSS transition (0.4s)
         setTimeout(updateScaleDisplay, 450);
     }
 
     function updateScaleDisplay() {
         const wrapper = document.getElementById('canvas-wrapper');
-        if (!wrapper) return;
         const scale = (wrapper.clientWidth / LOGICAL_WIDTH) * 100;
         document.getElementById('view-scale').innerText = Math.round(scale) + "%";
     }
 
-    // --- GIỮ NGUYÊN TOÀN BỘ LOGIC BÊN DƯỚI ---
+    // --- ASSET PIPELINE ---
     const fFolder = document.getElementById('file-folder');
     fFolder.onchange = (e) => handleFiles(Array.from(e.target.files));
 
