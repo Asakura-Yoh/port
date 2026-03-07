@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spine 4.2 Web Previewer - Production Ready</title>
+    <title>Spine 4.2 Web Previewer - Elite Edition</title>
     
     <script src="https://unpkg.com/pixi.js@8.x/dist/pixi.min.js"></script>
     <script src="https://unpkg.com/@esotericsoftware/spine-pixi-v8@4.2/dist/iife/spine-pixi-v8.js"></script>
@@ -29,7 +29,6 @@
             overflow: hidden;
         }
 
-        /* --- LEFT SIDEBAR (Hierarchy/Project) --- */
         #sidebar-left {
             width: 280px;
             background-color: var(--bg-panel);
@@ -89,7 +88,6 @@
         }
         button.btn-add:hover { background: #005f9e; }
 
-        /* --- MAIN VIEW (Scene) --- */
         #main-view {
             flex-grow: 1;
             display: flex;
@@ -124,7 +122,6 @@
             z-index: 10;
         }
 
-        /* --- RIGHT SIDEBAR (Inspector) --- */
         #sidebar-right {
             width: 300px;
             background-color: var(--bg-panel);
@@ -134,10 +131,7 @@
             z-index: 10;
         }
 
-        .inspector-panel {
-            padding: 15px;
-            display: none; 
-        }
+        .inspector-panel { padding: 15px; display: none; }
 
         .inspector-group { margin-bottom: 15px; }
         .inspector-group label { display: block; font-size: 12px; margin-bottom: 5px; color: #aaa; }
@@ -170,10 +164,9 @@
 
     <div id="sidebar-left">
         <input type="file" id="file-input" multiple webkitdirectory directory style="display: none;">
-        
         <div id="drop-zone">
             📁 Kéo thả Folder / Files<br>
-            hoặc <strong>Click</strong> vào đây<br>
+            hoặc <strong>Click</strong> vào đây
         </div>
         <div class="section-title">Project Assets</div>
         <div id="asset-list"></div>
@@ -181,9 +174,7 @@
 
     <div id="main-view">
         <div id="canvas-wrapper">
-            <div id="toolbar">
-                Left Click: Select/Move | Scroll Wheel: Scale
-            </div>
+            <div id="toolbar">Left Click: Select/Move | Scroll Wheel: Scale</div>
         </div>
     </div>
 
@@ -221,8 +212,7 @@
     (async function initEngine() {
         app = new PIXI.Application();
         await app.init({
-            width: 1920,
-            height: 1080,
+            width: 1920, height: 1080,
             backgroundColor: 0x333333,
             resolution: window.devicePixelRatio || 1,
             autoDensity: true
@@ -231,9 +221,7 @@
 
         app.stage.eventMode = 'static';
         app.stage.hitArea = new PIXI.Rectangle(0, 0, 1920, 1080);
-        app.stage.on('pointerdown', (e) => {
-            if (e.target === app.stage) selectObject(null);
-        });
+        app.stage.on('pointerdown', (e) => { if (e.target === app.stage) selectObject(null); });
 
         app.canvas.addEventListener('wheel', (e) => {
             e.preventDefault();
@@ -244,7 +232,7 @@
         });
     })();
 
-    // --- DRAG & DROP & CLICK LOGIC ---
+    // --- DRAG & DROP LOGIC ---
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
     
@@ -290,7 +278,6 @@
     dropZone.addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', (e) => { processFiles(Array.from(e.target.files)); fileInput.value = ''; });
 
-    // --- FILE PROCESSING ---
     function processFiles(files) {
         files.forEach(file => {
             const nameMatch = file.name.match(/(.+)\.(json|skel|atlas|png)$/i);
@@ -333,40 +320,53 @@
         });
     }
 
-    // --- BULLETPROOF SCENE INSTANTIATION ---
+    // --- BULLETPROOF SPINE PIPELINE ---
     async function spawnToScene(baseName) {
         try {
             const files = spineFiles[baseName];
-            const uniqueId = Date.now();
+            const uniqueId = Date.now(); // Cache collision prevention
 
-            // 1. Image Load
+            // 1. Process PNG (Explicitly declare format to Pixi)
             const safePngAlias = `${baseName}_texture_${uniqueId}.png`;
-            const pngUrl = URL.createObjectURL(files.png) + '#' + safePngAlias;
-            PIXI.Assets.add({ alias: safePngAlias, src: pngUrl });
+            PIXI.Assets.add({ 
+                alias: safePngAlias, 
+                src: URL.createObjectURL(files.png),
+                format: '.png', 
+                data: { extension: '.png' } 
+            });
 
-            // 2. Atlas Load
+            // 2. Read Atlas Text & Extract actual Image Name using Regex
             let atlasText = await files.atlas.text();
-            atlasText = atlasText.replace(files.png.name, safePngAlias); // Link texture alias
+            // This Regex finds the first line ending with .png/.jpg to accurately swap the name
+            const imageMatch = atlasText.match(/^(.+\.(?:png|jpg|jpeg))$/m);
+            const originalImageName = imageMatch ? imageMatch[1].trim() : files.png.name;
+            atlasText = atlasText.replace(originalImageName, safePngAlias);
+
+            // 3. Process Atlas Data
             const atlasBlob = new Blob([atlasText], { type: 'text/plain' });
             const atlasAlias = `${baseName}_atlas_${uniqueId}.atlas`;
-            const atlasUrl = URL.createObjectURL(atlasBlob) + '#' + atlasAlias;
-            PIXI.Assets.add({ alias: atlasAlias, src: atlasUrl });
+            PIXI.Assets.add({ 
+                alias: atlasAlias, 
+                src: URL.createObjectURL(atlasBlob),
+                format: '.atlas', 
+                data: { extension: '.atlas' } // CRUCIAL: Forces Spine Atlas Parser
+            });
 
-            // LOAD ONLY IMAGE & ATLAS (Bypass Pixi's bug with JSON Blobs)
-            await PIXI.Assets.load([safePngAlias, atlasAlias]);
+            // 4. Process Skeleton Data (.json or .skel)
+            const dataFile = files.json || files.skel;
+            const dataExt = files.json ? '.json' : '.skel';
+            const dataAlias = `${baseName}_data_${uniqueId}${dataExt}`;
+            PIXI.Assets.add({ 
+                alias: dataAlias, 
+                src: URL.createObjectURL(dataFile),
+                format: dataExt,
+                data: { extension: dataExt } // CRUCIAL: Forces Spine JSON/Binary Parser
+            });
 
-            // 3. Manual JSON/SKEL parsing & Injection
-            const dataAlias = `${baseName}_data_${uniqueId}`;
-            if (files.json) {
-                // Ép kiểu chuẩn xác JSON Object thay vì String!
-                const rawJson = JSON.parse(await files.json.text());
-                PIXI.Assets.cache.set(dataAlias, rawJson); 
-            } else if (files.skel) {
-                const buffer = await files.skel.arrayBuffer();
-                PIXI.Assets.cache.set(dataAlias, new Uint8Array(buffer));
-            }
+            // 5. Load everything properly via Pixi Pipeline
+            await PIXI.Assets.load([safePngAlias, atlasAlias, dataAlias]);
 
-            // 4. Construct Spine Object
+            // 6. Build Object
             const spineDisplayObj = spine.Spine.from({
                 skeleton: dataAlias,
                 atlas: atlasAlias
@@ -404,14 +404,10 @@
             dragging = true;
             app.stage.setChildIndex(obj, app.stage.children.length - 1);
             
-            dragStartPos = { 
-                x: event.global.x - obj.x, 
-                y: event.global.y - obj.y 
-            };
+            dragStartPos = { x: event.global.x - obj.x, y: event.global.y - obj.y };
         });
 
         const onDragEnd = () => { dragging = false; };
-        
         obj.on('pointerup', onDragEnd);
         obj.on('pointerupoutside', onDragEnd);
 
@@ -432,7 +428,6 @@
 
     function selectObject(obj) {
         if (activeSpineObj) activeSpineObj.alpha = 1.0;
-        
         activeSpineObj = obj;
 
         if (!obj) {
@@ -472,9 +467,7 @@
     }
 
     animSelect.addEventListener('change', (e) => {
-        if (activeSpineObj) {
-            activeSpineObj.state.setAnimation(0, e.target.value, true);
-        }
+        if (activeSpineObj) activeSpineObj.state.setAnimation(0, e.target.value, true);
     });
 
     skinSelect.addEventListener('change', (e) => {
@@ -491,7 +484,6 @@
             selectObject(null);
         }
     }
-
 </script>
 </body>
 </html>
