@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spine 4.2 Web Previewer - Virtual Server Edition</title>
+    <title>Spine 4.2 Web Previewer - Production Architecture</title>
     
     <script src="https://unpkg.com/pixi.js@8.x/dist/pixi.min.js"></script>
     <script src="https://unpkg.com/@esotericsoftware/spine-pixi-v8@4.2/dist/iife/spine-pixi-v8.js"></script>
@@ -176,47 +176,12 @@
     </div>
 
 <script>
-    // ==========================================
-    // 🚀 VIRTUAL LOCAL SERVER (FETCH INTERCEPTOR)
-    // ==========================================
-    // This perfectly fakes a web server to bypass all PixiJS offline errors.
-    const fileCache = {};
-    const originalFetch = window.fetch;
-    
-    window.fetch = async (input, init) => {
-        const url = typeof input === 'string' ? input : input.url;
-        
-        if (url.startsWith('spine-mock://')) {
-            const fileName = url.replace('spine-mock://', '');
-            const data = fileCache[fileName];
-            
-            if (!data) return new Response('Not found', { status: 404 });
-
-            // Mock Image Response
-            if (fileName.match(/\.(png|jpg|jpeg)$/i)) {
-                return new Response(data, { headers: { 'Content-Type': 'image/png' } });
-            }
-            // Mock Text Response
-            if (fileName.endsWith('.atlas') || fileName.endsWith('.json')) {
-                const text = typeof data === 'string' ? data : await data.text();
-                return new Response(text, { headers: { 'Content-Type': 'text/plain' } });
-            }
-            // Mock Binary Response
-            if (fileName.endsWith('.skel')) {
-                const buffer = await data.arrayBuffer();
-                return new Response(buffer, { headers: { 'Content-Type': 'application/octet-stream' } });
-            }
-        }
-        return originalFetch(input, init);
-    };
-
-    // ==========================================
-    // APP STATE & PIXI ENGINE INIT
-    // ==========================================
+    // --- APP STATE ---
     const spineFiles = {};
     let activeSpineObj = null;
     let app = null;
 
+    // --- INIT PIXI v8 ENGINE ---
     (async function initEngine() {
         app = new PIXI.Application();
         await app.init({
@@ -240,9 +205,7 @@
         });
     })();
 
-    // ==========================================
-    // DRAG & DROP LOGIC
-    // ==========================================
+    // --- DRAG & DROP LOGIC ---
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
     
@@ -324,43 +287,57 @@
         });
     }
 
-    // ==========================================
-    // THE ULTIMATE PIPELINE
-    // ==========================================
+    // --- ELITE SEQUENTIAL LOADER (THE FIX) ---
     async function spawnToScene(baseName) {
         try {
             const files = spineFiles[baseName];
-            const uid = "asset_" + Date.now();
+            const uniqueId = Date.now();
 
-            const texAlias = uid + ".png";
-            const atlasAlias = uid + ".atlas";
-            const dataAlias = uid + (files.json ? ".json" : ".skel");
-
-            // 1. Chỉnh sửa Atlas Text để trỏ chính xác về URL ảo
-            let atlasText = await files.atlas.text();
+            // 1. Phân tích Atlas để tạo Alias Độc Nhất cho Texture
+            const atlasText = await files.atlas.text();
             let lines = atlasText.split(/\r?\n/);
+            const texAlias = `tex_${baseName}_${uniqueId}.png`;
+            
             for (let i = 0; i < lines.length; i++) {
                 if (lines[i].trim().match(/\.(png|jpg|jpeg)$/i)) {
-                    // Ép cứng địa chỉ ảnh thành URL của Mock Server
-                    lines[i] = 'spine-mock://' + texAlias; 
+                    lines[i] = texAlias; // Inject Alias vào Atlas
                     break;
                 }
             }
             const modifiedAtlasText = lines.join('\n');
 
-            // 2. Lưu trữ toàn bộ vào Mock Server Cache
-            fileCache[texAlias] = files.png;
-            fileCache[atlasAlias] = modifiedAtlasText;
-            fileCache[dataAlias] = files.json || files.skel;
+            // 2. BƯỚC QUAN TRỌNG NHẤT: Bắt buộc load Texture xong xuôi 100% trước
+            // Điều này ngăn chặn lỗi "Cannot read properties of undefined (reading 'texture')"
+            PIXI.Assets.add({ 
+                alias: texAlias, 
+                src: URL.createObjectURL(files.png) + '#.png' 
+            });
+            await PIXI.Assets.load(texAlias); // <--- Wait here until texture is fully in GPU
 
-            // 3. Đăng ký Asset với Engine thông qua đường dẫn Server ảo
-            // Khi Engine gọi đường dẫn này, nó sẽ qua bộ lọc Fetch Interceptor ở trên
-            PIXI.Assets.add({ alias: atlasAlias, src: 'spine-mock://' + atlasAlias });
-            PIXI.Assets.add({ alias: dataAlias, src: 'spine-mock://' + dataAlias });
+            // 3. Sau khi Texture đã có trong Cache, mới tiến hành nạp Atlas & JSON
+            const atlasAlias = `atlas_${baseName}_${uniqueId}.atlas`;
+            const atlasBlob = new Blob([modifiedAtlasText], { type: 'text/plain' });
+            PIXI.Assets.add({ 
+                alias: atlasAlias, 
+                src: URL.createObjectURL(atlasBlob) + '#.atlas' 
+            });
 
-            // 4. Load & Khởi tạo (Engine sẽ xử lý mượt mà như thể đang chạy trên Web Server thật)
+            const dataAlias = `data_${baseName}_${uniqueId}`;
+            const isJson = !!files.json;
+            const dataExt = isJson ? '.json' : '.skel';
+            const dataBlob = isJson 
+                ? new Blob([await files.json.text()], { type: 'application/json' })
+                : new Blob([await files.skel.arrayBuffer()], { type: 'application/octet-stream' });
+
+            PIXI.Assets.add({ 
+                alias: dataAlias, 
+                src: URL.createObjectURL(dataBlob) + '#' + dataExt 
+            });
+
+            // 4. Load phần còn lại
             await PIXI.Assets.load([atlasAlias, dataAlias]);
 
+            // 5. Khởi tạo Spine (Lúc này Atlas Parser chắc chắn sẽ tìm thấy Texture trong Cache)
             const spineDisplayObj = spine.Spine.from({
                 skeleton: dataAlias,
                 atlas: atlasAlias
@@ -380,14 +357,12 @@
             selectObject(spineDisplayObj);
 
         } catch (error) {
-            console.error("Pipeline Error:", error);
-            alert("Lỗi Load Asset: Vui lòng xem F12 Console. \n" + error.message);
+            console.error("Spine Pipeline Error:", error);
+            alert("Lỗi Load Asset: " + error.message);
         }
     }
 
-    // ==========================================
-    // TRANSFORM CONTROLS & INSPECTOR
-    // ==========================================
+    // --- TRANSFORM CONTROLS ---
     function setupInteractions(obj) {
         obj.eventMode = 'dynamic';
         obj.cursor = 'move';
@@ -414,6 +389,7 @@
         });
     }
 
+    // --- INSPECTOR LOGIC ---
     const inspPanel = document.getElementById('inspector-content');
     const inspEmpty = document.getElementById('inspector-empty');
     const inspName = document.getElementById('insp-name');
