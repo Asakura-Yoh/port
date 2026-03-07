@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spine 4.2 Pro Previewer - Hierarchy Panel Fixed</title>
+    <title>Spine 4.2 Pro Previewer - Attach to Bone Edition</title>
     
     <script src="https://unpkg.com/pixi.js@8.x/dist/pixi.min.js"></script>
     <script src="https://unpkg.com/@esotericsoftware/spine-pixi-v8@4.2/dist/iife/spine-pixi-v8.js"></script>
@@ -14,7 +14,7 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg-dark); color: var(--text); display: flex; width: 100vw; height: 100vh; overflow: hidden; position: relative; }
 
-        /* --- SCROLLBAR --- */
+        /* SCROLLBAR */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: var(--bg-panel); border-left: 1px solid #222; }
         ::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
@@ -23,7 +23,6 @@
         /* SIDEBARS */
         .sidebar { background: var(--bg-panel); border: 1px solid #000; display: flex; flex-direction: column; transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease; width: 300px; z-index: 10; flex-shrink: 0; }
         .sidebar.hidden { width: 0 !important; opacity: 0; pointer-events: none; border: none; }
-        
         #sidebar-left { border-right: 1px solid #000; }
         #sidebar-right { border-left: 1px solid #000; }
 
@@ -42,32 +41,15 @@
         .btn-collapsed-r { right: 15px !important; }
 
         /* MAIN VIEWPORT */
-        #main-view { 
-            flex: 1; 
-            background: #0b0b0b; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center;     
-            position: relative; 
-            overflow: hidden; 
-        }
-        
+        #main-view { flex: 1; background: #0b0b0b; display: flex; justify-content: center; align-items: center; position: relative; overflow: hidden; }
         #canvas-wrapper { 
-            aspect-ratio: 16 / 9; 
-            position: relative;
-            width: min(98%, calc(94vh * 16 / 9)); 
-            max-height: 94vh;
-            display: flex; 
-            justify-content: center; 
-            align-items: center;
-            border: 1px solid #444; 
-            background: #1a1a1a; 
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            aspect-ratio: 16 / 9; position: relative;
+            width: min(98%, calc(94vh * 16 / 9)); max-height: 94vh;
+            display: flex; justify-content: center; align-items: center;
+            border: 1px solid #444; background: #1a1a1a; box-shadow: 0 0 20px rgba(0,0,0,0.5);
         }
         #canvas-container { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
         canvas { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
-
-        /* BOTTOM INFO */
         #bottom-info { position: absolute; bottom: 20px; background: rgba(0,0,0,0.8); padding: 6px 20px; border-radius: 20px; font-size: 11px; color: #666; display: flex; gap: 25px; z-index: 5; }
         .scale-badge { color: var(--accent); font-weight: bold; }
 
@@ -80,27 +62,27 @@
         .ins-header-main { padding: 20px 15px; background: #252526; color: var(--accent); font-weight: bold; font-size: 14px; margin-top: 60px; border-bottom: 1px solid #000; }
         .prop-row { display: flex; align-items: center; margin-bottom: 12px; font-size: 12px; gap: 10px; }
         input, select { background: #121212; border: 1px solid #333; color: #fff; padding: 5px; font-size: 11px; width: 100%; outline: none; }
+        input:disabled, select:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn-ui { background: var(--accent); color: #fff; border: none; padding: 8px; cursor: pointer; width: 100%; font-weight: bold; border-radius: 4px; transition: 0.2s; }
         .btn-ui:hover { filter: brightness(1.2); }
         #loading-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.85); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }
 
-        /* RIGHT SIDEBAR (HIERARCHY & LAYERS) CSS */
+        /* RIGHT SIDEBAR HIERARCHY */
         #hierarchy-list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; cursor: grab; }
-        
-        /* FIX LỖI BỊ CHE KHUẤT TẠI ĐÂY: Thêm flex-shrink: 0 */
         .layer-item { background: #252526; border: 1px solid #333; border-radius: 4px; overflow: hidden; transition: border-color 0.2s; cursor: default; flex-shrink: 0; }
-        
         .layer-item.active { border-color: var(--accent); box-shadow: 0 0 5px rgba(0,122,204,0.3); }
         .layer-item.dragging { opacity: 0.4; border: 1px dashed var(--accent); }
-        
         .layer-header { padding: 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #2d2d2d; font-size: 12px; font-weight: bold; user-select: none; }
         .layer-header:hover { background: #383838; }
         .layer-header .drag-handle { cursor: grab; padding-right: 10px; color: #888; font-size: 14px; }
         .layer-header .toggle-icon { font-size: 10px; color: #666; transition: transform 0.2s; display: inline-block; }
         .layer-item.expanded .toggle-icon { transform: rotate(90deg); }
-        
         .layer-body { padding: 15px; background: #1a1a1a; border-top: 1px solid #111; display: none; }
         .layer-item.expanded .layer-body { display: block; }
+        
+        /* ATTACHMENT HIGHLIGHT */
+        .attach-badge { color: #e6a822; font-size: 9px; margin-left: 5px; display: none; }
+        .layer-item.attached .attach-badge { display: inline; }
     </style>
 </head>
 <body>
@@ -120,12 +102,10 @@
         <div id="canvas-wrapper">
             <div id="canvas-container"></div>
         </div>
-        
         <div id="bottom-info">
             <span>Drag: Move Asset | Grid: 1920x1080</span>
             <span>View Scale: <span id="view-scale" class="scale-badge">100%</span></span>
         </div>
-        
         <div id="loading-overlay">🚀 <span id="load-status">Uploading...</span></div>
     </div>
 
@@ -168,40 +148,52 @@
         
         enableDragScroll('asset-list');
         enableDragScroll('hierarchy-list');
+        
+        // --- LOOP THEO DÕI BONE (BONE TRACKING) ---
+        app.ticker.add(() => {
+            app.stage.children.forEach(child => {
+                // Kiểm tra xem asset này có đang đăng ký bám vào xương nào không
+                if (child.attachedParentUid && child.attachedBoneName) {
+                    const parent = app.stage.children.find(c => c.uid === child.attachedParentUid);
+                    if (parent && parent.skeleton) {
+                        const bone = parent.skeleton.findBone(child.attachedBoneName);
+                        if (bone) {
+                            // Công thức đồng bộ tọa độ Spine -> PixiJS
+                            // Trục Y của Spine ngược với PixiJS, nên ta dùng dấu trừ
+                            child.x = parent.x + bone.worldX * parent.scale.x;
+                            child.y = parent.y - bone.worldY * parent.scale.y;
+
+                            // Cập nhật lại UI Inspector nếu đang click chọn nó
+                            if (activeObj === child) {
+                                const layerDOM = document.getElementById(child.uid);
+                                if(layerDOM) {
+                                    layerDOM.querySelector('.ins-x').value = Math.round(child.x);
+                                    layerDOM.querySelector('.ins-y').value = Math.round(child.y);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        });
     })();
 
     // --- DRAG TO SCROLL LOGIC ---
     function enableDragScroll(elementId) {
         const el = document.getElementById(elementId);
-        let isDown = false;
-        let startY;
-        let scrollTop;
-
+        let isDown = false; let startY; let scrollTop;
         el.addEventListener('mousedown', (e) => {
             if (['INPUT', 'SELECT', 'OPTION', 'BUTTON'].includes(e.target.tagName)) return;
             if (e.target.closest('.layer-header')) return;
-
-            isDown = true;
-            el.style.cursor = 'grabbing';
-            startY = e.pageY - el.offsetTop;
-            scrollTop = el.scrollTop;
+            isDown = true; el.style.cursor = 'grabbing';
+            startY = e.pageY - el.offsetTop; scrollTop = el.scrollTop;
         });
-
-        el.addEventListener('mouseleave', () => {
-            isDown = false;
-            el.style.cursor = 'grab';
-        });
-
-        el.addEventListener('mouseup', () => {
-            isDown = false;
-            el.style.cursor = 'grab';
-        });
-
+        el.addEventListener('mouseleave', () => { isDown = false; el.style.cursor = 'grab'; });
+        el.addEventListener('mouseup', () => { isDown = false; el.style.cursor = 'grab'; });
         el.addEventListener('mousemove', (e) => {
             if (!isDown) return;
             e.preventDefault();
-            const y = e.pageY - el.offsetTop;
-            const walk = (y - startY) * 1.5; 
+            const walk = (e.pageY - el.offsetTop - startY) * 1.5; 
             el.scrollTop = scrollTop - walk;
         });
     }
@@ -210,7 +202,6 @@
         const el = document.getElementById(`sidebar-${side}`);
         const btn = document.getElementById(`toggle-${side === 'left' ? 'l' : 'r'}`);
         el.classList.toggle('hidden');
-        
         if (side === 'left') {
             btn.innerText = el.classList.contains('hidden') ? '▶' : '◀';
             btn.classList.toggle('btn-collapsed-l');
@@ -218,7 +209,6 @@
             btn.innerText = el.classList.contains('hidden') ? '◀' : '▶';
             btn.classList.toggle('btn-collapsed-r');
         }
-        
         setTimeout(updateScaleDisplay, 450);
     }
 
@@ -281,6 +271,10 @@
             spineObj.skeletonKey = dataKey;
             spineObj.atlasKey = atlasKey;
             
+            // Thuộc tính phục vụ cho Attach to Bone
+            spineObj.attachedParentUid = null;
+            spineObj.attachedBoneName = null;
+            
             spawn(spineObj, id);
         } catch (e) { alert(e.message); }
         document.getElementById('loading-overlay').style.display = 'none';
@@ -302,6 +296,9 @@
         obj.on('pointerdown', () => drag = true);
         window.addEventListener('pointermove', (e) => {
             if(drag && activeObj === obj) {
+                // NẾU ĐANG BÁM VÀO XƯƠNG THÌ KHÔNG CHO PHÉP KÉO THẢ TỰ DO NỮA
+                if(obj.attachedParentUid && obj.attachedBoneName) return;
+
                 const rect = app.canvas.getBoundingClientRect();
                 const scaleX = LOGICAL_WIDTH / rect.width;
                 const scaleY = LOGICAL_HEIGHT / rect.height;
@@ -331,14 +328,22 @@
         
         div.innerHTML = `
             <div class="layer-header" draggable="true">
-                <div><span class="drag-handle">↕</span> <span class="layer-name">${obj.name}</span></div>
+                <div>
+                    <span class="drag-handle">↕</span> 
+                    <span class="layer-name">${obj.name}</span>
+                    <span class="attach-badge">🔗 Attached</span>
+                </div>
                 <div class="toggle-icon">▶</div>
             </div>
             <div class="layer-body">
                 <div class="prop-row">
-                    <div style="width:60px">Layer Z</div>
-                    <input type="number" class="ins-z" title="Thứ tự lớp (Số lớn nằm trên)">
+                    <div style="width:60px; color:#e6a822;">Attach 🔗</div>
+                    <select class="ins-attach-parent" style="width:48%; background:#2a2515; border-color:#e6a822"><option value="">- Parent Asset -</option></select>
+                    <select class="ins-attach-bone" style="width:48%; background:#2a2515; border-color:#e6a822" disabled><option value="">- Bone -</option></select>
                 </div>
+                <hr style="border-color:#222; margin: 10px 0;">
+                
+                <div class="prop-row"><div style="width:60px">Layer Z</div><input type="number" class="ins-z"></div>
                 <div class="prop-row"><div style="width:60px">Pos X</div><input type="number" class="ins-x" value="${Math.round(obj.x)}"></div>
                 <div class="prop-row"><div style="width:60px">Pos Y</div><input type="number" class="ins-y" value="${Math.round(obj.y)}"></div>
                 <div class="prop-row"><div style="width:60px">Scale</div><input type="number" class="ins-scale" step="0.05" value="${obj.scale.x.toFixed(2)}"></div>
@@ -352,61 +357,103 @@
         `;
 
         const aSel = div.querySelector('.ins-anim');
-        obj.skeleton.data.animations.forEach(a => {
-            const opt = document.createElement('option'); opt.value = opt.text = a.name; aSel.add(opt);
-        });
+        obj.skeleton.data.animations.forEach(a => { const opt = document.createElement('option'); opt.value = opt.text = a.name; aSel.add(opt); });
         if(obj.state.tracks[0]) aSel.value = obj.state.tracks[0].animation.name;
 
         const sSel = div.querySelector('.ins-skin');
-        obj.skeleton.data.skins.forEach(s => {
-            const opt = document.createElement('option'); opt.value = opt.text = s.name; sSel.add(opt);
-        });
+        obj.skeleton.data.skins.forEach(s => { const opt = document.createElement('option'); opt.value = opt.text = s.name; sSel.add(opt); });
         if(obj.skeleton.skin) sSel.value = obj.skeleton.skin.name;
 
+        // UI TƯƠNG TÁC
         const header = div.querySelector('.layer-header');
-        header.addEventListener('click', () => {
-            div.classList.toggle('expanded');
-            select(obj);
-        });
+        header.addEventListener('click', () => { div.classList.toggle('expanded'); select(obj); });
 
-        header.addEventListener('dragstart', (e) => {
-            e.dataTransfer.setData('text/plain', obj.uid);
-            setTimeout(() => div.classList.add('dragging'), 0);
-        });
-        header.addEventListener('dragend', () => {
-            div.classList.remove('dragging');
-        });
+        header.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/plain', obj.uid); setTimeout(() => div.classList.add('dragging'), 0); });
+        header.addEventListener('dragend', () => { div.classList.remove('dragging'); });
 
-        div.querySelector('.ins-x').oninput = (e) => obj.x = Number(e.target.value);
-        div.querySelector('.ins-y').oninput = (e) => obj.y = Number(e.target.value);
+        const xInput = div.querySelector('.ins-x');
+        const yInput = div.querySelector('.ins-y');
+        xInput.oninput = (e) => obj.x = Number(e.target.value);
+        yInput.oninput = (e) => obj.y = Number(e.target.value);
         div.querySelector('.ins-scale').oninput = (e) => obj.scale.set(Number(e.target.value));
         div.querySelector('.ins-anim').onchange = (e) => obj.state.setAnimation(0, e.target.value, true);
         div.querySelector('.ins-skin').onchange = (e) => { obj.skeleton.setSkinByName(e.target.value); obj.skeleton.setSlotsToSetupPose(); };
+        div.querySelector('.ins-z').onchange = (e) => { obj.zIndex = Number(e.target.value); app.stage.sortChildren(); reorderDOMBasedOnZIndex(); };
+
+        // --- XỬ LÝ SỰ KIỆN ATTACH BONE ---
+        const parentSel = div.querySelector('.ins-attach-parent');
+        const boneSel = div.querySelector('.ins-attach-bone');
         
-        div.querySelector('.ins-z').onchange = (e) => {
-            obj.zIndex = Number(e.target.value);
-            app.stage.sortChildren();
-            reorderDOMBasedOnZIndex();
+        // Click vào Parent dropdown -> Cập nhật danh sách các Spine đang có trong Scene (trừ chính nó)
+        parentSel.addEventListener('focus', () => {
+            const currentVal = parentSel.value;
+            parentSel.innerHTML = '<option value="">- None -</option>';
+            app.stage.children.forEach(c => {
+                if (c.uid !== obj.uid && c.skeleton) { // Không được tự bám vào chính mình
+                    const opt = document.createElement('option');
+                    opt.value = c.uid; opt.text = c.name;
+                    parentSel.add(opt);
+                }
+            });
+            parentSel.value = currentVal;
+        });
+
+        // Khi chọn một Parent -> Đổ dữ liệu các Bone của Parent đó ra
+        parentSel.onchange = (e) => {
+            const pId = e.target.value;
+            boneSel.innerHTML = '<option value="">- Select Bone -</option>';
+            
+            if (pId) {
+                const parentObj = app.stage.children.find(c => c.uid === pId);
+                if (parentObj) {
+                    parentObj.skeleton.bones.forEach(b => {
+                        const opt = document.createElement('option');
+                        opt.value = opt.text = b.data.name;
+                        boneSel.add(opt);
+                    });
+                    boneSel.disabled = false;
+                }
+            } else {
+                boneSel.disabled = true;
+                obj.attachedParentUid = null;
+                obj.attachedBoneName = null;
+                div.classList.remove('attached');
+                xInput.disabled = false; yInput.disabled = false; // Mở khóa tọa độ
+            }
         };
 
+        // Khi chốt chọn Bone -> Tiến hành bám
+        boneSel.onchange = (e) => {
+            if(e.target.value) {
+                obj.attachedParentUid = parentSel.value;
+                obj.attachedBoneName = e.target.value;
+                div.classList.add('attached');
+                xInput.disabled = true; yInput.disabled = true; // Khóa tay tọa độ
+            } else {
+                obj.attachedBoneName = null;
+                obj.attachedParentUid = null;
+                div.classList.remove('attached');
+                xInput.disabled = false; yInput.disabled = false;
+            }
+        };
+
+        // --- DUPLICATE ---
         div.querySelector('.btn-duplicate').onclick = (e) => {
             e.stopPropagation();
-            
             const clone = spine.Spine.from({ skeleton: obj.skeletonKey, atlas: obj.atlasKey });
-            clone.skeletonKey = obj.skeletonKey;
-            clone.atlasKey = obj.atlasKey;
+            clone.skeletonKey = obj.skeletonKey; clone.atlasKey = obj.atlasKey;
+            
+            // Asset duplicate mặc định không Attach để tránh rối
+            clone.attachedParentUid = null;
+            clone.attachedBoneName = null;
             
             const currentAnim = obj.state.tracks[0] ? obj.state.tracks[0].animation.name : null;
             const currentSkin = obj.skeleton.skin ? obj.skeleton.skin.name : null;
-            const currentX = obj.x;
-            const currentY = obj.y;
-            const currentScale = obj.scale.x;
+            const currentX = obj.x; const currentY = obj.y; const currentScale = obj.scale.x;
             
             let baseName = obj.name;
             const nameMatch = obj.name.match(/^(.*)_(\d+)$/);
-            if (nameMatch) {
-                baseName = nameMatch[1]; 
-            }
+            if (nameMatch) baseName = nameMatch[1]; 
             
             let maxNum = 0;
             app.stage.children.forEach(child => {
@@ -422,17 +469,12 @@
             
             spawn(clone, newName);
             
-            clone.x = currentX;
-            clone.y = currentY;
+            clone.x = currentX + 50; // Sinh ra lệch một chút cho dễ nhìn
+            clone.y = currentY + 50;
             clone.scale.set(currentScale);
             
-            if (currentSkin) {
-                clone.skeleton.setSkinByName(currentSkin);
-                clone.skeleton.setSlotsToSetupPose();
-            }
-            if (currentAnim) {
-                clone.state.setAnimation(0, currentAnim, true);
-            }
+            if (currentSkin) { clone.skeleton.setSkinByName(currentSkin); clone.skeleton.setSlotsToSetupPose(); }
+            if (currentAnim) { clone.state.setAnimation(0, currentAnim, true); }
             
             const newLayerDOM = document.getElementById(clone.uid);
             if (newLayerDOM) {
@@ -444,8 +486,27 @@
             }
         };
 
+        // --- REMOVE ---
         div.querySelector('.btn-remove').onclick = (e) => {
             e.stopPropagation();
+            
+            // Xóa sổ việc bám nếu Parent này bị xóa (Bảo vệ lỗi)
+            app.stage.children.forEach(c => {
+                if(c.attachedParentUid === obj.uid) {
+                    c.attachedParentUid = null;
+                    c.attachedBoneName = null;
+                    const childDom = document.getElementById(c.uid);
+                    if(childDom) {
+                        childDom.classList.remove('attached');
+                        childDom.querySelector('.ins-attach-parent').value = "";
+                        childDom.querySelector('.ins-attach-bone').innerHTML = '<option value="">- Bone -</option>';
+                        childDom.querySelector('.ins-attach-bone').disabled = true;
+                        childDom.querySelector('.ins-x').disabled = false;
+                        childDom.querySelector('.ins-y').disabled = false;
+                    }
+                }
+            });
+
             app.stage.removeChild(obj);
             div.remove();
             if(activeObj === obj) select(null);
@@ -490,7 +551,6 @@
                 else list.insertBefore(dragging, afterElement);
             }
         });
-        
         list.addEventListener('drop', e => {
             e.preventDefault();
             updateZIndexesFromDOM();
