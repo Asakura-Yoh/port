@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spine 4.2 Web Previewer - Hosted Edition</title>
+    <title>Spine 4.2 Web Previewer - Cloudflare Edition</title>
     
     <script src="https://unpkg.com/pixi.js@8.x/dist/pixi.min.js"></script>
     <script src="https://unpkg.com/@esotericsoftware/spine-pixi-v8@4.2/dist/iife/spine-pixi-v8.js"></script>
@@ -74,7 +74,7 @@
     let activeSpineObj = null;
     let app = null;
 
-    // --- INIT PIXI v8 ENGINE ---
+    // --- INIT PIXI ENGINE ---
     (async function initEngine() {
         app = new PIXI.Application();
         await app.init({
@@ -180,28 +180,57 @@
         });
     }
 
-    // --- CLEAN, STANDARD SPINE PIPELINE ---
-    // NO HACKS: Requires running on a Server/Host (Live Server, GitHub Pages, Vercel, etc.)
+    // --- BULLETPROOF CLOUDFLARE PIPELINE (EXPLICIT FORMATTING) ---
     async function spawnToScene(baseName) {
         try {
             const files = spineFiles[baseName];
-            
-            // 1. Gán Alias (tên định danh) chính xác bằng tên gốc của file
-            const pngAlias = files.png.name;
-            const atlasAlias = files.atlas.name;
-            
-            const dataFile = files.json || files.skel;
-            const dataAlias = dataFile.name;
+            const uniqueId = Date.now();
 
-            // 2. Thêm vào Asset Manager của PixiJS. Trình duyệt (trên Host) sẽ lo phần còn lại.
-            PIXI.Assets.add({ alias: pngAlias, src: URL.createObjectURL(files.png) });
-            PIXI.Assets.add({ alias: atlasAlias, src: URL.createObjectURL(files.atlas) });
-            PIXI.Assets.add({ alias: dataAlias, src: URL.createObjectURL(dataFile) });
+            // 1. FORCE LOAD TEXTURE FIRST
+            const texAlias = `tex_${baseName}_${uniqueId}`;
+            // explicitly tell PixiJS this is a .png so it parses correctly even from a blob URL
+            PIXI.Assets.add({ 
+                alias: texAlias, 
+                src: URL.createObjectURL(files.png),
+                format: '.png' 
+            });
+            await PIXI.Assets.load(texAlias); // Must await to prevent WebGL sync issues
 
-            // 3. Load toàn bộ Asset
-            await PIXI.Assets.load([pngAlias, atlasAlias, dataAlias]);
+            // 2. PREPARE ATLAS
+            const atlasText = await files.atlas.text();
+            let lines = atlasText.split(/\r?\n/);
+            for (let i = 0; i < lines.length; i++) {
+                if (lines[i].trim().match(/\.(png|jpg|jpeg)$/i)) {
+                    lines[i] = texAlias; // Connect Atlas directly to the loaded texture alias
+                    break;
+                }
+            }
+            const atlasBlob = new Blob([lines.join('\n')], { type: 'text/plain' });
+            const atlasAlias = `atlas_${baseName}_${uniqueId}`;
+            PIXI.Assets.add({ 
+                alias: atlasAlias, 
+                src: URL.createObjectURL(atlasBlob),
+                format: '.atlas' // Explicit hint
+            });
 
-            // 4. Engine tự động link Atlas với PNG thông qua Alias, khởi tạo hoàn hảo.
+            // 3. PREPARE SKELETON DATA
+            const isJson = !!files.json;
+            const dataExt = isJson ? '.json' : '.skel';
+            const dataBlob = isJson 
+                ? new Blob([await files.json.text()], { type: 'application/json' })
+                : new Blob([await files.skel.arrayBuffer()], { type: 'application/octet-stream' });
+                
+            const dataAlias = `data_${baseName}_${uniqueId}`;
+            PIXI.Assets.add({ 
+                alias: dataAlias, 
+                src: URL.createObjectURL(dataBlob),
+                format: dataExt // Explicit hint
+            });
+
+            // 4. LOAD TEXT DATA
+            await PIXI.Assets.load([atlasAlias, dataAlias]);
+
+            // 5. ASSEMBLE SPINE
             const spineDisplayObj = spine.Spine.from({
                 skeleton: dataAlias,
                 atlas: atlasAlias
@@ -222,7 +251,7 @@
 
         } catch (error) {
             console.error("Spine Pipeline Error:", error);
-            alert("Lỗi Load Asset: " + error.message);
+            alert("Error loading asset: Please check F12 Console. \n" + error.message);
         }
     }
 
