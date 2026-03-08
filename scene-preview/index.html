@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spine 4.2 Pro Previewer - Visibility Edition</title>
+    <title>Spine 4.2 Pro Previewer - Transform Edition</title>
     
     <script src="https://unpkg.com/pixi.js@8.x/dist/pixi.min.js"></script>
     <script src="https://unpkg.com/@esotericsoftware/spine-pixi-v8@4.2/dist/iife/spine-pixi-v8.js"></script>
@@ -73,14 +73,12 @@
         .layer-item.active { border-color: var(--accent); box-shadow: 0 0 5px rgba(0,122,204,0.3); }
         .layer-item.dragging { opacity: 0.4; border: 1px dashed var(--accent); }
         
-        /* HIỆU ỨNG KHI LAYER BỊ ẨN */
         .layer-item.is-hidden { opacity: 0.4; } 
 
         .layer-header { padding: 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #2d2d2d; font-size: 12px; font-weight: bold; user-select: none; }
         .layer-header:hover { background: #383838; }
         .layer-header .drag-handle { cursor: grab; padding-right: 10px; color: #888; font-size: 14px; }
         
-        /* CSS CHO CON MẮT ẨN/HIỆN */
         .visibility-toggle { cursor: pointer; padding: 0 5px; font-size: 14px; transition: opacity 0.2s; user-select: none; }
         .visibility-toggle:hover { opacity: 1 !important; transform: scale(1.1); }
         
@@ -185,7 +183,7 @@
         let isDown = false; let startY; let scrollTop;
         el.addEventListener('mousedown', (e) => {
             if (['INPUT', 'SELECT', 'OPTION', 'BUTTON'].includes(e.target.tagName)) return;
-            if (e.target.closest('.layer-header')) return;
+            if (e.target.closest('.layer-header') || e.target.closest('.btn-lock')) return;
             isDown = true; el.style.cursor = 'grabbing';
             startY = e.pageY - el.offsetTop; scrollTop = el.scrollTop;
         });
@@ -285,7 +283,6 @@
         obj.x = LOGICAL_WIDTH / 2; obj.y = LOGICAL_HEIGHT / 2;
         obj.eventMode = 'static'; obj.cursor = 'move';
         
-        // Mặc định luôn hiện khi mới add
         if(obj.visible === undefined) obj.visible = true; 
         
         if (obj.state.data.skeletonData.animations.length > 0) {
@@ -351,7 +348,16 @@
                 <div class="prop-row"><div style="width:60px">Layer Z</div><input type="number" class="ins-z"></div>
                 <div class="prop-row"><div style="width:60px">Pos X</div><input type="number" class="ins-x" value="${Math.round(obj.x)}"></div>
                 <div class="prop-row"><div style="width:60px">Pos Y</div><input type="number" class="ins-y" value="${Math.round(obj.y)}"></div>
-                <div class="prop-row"><div style="width:60px">Scale</div><input type="number" class="ins-scale" step="0.05" value="${obj.scale.x.toFixed(2)}"></div>
+                
+                <div class="prop-row">
+                    <div style="width:60px">Scale</div>
+                    <div style="display:flex; flex:1; gap:5px; align-items:center;">
+                        <input type="number" class="ins-scale-x" step="0.05" value="${obj.scale.x.toFixed(2)}" title="Scale X" style="min-width:0;">
+                        <span class="btn-lock locked" title="Lock Ratio" style="cursor:pointer; font-size:14px; user-select:none;">🔗</span>
+                        <input type="number" class="ins-scale-y" step="0.05" value="${obj.scale.y.toFixed(2)}" title="Scale Y" style="min-width:0;">
+                    </div>
+                </div>
+
                 <div class="prop-row"><select class="ins-anim"></select></div>
                 <div class="prop-row"><select class="ins-skin"></select></div>
                 <div style="display: flex; gap: 8px; margin-top: 10px;">
@@ -369,28 +375,21 @@
         obj.skeleton.data.skins.forEach(s => { const opt = document.createElement('option'); opt.value = opt.text = s.name; sSel.add(opt); });
         if(obj.skeleton.skin) sSel.value = obj.skeleton.skin.name;
 
-        // UI TƯƠNG TÁC
         const header = div.querySelector('.layer-header');
         header.addEventListener('click', (e) => { 
-            // Nếu click vào con mắt thì không làm thao tác đóng/mở tab
             if(e.target.classList.contains('visibility-toggle')) return;
             div.classList.toggle('expanded'); 
             select(obj); 
         });
 
-        // TÍNH NĂNG ẨN/HIỆN LAYER
         const visToggle = div.querySelector('.visibility-toggle');
         visToggle.addEventListener('click', (e) => {
             e.stopPropagation();
             obj.visible = !obj.visible;
             if(obj.visible) {
-                visToggle.innerText = '👁️';
-                visToggle.style.opacity = '1';
-                div.classList.remove('is-hidden');
+                visToggle.innerText = '👁️'; visToggle.style.opacity = '1'; div.classList.remove('is-hidden');
             } else {
-                visToggle.innerText = '➖';
-                visToggle.style.opacity = '0.4';
-                div.classList.add('is-hidden');
+                visToggle.innerText = '➖'; visToggle.style.opacity = '0.4'; div.classList.add('is-hidden');
             }
         });
 
@@ -401,10 +400,52 @@
         const yInput = div.querySelector('.ins-y');
         xInput.oninput = (e) => obj.x = Number(e.target.value);
         yInput.oninput = (e) => obj.y = Number(e.target.value);
-        div.querySelector('.ins-scale').oninput = (e) => obj.scale.set(Number(e.target.value));
         div.querySelector('.ins-anim').onchange = (e) => obj.state.setAnimation(0, e.target.value, true);
         div.querySelector('.ins-skin').onchange = (e) => { obj.skeleton.setSkinByName(e.target.value); obj.skeleton.setSlotsToSetupPose(); };
         div.querySelector('.ins-z').onchange = (e) => { obj.zIndex = Number(e.target.value); app.stage.sortChildren(); reorderDOMBasedOnZIndex(); };
+
+        // --- XỬ LÝ LOGIC SCALE X/Y VÀ KHÓA ---
+        const scaleXIn = div.querySelector('.ins-scale-x');
+        const scaleYIn = div.querySelector('.ins-scale-y');
+        const btnLock = div.querySelector('.btn-lock');
+        
+        let isLocked = true; // Mặc định mở lên là khóa tỷ lệ
+        let lockRatio = obj.scale.y / (obj.scale.x || 1); // Lưu tỷ lệ chênh lệch hiện tại
+
+        btnLock.addEventListener('click', (e) => {
+            e.stopPropagation();
+            isLocked = !isLocked;
+            if (isLocked) {
+                btnLock.classList.add('locked');
+                btnLock.innerText = '🔗';
+                btnLock.style.opacity = '1';
+                lockRatio = obj.scale.y / (obj.scale.x || 1); // Cập nhật tỷ lệ mới khi bấm khóa lại
+            } else {
+                btnLock.classList.remove('locked');
+                btnLock.innerText = '🔓';
+                btnLock.style.opacity = '0.5';
+            }
+        });
+
+        scaleXIn.oninput = (e) => {
+            const val = Number(e.target.value);
+            obj.scale.x = val;
+            if (isLocked) {
+                const newY = val * lockRatio;
+                obj.scale.y = newY;
+                scaleYIn.value = newY.toFixed(2);
+            }
+        };
+
+        scaleYIn.oninput = (e) => {
+            const val = Number(e.target.value);
+            obj.scale.y = val;
+            if (isLocked) {
+                const newX = lockRatio !== 0 ? val / lockRatio : 0;
+                obj.scale.x = newX;
+                scaleXIn.value = newX.toFixed(2);
+            }
+        };
 
         const parentSel = div.querySelector('.ins-attach-parent');
         const boneSel = div.querySelector('.ins-attach-bone');
@@ -457,9 +498,9 @@
             
             const currentAnim = obj.state.tracks[0] ? obj.state.tracks[0].animation.name : null;
             const currentSkin = obj.skeleton.skin ? obj.skeleton.skin.name : null;
-            const currentX = obj.x; const currentY = obj.y; const currentScale = obj.scale.x;
+            const currentX = obj.x; const currentY = obj.y; 
+            const currentScaleX = obj.scale.x; const currentScaleY = obj.scale.y; // Lấy riêng X và Y
             
-            // Sao chép trạng thái Ẩn/Hiện của bản gốc
             clone.visible = obj.visible; 
             
             let baseName = obj.name;
@@ -480,7 +521,8 @@
             
             spawn(clone, newName);
             
-            clone.x = currentX + 50; clone.y = currentY + 50; clone.scale.set(currentScale);
+            clone.x = currentX + 50; clone.y = currentY + 50; 
+            clone.scale.set(currentScaleX, currentScaleY); // Copy trọn bộ Scale
             
             if (currentSkin) { clone.skeleton.setSkinByName(currentSkin); clone.skeleton.setSlotsToSetupPose(); }
             if (currentAnim) { clone.state.setAnimation(0, currentAnim, true); }
@@ -489,9 +531,21 @@
             if (newLayerDOM) {
                 newLayerDOM.querySelector('.ins-x').value = Math.round(clone.x);
                 newLayerDOM.querySelector('.ins-y').value = Math.round(clone.y);
-                newLayerDOM.querySelector('.ins-scale').value = clone.scale.x.toFixed(2);
+                newLayerDOM.querySelector('.ins-scale-x').value = clone.scale.x.toFixed(2);
+                newLayerDOM.querySelector('.ins-scale-y').value = clone.scale.y.toFixed(2);
                 if (currentAnim) newLayerDOM.querySelector('.ins-anim').value = currentAnim;
                 if (currentSkin) newLayerDOM.querySelector('.ins-skin').value = currentSkin;
+                
+                // Đồng bộ luôn trạng thái cái ổ khóa
+                if(!isLocked) {
+                    const newLockBtn = newLayerDOM.querySelector('.btn-lock');
+                    newLockBtn.classList.remove('locked');
+                    newLockBtn.innerText = '🔓';
+                    newLockBtn.style.opacity = '0.5';
+                    // Trigger click giả để cập nhật biến nội bộ của clone
+                    newLockBtn.click();
+                    newLockBtn.click(); // Hack nhỏ để ép trạng thái đồng nhất
+                }
             }
         };
 
