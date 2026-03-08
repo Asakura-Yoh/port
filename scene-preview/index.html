@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spine 4.2 Pro Previewer - Clear Track Fix Edition</title>
+    <title>Spine 4.2 Pro Previewer - Multiple Skins Edition</title>
     
     <script src="https://unpkg.com/pixi.js@8.x/dist/pixi.min.js"></script>
     <script src="https://unpkg.com/@esotericsoftware/spine-pixi-v8@4.2/dist/iife/spine-pixi-v8.js"></script>
@@ -86,6 +86,15 @@
         .track-row { display: flex; gap: 4px; margin-bottom: 4px; }
         .btn-remove-track { background: #8b2a2a; border: none; color: white; cursor: pointer; border-radius: 3px; padding: 0 8px; font-size: 10px; }
         .btn-remove-track:hover { background: #a83232; }
+
+        /* MULTIPLE SKINS PILL CSS */
+        .skin-pill { 
+            background: #252526; border: 1px solid #444; border-radius: 12px; 
+            padding: 2px 8px; font-size: 10px; cursor: pointer; user-select: none; 
+            transition: all 0.2s; white-space: nowrap;
+        }
+        .skin-pill:hover { background: #333; }
+        .skin-pill.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -177,12 +186,34 @@
         });
     })();
 
+    // Hàm áp dụng Mix Skin bằng Spine API
+    function applyMixedSkins(obj) {
+        if (!obj.activeSkins || obj.activeSkins.length === 0) {
+            obj.skeleton.setSkin(null);
+            obj.skeleton.setSlotsToSetupPose();
+            return;
+        }
+        
+        // Tạo một Custom Skin rỗng
+        const customSkin = new spine.Skin("custom-mix");
+        
+        // Nhặt đồ từ các skin đã chọn nhét vào Custom Skin
+        obj.activeSkins.forEach(skinName => {
+            const s = obj.skeleton.data.findSkin(skinName);
+            if (s) customSkin.addSkin(s);
+        });
+        
+        // Mặc nó lên
+        obj.skeleton.setSkin(customSkin);
+        obj.skeleton.setSlotsToSetupPose();
+    }
+
     function enableDragScroll(elementId) {
         const el = document.getElementById(elementId);
         let isDown = false; let startY; let scrollTop;
         el.addEventListener('mousedown', (e) => {
-            if (['INPUT', 'SELECT', 'OPTION', 'BUTTON'].includes(e.target.tagName)) return;
-            if (e.target.closest('.layer-header') || e.target.closest('.btn-lock')) return;
+            if (['INPUT', 'SELECT', 'OPTION', 'BUTTON', 'SPAN'].includes(e.target.tagName)) return;
+            if (e.target.closest('.layer-header') || e.target.closest('.btn-lock') || e.target.closest('.skin-pill')) return;
             isDown = true; el.style.cursor = 'grabbing';
             startY = e.pageY - el.offsetTop; scrollTop = el.scrollTop;
         });
@@ -339,7 +370,7 @@
                     scaleX: c.scale.x, scaleY: c.scale.y,
                     zIndex: c.zIndex, visible: c.visible,
                     anims: anims, 
-                    skin: c.skeleton.skin ? c.skeleton.skin.name : null,
+                    skins: c.activeSkins ? [...c.activeSkins] : [], // LƯU TRỮ LIST SKIN
                     attachedParentUid: c.attachedParentUid, attachedBoneName: c.attachedBoneName,
                     isLocked: dom ? dom.querySelector('.btn-lock').classList.contains('locked') : true
                 };
@@ -377,11 +408,22 @@
             obj.zIndex = restoreState.zIndex;
             obj.attachedParentUid = restoreState.attachedParentUid;
             obj.attachedBoneName = restoreState.attachedBoneName;
+            obj.activeSkins = restoreState.skins ? [...restoreState.skins] : [];
         } else {
             obj.uid = 'spine_' + Date.now() + '_' + Math.floor(Math.random()*1000);
             obj.x = LOGICAL_WIDTH / 2; obj.y = LOGICAL_HEIGHT / 2;
             obj.visible = true; obj.attachedParentUid = null; obj.attachedBoneName = null;
+            
+            // Mặc định lấy skin đầu tiên hoặc 'default'
+            obj.activeSkins = [];
+            if (obj.skeleton.skin) {
+                obj.activeSkins.push(obj.skeleton.skin.name);
+            } else if (obj.skeleton.data.skins.length > 0) {
+                obj.activeSkins.push(obj.skeleton.data.skins[0].name);
+            }
         }
+
+        applyMixedSkins(obj);
 
         obj.on('pointerdown', (e) => { e.stopPropagation(); select(obj); });
         
@@ -473,9 +515,10 @@
                     <button class="btn-ui btn-add-track" style="flex:1; font-size:10px; padding:4px; background:#444;">+ Add Track (Mix Animation)</button>
                 </div>
 
-                <div class="prop-row" style="margin-top:10px;">
-                    <div style="width:60px">Skin</div>
-                    <select class="ins-skin" style="flex:1;"></select>
+                <div class="prop-row" style="align-items: flex-start; margin-top:10px;">
+                    <div style="width:60px; margin-top:4px;">Skins</div>
+                    <div class="skin-list" style="display:flex; flex-wrap:wrap; gap:4px; max-height:80px; overflow-y:auto; flex:1; background:#1a1a1a; border:1px solid #333; padding:4px; border-radius:3px;">
+                        </div>
                 </div>
 
                 <div style="display: flex; gap: 8px; margin-top: 15px;">
@@ -485,16 +528,32 @@
             </div>
         `;
 
-        const sSel = div.querySelector('.ins-skin');
-        obj.skeleton.data.skins.forEach(s => { const opt = document.createElement('option'); opt.value = opt.text = s.name; sSel.add(opt); });
-        
-        if (restoreState) {
-            if(restoreState.skin) { try { obj.skeleton.setSkinByName(restoreState.skin); obj.skeleton.setSlotsToSetupPose(); sSel.value = restoreState.skin; } catch(e){} }
-            else if (obj.skeleton.skin) sSel.value = obj.skeleton.skin.name;
-        } else {
-            if(obj.skeleton.skin) sSel.value = obj.skeleton.skin.name;
-        }
+        // HỆ THỐNG RENDER CÁC PILLS CHO SKIN
+        const skinListUI = div.querySelector('.skin-list');
+        obj.skeleton.data.skins.forEach(s => {
+            const pill = document.createElement('span');
+            pill.className = 'skin-pill';
+            pill.innerText = s.name;
+            if (obj.activeSkins.includes(s.name)) {
+                pill.classList.add('active');
+            }
+            
+            // Xử lý khi click vào Pill (Tắt/Mở Skin)
+            pill.onclick = (e) => {
+                e.stopPropagation();
+                if (pill.classList.contains('active')) {
+                    pill.classList.remove('active');
+                    obj.activeSkins = obj.activeSkins.filter(name => name !== s.name);
+                } else {
+                    pill.classList.add('active');
+                    obj.activeSkins.push(s.name);
+                }
+                applyMixedSkins(obj);
+            };
+            skinListUI.appendChild(pill);
+        });
 
+        // HỆ THỐNG MULTI ANIMATION TRACKS
         const trackList = div.querySelector('.track-list');
         const btnAddTrack = div.querySelector('.btn-add-track');
         let currentMaxTrack = 0;
@@ -504,35 +563,25 @@
             row.className = 'track-row';
             
             const sel = document.createElement('select');
-            sel.style.flex = '1';
-            sel.style.background = '#121212';
-            sel.style.border = '1px solid #333';
-            sel.style.color = '#fff';
+            sel.style.flex = '1'; sel.style.background = '#121212';
+            sel.style.border = '1px solid #333'; sel.style.color = '#fff';
             
             obj.skeleton.data.animations.forEach(a => {
                 const opt = document.createElement('option'); opt.value = opt.text = a.name; sel.add(opt);
             });
             sel.value = selectedAnimName;
 
-            sel.onchange = (e) => {
-                obj.state.setAnimation(trackIndex, e.target.value, true);
-            };
+            sel.onchange = (e) => { obj.state.setAnimation(trackIndex, e.target.value, true); };
 
             const btnRem = document.createElement('button');
-            btnRem.className = 'btn-remove-track';
-            btnRem.innerText = '✕';
-            btnRem.title = `Remove Track ${trackIndex}`;
+            btnRem.className = 'btn-remove-track'; btnRem.innerText = '✕'; btnRem.title = `Remove Track ${trackIndex}`;
             btnRem.onclick = () => {
                 obj.state.clearTrack(trackIndex); 
-                
-                // FIXED BUG CẮN FRAME CHỖ NÀY ĐÂY: Reset xương về trạng thái sạch 
                 obj.skeleton.setToSetupPose(); 
-                
                 row.remove(); 
             };
 
-            row.appendChild(sel);
-            row.appendChild(btnRem);
+            row.appendChild(sel); row.appendChild(btnRem);
             trackList.appendChild(row);
             
             if(trackIndex > currentMaxTrack) currentMaxTrack = trackIndex;
@@ -540,16 +589,12 @@
 
         if (restoreState && restoreState.anims && restoreState.anims.length > 0) {
             restoreState.anims.forEach(anim => {
-                try { 
-                    obj.state.setAnimation(anim.trackIndex, anim.name, true); 
-                    addTrackUI(anim.trackIndex, anim.name);
-                } catch(e){}
+                try { obj.state.setAnimation(anim.trackIndex, anim.name, true); addTrackUI(anim.trackIndex, anim.name); } catch(e){}
             });
         } else {
             if (obj.skeleton.data.animations.length > 0) {
                 const defaultAnim = obj.skeleton.data.animations[0].name;
-                obj.state.setAnimation(0, defaultAnim, true);
-                addTrackUI(0, defaultAnim);
+                obj.state.setAnimation(0, defaultAnim, true); addTrackUI(0, defaultAnim);
             }
         }
 
@@ -566,8 +611,7 @@
         const header = div.querySelector('.layer-header');
         header.addEventListener('click', (e) => { 
             if(e.target.classList.contains('visibility-toggle')) return;
-            div.classList.toggle('expanded'); 
-            select(obj); 
+            div.classList.toggle('expanded'); select(obj); 
         });
 
         const visToggle = div.querySelector('.visibility-toggle');
@@ -588,7 +632,6 @@
         const yInput = div.querySelector('.ins-y');
         xInput.oninput = (e) => obj.x = Number(e.target.value);
         yInput.oninput = (e) => obj.y = Number(e.target.value);
-        div.querySelector('.ins-skin').onchange = (e) => { obj.skeleton.setSkinByName(e.target.value); obj.skeleton.setSlotsToSetupPose(); };
         div.querySelector('.ins-z').onchange = (e) => { obj.zIndex = Number(e.target.value); app.stage.sortChildren(); reorderDOMBasedOnZIndex(); };
 
         const scaleXIn = div.querySelector('.ins-scale-x');
@@ -598,9 +641,7 @@
         let isLocked = restoreState ? restoreState.isLocked : true;
         let lockRatio = obj.scale.y / (obj.scale.x || 1); 
 
-        if (!isLocked) {
-            btnLock.classList.remove('locked'); btnLock.innerText = '🔓'; btnLock.style.opacity = '0.5';
-        }
+        if (!isLocked) { btnLock.classList.remove('locked'); btnLock.innerText = '🔓'; btnLock.style.opacity = '0.5'; }
 
         btnLock.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -642,9 +683,7 @@
             parentSel.innerHTML = '<option value="">- None -</option>';
             app.stage.children.forEach(c => {
                 if (c.uid !== obj.uid && c.skeleton) {
-                    const opt = document.createElement('option');
-                    opt.value = c.uid; opt.text = c.name;
-                    parentSel.add(opt);
+                    const opt = document.createElement('option'); opt.value = c.uid; opt.text = c.name; parentSel.add(opt);
                 }
             });
             parentSel.value = currentVal;
@@ -693,7 +732,7 @@
                 scaleX: obj.scale.x, scaleY: obj.scale.y,
                 zIndex: obj.zIndex, visible: obj.visible,
                 anims: currentAnimsToClone, 
-                skin: obj.skeleton.skin ? obj.skeleton.skin.name : null,
+                skins: [...obj.activeSkins], 
                 attachedParentUid: null, attachedBoneName: null,
                 isLocked: isLocked
             };
@@ -706,10 +745,7 @@
             app.stage.children.forEach(child => {
                 if (child.name && child.name.startsWith(baseName + '_')) {
                     const suffix = child.name.substring(baseName.length + 1);
-                    if (/^\d+$/.test(suffix)) {
-                        const num = parseInt(suffix, 10);
-                        if (num > maxNum) maxNum = num;
-                    }
+                    if (/^\d+$/.test(suffix)) { const num = parseInt(suffix, 10); if (num > maxNum) maxNum = num; }
                 }
             });
             
