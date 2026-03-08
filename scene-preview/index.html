@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spine 4.2 Pro Previewer - Multiple Skins Edition</title>
+    <title>Spine 4.2 Pro Previewer - Pro UI Grouping</title>
     
     <script src="https://unpkg.com/pixi.js@8.x/dist/pixi.min.js"></script>
     <script src="https://unpkg.com/@esotericsoftware/spine-pixi-v8@4.2/dist/iife/spine-pixi-v8.js"></script>
@@ -55,8 +55,13 @@
         .asset-item.ready { border-left-color: #4caf50; }
         
         .ins-header-main { padding: 20px 15px; background: #252526; color: var(--accent); font-weight: bold; font-size: 14px; margin-top: 60px; border-bottom: 1px solid #000; }
-        .prop-row { display: flex; align-items: center; margin-bottom: 12px; font-size: 12px; gap: 10px; }
-        input, select { background: #121212; border: 1px solid #333; color: #fff; padding: 5px; font-size: 11px; width: 100%; outline: none; }
+        
+        /* CẬP NHẬT UI GROUPS */
+        .section-title { color: #888; font-size: 10px; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px; margin: 0 0 8px 0; }
+        .ui-divider { border: none; border-top: 1px solid #222; margin: 12px 0; }
+        
+        .prop-row { display: flex; align-items: center; margin-bottom: 10px; font-size: 12px; gap: 10px; }
+        input, select { background: #121212; border: 1px solid #333; color: #fff; padding: 5px; font-size: 11px; width: 100%; outline: none; border-radius: 3px; }
         input:disabled, select:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn-ui { background: var(--accent); color: #fff; border: none; padding: 8px; cursor: pointer; width: 100%; font-weight: bold; border-radius: 4px; transition: 0.2s; }
         .btn-ui:hover { filter: brightness(1.2); }
@@ -69,31 +74,32 @@
         .layer-item.dragging { opacity: 0.4; border: 1px dashed var(--accent); }
         .layer-item.is-hidden { opacity: 0.4; } 
 
-        .layer-header { padding: 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #2d2d2d; font-size: 12px; font-weight: bold; user-select: none; }
+        .layer-header { padding: 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #2d2d2d; font-size: 12px; font-weight: bold; user-select: none; border-bottom: 1px solid transparent; }
         .layer-header:hover { background: #383838; }
+        .layer-item.expanded .layer-header { border-bottom-color: #111; }
+        
         .layer-header .drag-handle { cursor: grab; padding-right: 10px; color: #888; font-size: 14px; }
         .visibility-toggle { cursor: pointer; padding: 0 5px; font-size: 14px; transition: opacity 0.2s; user-select: none; }
         .visibility-toggle:hover { opacity: 1 !important; transform: scale(1.1); }
         
         .layer-header .toggle-icon { font-size: 10px; color: #666; transition: transform 0.2s; display: inline-block; }
         .layer-item.expanded .toggle-icon { transform: rotate(90deg); }
-        .layer-body { padding: 15px; background: #1a1a1a; border-top: 1px solid #111; display: none; }
+        .layer-body { padding: 12px 15px 15px 15px; background: #1a1a1a; display: none; }
         .layer-item.expanded .layer-body { display: block; }
         
-        .attach-badge { color: #e6a822; font-size: 9px; margin-left: 5px; display: none; }
+        .attach-badge { color: #e6a822; font-size: 9px; margin-left: 5px; display: none; background: rgba(230,168,34,0.1); padding: 2px 5px; border-radius: 3px;}
         .layer-item.attached .attach-badge { display: inline; }
         
         .track-row { display: flex; gap: 4px; margin-bottom: 4px; }
         .btn-remove-track { background: #8b2a2a; border: none; color: white; cursor: pointer; border-radius: 3px; padding: 0 8px; font-size: 10px; }
         .btn-remove-track:hover { background: #a83232; }
 
-        /* MULTIPLE SKINS PILL CSS */
         .skin-pill { 
             background: #252526; border: 1px solid #444; border-radius: 12px; 
-            padding: 2px 8px; font-size: 10px; cursor: pointer; user-select: none; 
-            transition: all 0.2s; white-space: nowrap;
+            padding: 3px 8px; font-size: 10px; cursor: pointer; user-select: none; 
+            transition: all 0.2s; white-space: nowrap; color: #aaa;
         }
-        .skin-pill:hover { background: #333; }
+        .skin-pill:hover { background: #333; color: #fff; }
         .skin-pill.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: bold; }
     </style>
 </head>
@@ -186,24 +192,17 @@
         });
     })();
 
-    // Hàm áp dụng Mix Skin bằng Spine API
     function applyMixedSkins(obj) {
         if (!obj.activeSkins || obj.activeSkins.length === 0) {
             obj.skeleton.setSkin(null);
             obj.skeleton.setSlotsToSetupPose();
             return;
         }
-        
-        // Tạo một Custom Skin rỗng
         const customSkin = new spine.Skin("custom-mix");
-        
-        // Nhặt đồ từ các skin đã chọn nhét vào Custom Skin
         obj.activeSkins.forEach(skinName => {
             const s = obj.skeleton.data.findSkin(skinName);
             if (s) customSkin.addSkin(s);
         });
-        
-        // Mặc nó lên
         obj.skeleton.setSkin(customSkin);
         obj.skeleton.setSlotsToSetupPose();
     }
@@ -263,10 +262,7 @@
     }
 
     const fUpdate = document.getElementById('update-file-input');
-    function triggerUpdate(id) {
-        currentUpdateId = id;
-        fUpdate.click(); 
-    }
+    function triggerUpdate(id) { currentUpdateId = id; fUpdate.click(); }
 
     fUpdate.onchange = async (e) => {
         const files = Array.from(e.target.files);
@@ -359,18 +355,15 @@
             const existingInstances = app.stage.children.filter(c => c.baseAssetId === id);
             const statesToRestore = existingInstances.map(c => {
                 const dom = document.getElementById(c.uid);
-                
                 const anims = [];
-                c.state.tracks.forEach(t => {
-                    if(t && t.animation) anims.push({ trackIndex: t.trackIndex, name: t.animation.name });
-                });
+                c.state.tracks.forEach(t => { if(t && t.animation) anims.push({ trackIndex: t.trackIndex, name: t.animation.name }); });
 
                 return {
                     uid: c.uid, name: c.name, x: c.x, y: c.y,
                     scaleX: c.scale.x, scaleY: c.scale.y,
                     zIndex: c.zIndex, visible: c.visible,
                     anims: anims, 
-                    skins: c.activeSkins ? [...c.activeSkins] : [], // LƯU TRỮ LIST SKIN
+                    skins: c.activeSkins ? [...c.activeSkins] : [], 
                     attachedParentUid: c.attachedParentUid, attachedBoneName: c.attachedBoneName,
                     isLocked: dom ? dom.querySelector('.btn-lock').classList.contains('locked') : true
                 };
@@ -414,13 +407,9 @@
             obj.x = LOGICAL_WIDTH / 2; obj.y = LOGICAL_HEIGHT / 2;
             obj.visible = true; obj.attachedParentUid = null; obj.attachedBoneName = null;
             
-            // Mặc định lấy skin đầu tiên hoặc 'default'
             obj.activeSkins = [];
-            if (obj.skeleton.skin) {
-                obj.activeSkins.push(obj.skeleton.skin.name);
-            } else if (obj.skeleton.data.skins.length > 0) {
-                obj.activeSkins.push(obj.skeleton.data.skins[0].name);
-            }
+            if (obj.skeleton.skin) { obj.activeSkins.push(obj.skeleton.skin.name); } 
+            else if (obj.skeleton.data.skins.length > 0) { obj.activeSkins.push(obj.skeleton.data.skins[0].name); }
         }
 
         applyMixedSkins(obj);
@@ -432,7 +421,6 @@
         window.addEventListener('pointermove', (e) => {
             if(drag && activeObj === obj) {
                 if(obj.attachedParentUid && obj.attachedBoneName) return;
-
                 const rect = app.canvas.getBoundingClientRect();
                 const scaleX = LOGICAL_WIDTH / rect.width;
                 const scaleY = LOGICAL_HEIGHT / rect.height;
@@ -471,22 +459,25 @@
                     <span class="drag-handle">↕</span> 
                     <span class="visibility-toggle" style="opacity:${eyeOpacity}" title="Toggle Visibility">${eyeIcon}</span>
                     <span class="layer-name">${obj.name}</span>
-                    <span class="attach-badge">🔗 Attached</span>
+                    <span class="attach-badge">🔗</span>
                 </div>
                 <div class="toggle-icon">▶</div>
             </div>
+            
             <div class="layer-body">
+                <div class="section-title">Link</div>
                 <div class="prop-row">
-                    <div style="width:60px; color:#e6a822;">Attach 🔗</div>
-                    <select class="ins-attach-parent" style="width:48%; background:#2a2515; border-color:#e6a822"><option value="">- Parent Asset -</option></select>
-                    <select class="ins-attach-bone" style="width:48%; background:#2a2515; border-color:#e6a822" ${(!restoreState || !restoreState.attachedParentUid) ? 'disabled' : ''}><option value="">- Bone -</option></select>
+                    <div style="width:40px; color:#e6a822;">Attach</div>
+                    <select class="ins-attach-parent" style="flex:1; background:#2a2515; border-color:#e6a822"><option value="">- Parent -</option></select>
+                    <select class="ins-attach-bone" style="flex:1; background:#2a2515; border-color:#e6a822" ${(!restoreState || !restoreState.attachedParentUid) ? 'disabled' : ''}><option value="">- Bone -</option></select>
                 </div>
-                <hr style="border-color:#222; margin: 10px 0;">
                 
-                <div class="prop-row"><div style="width:60px">Layer Z</div><input type="number" class="ins-z"></div>
+                <hr class="ui-divider">
                 
+                <div class="section-title">Transform</div>
+                <div class="prop-row"><div style="width:40px">Layer</div><input type="number" class="ins-z"></div>
                 <div class="prop-row">
-                    <div style="width:60px">Position</div>
+                    <div style="width:40px">Pos</div>
                     <div style="display:flex; flex:1; gap:4px; align-items:center;">
                         <span style="color:#888; font-size:10px;">X</span>
                         <input type="number" class="ins-x" value="${Math.round(obj.x)}" style="min-width:0; flex:1;" ${(restoreState && restoreState.attachedParentUid) ? 'disabled' : ''}>
@@ -494,9 +485,8 @@
                         <input type="number" class="ins-y" value="${Math.round(obj.y)}" style="min-width:0; flex:1;" ${(restoreState && restoreState.attachedParentUid) ? 'disabled' : ''}>
                     </div>
                 </div>
-                
                 <div class="prop-row">
-                    <div style="width:60px">Scale</div>
+                    <div style="width:40px">Scale</div>
                     <div style="display:flex; flex:1; gap:4px; align-items:center;">
                         <span style="color:#888; font-size:10px;">X</span>
                         <input type="number" class="ins-scale-x" step="0.05" value="${obj.scale.x.toFixed(2)}" title="Scale X" style="min-width:0; flex:1;">
@@ -506,39 +496,43 @@
                     </div>
                 </div>
 
+                <hr class="ui-divider">
+
+                <div class="section-title">Animation</div>
                 <div class="prop-row" style="align-items: flex-start;">
-                    <div style="width:60px; margin-top:5px;">Anim</div>
+                    <div style="width:40px; margin-top:5px;">Tracks</div>
                     <div style="flex:1; display:flex; flex-direction:column; gap:4px;" class="track-list"></div>
                 </div>
                 <div class="prop-row">
-                    <div style="width:60px"></div>
-                    <button class="btn-ui btn-add-track" style="flex:1; font-size:10px; padding:4px; background:#444;">+ Add Track (Mix Animation)</button>
+                    <div style="width:40px"></div>
+                    <button class="btn-ui btn-add-track" style="flex:1; font-size:10px; padding:4px; background:#444;">+ Add Track (Mix)</button>
                 </div>
 
-                <div class="prop-row" style="align-items: flex-start; margin-top:10px;">
-                    <div style="width:60px; margin-top:4px;">Skins</div>
+                <hr class="ui-divider">
+
+                <div class="section-title">Appearance</div>
+                <div class="prop-row" style="align-items: flex-start;">
+                    <div style="width:40px; margin-top:4px;">Skins</div>
                     <div class="skin-list" style="display:flex; flex-wrap:wrap; gap:4px; max-height:80px; overflow-y:auto; flex:1; background:#1a1a1a; border:1px solid #333; padding:4px; border-radius:3px;">
                         </div>
                 </div>
 
-                <div style="display: flex; gap: 8px; margin-top: 15px;">
+                <hr class="ui-divider">
+
+                <div style="display: flex; gap: 8px;">
                     <button class="btn-ui btn-duplicate" style="background:#007acc; flex:1;">Duplicate</button>
                     <button class="btn-ui btn-remove" style="background:#8b2a2a; flex:1;">Remove</button>
                 </div>
             </div>
         `;
 
-        // HỆ THỐNG RENDER CÁC PILLS CHO SKIN
         const skinListUI = div.querySelector('.skin-list');
         obj.skeleton.data.skins.forEach(s => {
             const pill = document.createElement('span');
             pill.className = 'skin-pill';
             pill.innerText = s.name;
-            if (obj.activeSkins.includes(s.name)) {
-                pill.classList.add('active');
-            }
+            if (obj.activeSkins.includes(s.name)) { pill.classList.add('active'); }
             
-            // Xử lý khi click vào Pill (Tắt/Mở Skin)
             pill.onclick = (e) => {
                 e.stopPropagation();
                 if (pill.classList.contains('active')) {
@@ -553,7 +547,6 @@
             skinListUI.appendChild(pill);
         });
 
-        // HỆ THỐNG MULTI ANIMATION TRACKS
         const trackList = div.querySelector('.track-list');
         const btnAddTrack = div.querySelector('.btn-add-track');
         let currentMaxTrack = 0;
