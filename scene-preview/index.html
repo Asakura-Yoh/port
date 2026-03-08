@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spine 4.2 Pro Previewer - Multiple Animations Edition</title>
+    <title>Spine 4.2 Pro Previewer - Clear Track Fix Edition</title>
     
     <script src="https://unpkg.com/pixi.js@8.x/dist/pixi.min.js"></script>
     <script src="https://unpkg.com/@esotericsoftware/spine-pixi-v8@4.2/dist/iife/spine-pixi-v8.js"></script>
@@ -83,7 +83,6 @@
         .attach-badge { color: #e6a822; font-size: 9px; margin-left: 5px; display: none; }
         .layer-item.attached .attach-badge { display: inline; }
         
-        /* MULTI ANIMATION TRACKS CSS */
         .track-row { display: flex; gap: 4px; margin-bottom: 4px; }
         .btn-remove-track { background: #8b2a2a; border: none; color: white; cursor: pointer; border-radius: 3px; padding: 0 8px; font-size: 10px; }
         .btn-remove-track:hover { background: #a83232; }
@@ -330,7 +329,6 @@
             const statesToRestore = existingInstances.map(c => {
                 const dom = document.getElementById(c.uid);
                 
-                // LƯU TRỮ NHIỀU ANIMATION TRACKS
                 const anims = [];
                 c.state.tracks.forEach(t => {
                     if(t && t.animation) anims.push({ trackIndex: t.trackIndex, name: t.animation.name });
@@ -340,7 +338,7 @@
                     uid: c.uid, name: c.name, x: c.x, y: c.y,
                     scaleX: c.scale.x, scaleY: c.scale.y,
                     zIndex: c.zIndex, visible: c.visible,
-                    anims: anims, // Thay thế biến anim cũ
+                    anims: anims, 
                     skin: c.skeleton.skin ? c.skeleton.skin.name : null,
                     attachedParentUid: c.attachedParentUid, attachedBoneName: c.attachedBoneName,
                     isLocked: dom ? dom.querySelector('.btn-lock').classList.contains('locked') : true
@@ -468,8 +466,7 @@
 
                 <div class="prop-row" style="align-items: flex-start;">
                     <div style="width:60px; margin-top:5px;">Anim</div>
-                    <div style="flex:1; display:flex; flex-direction:column; gap:4px;" class="track-list">
-                        </div>
+                    <div style="flex:1; display:flex; flex-direction:column; gap:4px;" class="track-list"></div>
                 </div>
                 <div class="prop-row">
                     <div style="width:60px"></div>
@@ -498,7 +495,6 @@
             if(obj.skeleton.skin) sSel.value = obj.skeleton.skin.name;
         }
 
-        // --- XỬ LÝ MULTI ANIMATION TRACKS ---
         const trackList = div.querySelector('.track-list');
         const btnAddTrack = div.querySelector('.btn-add-track');
         let currentMaxTrack = 0;
@@ -527,8 +523,12 @@
             btnRem.innerText = '✕';
             btnRem.title = `Remove Track ${trackIndex}`;
             btnRem.onclick = () => {
-                obj.state.clearTrack(trackIndex); // Xóa khỏi hệ thống Spine
-                row.remove(); // Xóa khỏi UI
+                obj.state.clearTrack(trackIndex); 
+                
+                // FIXED BUG CẮN FRAME CHỖ NÀY ĐÂY: Reset xương về trạng thái sạch 
+                obj.skeleton.setToSetupPose(); 
+                
+                row.remove(); 
             };
 
             row.appendChild(sel);
@@ -538,7 +538,6 @@
             if(trackIndex > currentMaxTrack) currentMaxTrack = trackIndex;
         }
 
-        // Khôi phục các Track nếu đang Update/Duplicate, nếu mới add thì sinh mặc định 1 Track
         if (restoreState && restoreState.anims && restoreState.anims.length > 0) {
             restoreState.anims.forEach(anim => {
                 try { 
@@ -554,7 +553,6 @@
             }
         }
 
-        // Nút thêm Track
         btnAddTrack.onclick = (e) => {
             e.stopPropagation();
             if (obj.skeleton.data.animations.length > 0) {
@@ -564,7 +562,6 @@
                 addTrackUI(currentMaxTrack, defaultAnim);
             }
         };
-
 
         const header = div.querySelector('.layer-header');
         header.addEventListener('click', (e) => { 
@@ -685,7 +682,6 @@
             const clone = spine.Spine.from({ skeleton: obj.skeletonKey, atlas: obj.atlasKey });
             clone.skeletonKey = obj.skeletonKey; clone.atlasKey = obj.atlasKey;
             
-            // Lấy toàn bộ track anim hiện tại để copy sang bản Duplicate
             const currentAnimsToClone = [];
             obj.state.tracks.forEach(t => {
                 if(t && t.animation) currentAnimsToClone.push({ trackIndex: t.trackIndex, name: t.animation.name });
