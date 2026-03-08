@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spine 4.2 Pro Previewer - Compact Assets Edition</title>
+    <title>Spine 4.2 Pro Previewer - Folder Hierarchy Edition</title>
     
     <script src="https://unpkg.com/pixi.js@8.x/dist/pixi.min.js"></script>
     <script src="https://unpkg.com/@esotericsoftware/spine-pixi-v8@4.2/dist/iife/spine-pixi-v8.js"></script>
@@ -49,17 +49,27 @@
         #bottom-info { position: absolute; bottom: 20px; background: rgba(0,0,0,0.8); padding: 6px 20px; border-radius: 20px; font-size: 11px; color: #666; display: flex; gap: 25px; z-index: 5; }
         .scale-badge { color: var(--accent); font-weight: bold; }
 
+        /* LEFT SIDEBAR ASSETS & FOLDERS UI */
         #drop-zone { margin: 15px; padding: 25px 10px; border: 2px dashed #444; text-align: center; cursor: pointer; border-radius: 6px; font-size: 11px; margin-top: 60px; }
         #asset-list { flex: 1; overflow-y: auto; padding: 10px; cursor: grab; }
         
-        /* CẬP NHẬT CSS CHO DANH SÁCH ASSET BÊN TRÁI ĐỂ CÓ THỂ THU GỌN */
-        .asset-item { background: #2d2d2d; margin-bottom: 8px; border-radius: 4px; border-left: 4px solid #555; cursor: default; overflow: hidden; }
+        /* Giao diện Thư mục (Group) */
+        .folder-item { margin-bottom: 4px; }
+        .folder-header { padding: 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #252526; border: 1px solid #333; font-weight: bold; font-size: 12px; border-radius: 4px; user-select: none; }
+        .folder-header:hover { background: #333; }
+        .folder-header .toggle-icon { font-size: 10px; color: #666; transition: transform 0.2s; }
+        .folder-item.expanded > .folder-header .toggle-icon { transform: rotate(90deg); }
+        .folder-body { padding-left: 8px; padding-top: 6px; display: none; border-left: 1px solid #333; margin-left: 5px; }
+        .folder-item.expanded > .folder-body { display: block; }
+
+        /* Giao diện Asset File */
+        .asset-item { background: #2d2d2d; margin-bottom: 6px; border-radius: 4px; border-left: 3px solid #555; cursor: default; overflow: hidden; }
         .asset-item.ready { border-left-color: #4caf50; }
-        .asset-header { padding: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: bold; font-size: 12px; user-select: none; }
+        .asset-header { padding: 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: normal; font-size: 12px; user-select: none; }
         .asset-header:hover { background: #383838; }
         .asset-header .toggle-icon { font-size: 10px; color: #666; transition: transform 0.2s; }
         .asset-item.expanded .toggle-icon { transform: rotate(90deg); }
-        .asset-body { padding: 0 12px 12px 12px; display: none; }
+        .asset-body { padding: 0 10px 10px 10px; display: none; }
         .asset-item.expanded .asset-body { display: block; }
 
         .ins-header-main { padding: 20px 15px; background: #252526; color: var(--accent); font-weight: bold; font-size: 14px; margin-top: 60px; border-bottom: 1px solid #000; }
@@ -218,8 +228,9 @@
         let isDown = false; let startY; let scrollTop;
         el.addEventListener('mousedown', (e) => {
             if (['INPUT', 'SELECT', 'OPTION', 'BUTTON', 'SPAN'].includes(e.target.tagName)) return;
-            // Bổ sung: Bỏ qua hành động cuộn nếu click vào Header của Asset list bên trái
-            if (e.target.closest('.layer-header') || e.target.closest('.asset-header') || e.target.closest('.btn-lock') || e.target.closest('.skin-pill')) return;
+            // Bổ sung các khu vực chặn scroll để không xung đột với click folder
+            if (e.target.closest('.layer-header') || e.target.closest('.asset-header') || e.target.closest('.folder-header') || e.target.closest('.btn-lock') || e.target.closest('.skin-pill')) return;
+            
             isDown = true; el.style.cursor = 'grabbing';
             startY = e.pageY - el.offsetTop; scrollTop = el.scrollTop;
         });
@@ -254,16 +265,30 @@
         document.getElementById('view-scale').innerText = Math.round(scale) + "%";
     }
 
+    // --- XỬ LÝ UPLOAD VÀ BÓC TÁCH FOLDER TREE ---
     const fFolder = document.getElementById('file-folder');
     fFolder.onchange = (e) => handleFiles(Array.from(e.target.files));
 
     function handleFiles(files) {
         files.forEach(f => {
-            const match = f.name.match(/(.+)\.(json|skel|atlas|png)$/i);
+            // Lấy đường dẫn đầy đủ từ webkitdirectory, hoặc lấy tên file nếu up lẻ
+            const fullPath = f.webkitRelativePath || f.name;
+            const match = fullPath.match(/(.+)\.(json|skel|atlas|png)$/i);
             if (!match) return;
-            const id = match[1];
-            if (!spineFiles[id]) spineFiles[id] = { name: id };
-            spineFiles[id][match[2].toLowerCase()] = f;
+
+            const fullId = match[1]; // Vd: "Characters/Orc/orc"
+            const parts = fullId.split('/');
+            const assetName = parts.pop(); // Tên cuối: "orc"
+            const folderPath = parts.join('/'); // Phần đầu: "Characters/Orc"
+
+            if (!spineFiles[fullId]) {
+                spineFiles[fullId] = {
+                    id: fullId,
+                    name: assetName,
+                    folderPath: folderPath
+                };
+            }
+            spineFiles[fullId][match[2].toLowerCase()] = f;
         });
         renderList();
     }
@@ -283,36 +308,84 @@
         fUpdate.value = ""; 
     };
 
+    // --- RENDER DANH SÁCH BÊN TRÁI THÀNH TREE FOLDER ---
     function renderList() {
-        const list = document.getElementById('asset-list');
-        list.innerHTML = '';
-        Object.values(spineFiles).forEach(g => {
-            const ready = (g.json || g.skel) && g.atlas && g.png;
-            const div = document.createElement('div');
-            // Mặc định không có class "expanded", khung sẽ đóng lại (chỉ hiện tên)
-            div.className = `asset-item ${ready ? 'ready' : ''}`;
-            
-            div.innerHTML = `
-                <div class="asset-header">
-                    <span>${g.name}</span>
-                    <span class="toggle-icon">▶</span>
-                </div>
-                <div class="asset-body">
-                    <div style="display:flex; gap:5px;">
-                        <button class="btn-ui" style="flex:1" ${!ready ? 'disabled' : ''} onclick="uploadAndAdd('${g.name}')">Add to Scene</button>
-                        <button class="btn-ui" style="flex:1; background:#d48a1a" ${!ready ? 'disabled' : ''} onclick="triggerUpdate('${g.name}')">Update</button>
+        const listContainer = document.getElementById('asset-list');
+        listContainer.innerHTML = '';
+        
+        // 1. Tạo một Object cấu trúc Tree rỗng
+        const root = { _isFolder: true, _assets: [], _children: {} };
+
+        // 2. Nhồi dữ liệu từ SpineFiles vào Tree
+        Object.values(spineFiles).forEach(asset => {
+            let currentLevel = root;
+            if (asset.folderPath) {
+                const folders = asset.folderPath.split('/');
+                folders.forEach(folderName => {
+                    if (!currentLevel._children[folderName]) {
+                        currentLevel._children[folderName] = { _isFolder: true, _name: folderName, _assets: [], _children: {} };
+                    }
+                    currentLevel = currentLevel._children[folderName];
+                });
+            }
+            currentLevel._assets.push(asset);
+        });
+
+        // 3. Đệ quy để in Tree ra HTML
+        function createTreeDOM(node, containerDOM) {
+            // Render Folders trước
+            Object.keys(node._children).forEach(folderName => {
+                const childNode = node._children[folderName];
+                const folderDiv = document.createElement('div');
+                // Không có class 'expanded' => Mặc định thu gọn
+                folderDiv.className = 'folder-item'; 
+
+                folderDiv.innerHTML = `
+                    <div class="folder-header">
+                        <span>📁 ${folderName}</span>
+                        <span class="toggle-icon">▶</span>
                     </div>
-                </div>
-            `;
-            
-            // Xử lý sự kiện bấm vào Header để mở/đóng
-            const header = div.querySelector('.asset-header');
-            header.addEventListener('click', () => {
-                div.classList.toggle('expanded');
+                    <div class="folder-body"></div>
+                `;
+                
+                folderDiv.querySelector('.folder-header').onclick = () => {
+                    folderDiv.classList.toggle('expanded');
+                };
+                
+                const folderBody = folderDiv.querySelector('.folder-body');
+                createTreeDOM(childNode, folderBody); // Đệ quy
+                containerDOM.appendChild(folderDiv);
             });
 
-            list.appendChild(div);
-        });
+            // Render Assets của thư mục hiện tại
+            node._assets.forEach(asset => {
+                const ready = (asset.json || asset.skel) && asset.atlas && asset.png;
+                const div = document.createElement('div');
+                div.className = `asset-item ${ready ? 'ready' : ''}`;
+                
+                div.innerHTML = `
+                    <div class="asset-header">
+                        <span>🩻 ${asset.name}</span>
+                        <span class="toggle-icon">▶</span>
+                    </div>
+                    <div class="asset-body">
+                        <div style="display:flex; gap:5px;">
+                            <button class="btn-ui" style="flex:1" ${!ready ? 'disabled' : ''} onclick="uploadAndAdd('${asset.id}')">Add</button>
+                            <button class="btn-ui" style="flex:1; background:#d48a1a" ${!ready ? 'disabled' : ''} onclick="triggerUpdate('${asset.id}')">Update</button>
+                        </div>
+                    </div>
+                `;
+                
+                div.querySelector('.asset-header').onclick = () => {
+                    div.classList.toggle('expanded');
+                };
+
+                containerDOM.appendChild(div);
+            });
+        }
+
+        // Bắt đầu in từ Gốc
+        createTreeDOM(root, listContainer);
     }
 
     async function uploadAndAdd(id) {
@@ -344,7 +417,8 @@
             spineObj.attachedParentUid = null;
             spineObj.attachedBoneName = null;
             
-            spawn(spineObj, id, id);
+            // Chuyền group.name thay vì id để UI bên phải hiển thị tên ngắn gọn (không dính path folder)
+            spawn(spineObj, group.name, id);
         } catch (e) { alert(e.message); }
         document.getElementById('loading-overlay').style.display = 'none';
     }
