@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spine 4.2 Pro Previewer - Transform Edition</title>
+    <title>Spine 4.2 Pro Previewer - Live Update Edition</title>
     
     <script src="https://unpkg.com/pixi.js@8.x/dist/pixi.min.js"></script>
     <script src="https://unpkg.com/@esotericsoftware/spine-pixi-v8@4.2/dist/iife/spine-pixi-v8.js"></script>
@@ -14,19 +14,16 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg-dark); color: var(--text); display: flex; width: 100vw; height: 100vh; overflow: hidden; position: relative; }
 
-        /* SCROLLBAR */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: var(--bg-panel); border-left: 1px solid #222; }
         ::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
-        /* SIDEBARS */
         .sidebar { background: var(--bg-panel); border: 1px solid #000; display: flex; flex-direction: column; transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease; width: 300px; z-index: 10; flex-shrink: 0; }
         .sidebar.hidden { width: 0 !important; opacity: 0; pointer-events: none; border: none; }
         #sidebar-left { border-right: 1px solid #000; }
         #sidebar-right { border-left: 1px solid #000; }
 
-        /* TOGGLE BUTTONS */
         .toggle-btn {
             position: fixed; top: 15px; width: 32px; height: 32px; 
             background: #252526; color: #fff; border: 1px solid #444; 
@@ -40,7 +37,6 @@
         .btn-collapsed-l { left: 15px !important; }
         .btn-collapsed-r { right: 15px !important; }
 
-        /* MAIN VIEWPORT */
         #main-view { flex: 1; background: #0b0b0b; display: flex; justify-content: center; align-items: center; position: relative; overflow: hidden; }
         #canvas-wrapper { 
             aspect-ratio: 16 / 9; position: relative;
@@ -53,7 +49,6 @@
         #bottom-info { position: absolute; bottom: 20px; background: rgba(0,0,0,0.8); padding: 6px 20px; border-radius: 20px; font-size: 11px; color: #666; display: flex; gap: 25px; z-index: 5; }
         .scale-badge { color: var(--accent); font-weight: bold; }
 
-        /* LEFT SIDEBAR UI */
         #drop-zone { margin: 15px; padding: 25px 10px; border: 2px dashed #444; text-align: center; cursor: pointer; border-radius: 6px; font-size: 11px; margin-top: 60px; }
         #asset-list { flex: 1; overflow-y: auto; padding: 10px; cursor: grab; }
         .asset-item { background: #2d2d2d; padding: 12px; margin-bottom: 8px; border-radius: 4px; border-left: 4px solid #555; cursor: default; }
@@ -65,20 +60,18 @@
         input:disabled, select:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn-ui { background: var(--accent); color: #fff; border: none; padding: 8px; cursor: pointer; width: 100%; font-weight: bold; border-radius: 4px; transition: 0.2s; }
         .btn-ui:hover { filter: brightness(1.2); }
+        .btn-ui:disabled { opacity: 0.5; cursor: not-allowed; filter: none; }
         #loading-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.85); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }
 
-        /* RIGHT SIDEBAR HIERARCHY */
         #hierarchy-list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; cursor: grab; }
         .layer-item { background: #252526; border: 1px solid #333; border-radius: 4px; overflow: hidden; transition: all 0.2s; cursor: default; flex-shrink: 0; }
         .layer-item.active { border-color: var(--accent); box-shadow: 0 0 5px rgba(0,122,204,0.3); }
         .layer-item.dragging { opacity: 0.4; border: 1px dashed var(--accent); }
-        
         .layer-item.is-hidden { opacity: 0.4; } 
 
         .layer-header { padding: 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #2d2d2d; font-size: 12px; font-weight: bold; user-select: none; }
         .layer-header:hover { background: #383838; }
         .layer-header .drag-handle { cursor: grab; padding-right: 10px; color: #888; font-size: 14px; }
-        
         .visibility-toggle { cursor: pointer; padding: 0 5px; font-size: 14px; transition: opacity 0.2s; user-select: none; }
         .visibility-toggle:hover { opacity: 1 !important; transform: scale(1.1); }
         
@@ -98,6 +91,9 @@
 
     <div id="sidebar-left" class="sidebar">
         <input type="file" id="file-folder" webkitdirectory directory multiple style="display:none">
+        
+        <input type="file" id="update-file-input" multiple accept=".json,.skel,.atlas,.png" style="display:none">
+
         <div id="drop-zone" onclick="document.getElementById('file-folder').click()">
             📁 Drop Folder Spine Here<br><small>Canvas: 1920 x 1080</small>
         </div>
@@ -112,7 +108,7 @@
             <span>Drag: Move Asset | Grid: 1920x1080</span>
             <span>View Scale: <span id="view-scale" class="scale-badge">100%</span></span>
         </div>
-        <div id="loading-overlay">🚀 <span id="load-status">Uploading...</span></div>
+        <div id="loading-overlay">🚀 <span id="load-status" style="margin-top:10px;">Processing...</span></div>
     </div>
 
     <div id="sidebar-right" class="sidebar">
@@ -131,6 +127,7 @@
     const spineFiles = {};
     let activeObj = null;
     let app = null;
+    let currentUpdateId = null; // Biến lưu ID đang được cập nhật
 
     const LOGICAL_WIDTH = 1920;
     const LOGICAL_HEIGHT = 1080;
@@ -151,7 +148,6 @@
         updateScaleDisplay();
         window.addEventListener('resize', updateScaleDisplay);
         setupDragAndDropList();
-        
         enableDragScroll('asset-list');
         enableDragScroll('hierarchy-list');
         
@@ -218,6 +214,7 @@
         document.getElementById('view-scale').innerText = Math.round(scale) + "%";
     }
 
+    // --- UPLOAD FOLDER GỐC ---
     const fFolder = document.getElementById('file-folder');
     fFolder.onchange = (e) => handleFiles(Array.from(e.target.files));
 
@@ -232,6 +229,31 @@
         renderList();
     }
 
+    // --- UPDATE FILE LẺ LOGIC ---
+    const fUpdate = document.getElementById('update-file-input');
+    function triggerUpdate(id) {
+        currentUpdateId = id;
+        fUpdate.click(); // Mở cửa sổ chọn file
+    }
+
+    fUpdate.onchange = async (e) => {
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
+
+        // Cập nhật đè file mới vào Object cũ
+        files.forEach(f => {
+            const match = f.name.match(/\.(json|skel|atlas|png)$/i);
+            if (match) {
+                spineFiles[currentUpdateId][match[1].toLowerCase()] = f;
+            }
+        });
+        renderList();
+        
+        // Khởi chạy tiến trình Upload & Cập nhật Scene
+        await executeLiveUpdate(currentUpdateId);
+        fUpdate.value = ""; // Reset input
+    };
+
     function renderList() {
         const list = document.getElementById('asset-list');
         list.innerHTML = '';
@@ -239,12 +261,21 @@
             const ready = (g.json || g.skel) && g.atlas && g.png;
             const div = document.createElement('div');
             div.className = `asset-item ${ready ? 'ready' : ''}`;
-            div.innerHTML = `<b>${g.name}</b><br><button class="btn-ui" style="margin-top:8px" ${!ready ? 'disabled' : ''} onclick="uploadAndAdd('${g.name}')">Add to Scene</button>`;
+            
+            // THÊM NÚT UPDATE BÊN CẠNH ADD TO SCENE
+            div.innerHTML = `
+                <b>${g.name}</b><br>
+                <div style="display:flex; gap:5px; margin-top:8px">
+                    <button class="btn-ui" style="flex:1" ${!ready ? 'disabled' : ''} onclick="uploadAndAdd('${g.name}')">Add to Scene</button>
+                    <button class="btn-ui" style="flex:1; background:#d48a1a" ${!ready ? 'disabled' : ''} onclick="triggerUpdate('${g.name}')">Update</button>
+                </div>
+            `;
             list.appendChild(div);
         });
     }
 
     async function uploadAndAdd(id) {
+        document.getElementById('load-status').innerText = "Uploading & Loading...";
         document.getElementById('loading-overlay').style.display = 'flex';
         try {
             const group = spineFiles[id];
@@ -272,21 +303,110 @@
             spineObj.attachedParentUid = null;
             spineObj.attachedBoneName = null;
             
-            spawn(spineObj, id);
+            // Truyền id vào baseAssetId để phục vụ tính năng Update
+            spawn(spineObj, id, id);
         } catch (e) { alert(e.message); }
         document.getElementById('loading-overlay').style.display = 'none';
     }
 
-    function spawn(obj, name) {
-        obj.uid = 'spine_' + Date.now() + '_' + Math.floor(Math.random()*1000);
+    // --- TIẾN TRÌNH CẬP NHẬT TRỰC TIẾP TRÊN SCENE ---
+    async function executeLiveUpdate(id) {
+        document.getElementById('load-status').innerText = "Updating Asset in Scene...";
+        document.getElementById('loading-overlay').style.display = 'flex';
+        
+        try {
+            const group = spineFiles[id];
+            const uid = Date.now();
+            const folder = `${id}_update_${uid}/`;
+
+            await supabaseClient.storage.from(BUCKET).upload(folder + group.png.name, group.png);
+            await supabaseClient.storage.from(BUCKET).upload(folder + group.atlas.name, group.atlas);
+            const atlasUrl = supabaseClient.storage.from(BUCKET).getPublicUrl(folder + group.atlas.name).data.publicUrl;
+
+            const dataFile = group.json || group.skel;
+            await supabaseClient.storage.from(BUCKET).upload(folder + dataFile.name, dataFile);
+            const dataUrl = supabaseClient.storage.from(BUCKET).getPublicUrl(folder + dataFile.name).data.publicUrl;
+
+            const atlasKey = `at_${uid}`;
+            const dataKey = `sk_${uid}`;
+            PIXI.Assets.add({ alias: atlasKey, src: atlasUrl, format: '.atlas' });
+            PIXI.Assets.add({ alias: dataKey, src: dataUrl, format: group.json ? '.json' : '.skel' });
+            
+            await PIXI.Assets.load([atlasKey, dataKey]);
+
+            // BƯỚC QUAN TRỌNG: Tìm tất cả bản thể đang hiển thị của Asset này
+            const existingInstances = app.stage.children.filter(c => c.baseAssetId === id);
+            
+            // Lấy ra trạng thái (linh hồn) của chúng
+            const statesToRestore = existingInstances.map(c => {
+                const dom = document.getElementById(c.uid);
+                return {
+                    uid: c.uid,
+                    name: c.name,
+                    x: c.x,
+                    y: c.y,
+                    scaleX: c.scale.x,
+                    scaleY: c.scale.y,
+                    zIndex: c.zIndex,
+                    visible: c.visible,
+                    anim: c.state.tracks[0] ? c.state.tracks[0].animation.name : null,
+                    skin: c.skeleton.skin ? c.skeleton.skin.name : null,
+                    attachedParentUid: c.attachedParentUid,
+                    attachedBoneName: c.attachedBoneName,
+                    isLocked: dom ? dom.querySelector('.btn-lock').classList.contains('locked') : true
+                };
+            });
+
+            // Tiêu diệt thể xác cũ
+            existingInstances.forEach(c => {
+                const dom = document.getElementById(c.uid);
+                if(dom) dom.remove();
+                app.stage.removeChild(c);
+            });
+            if(activeObj && activeObj.baseAssetId === id) select(null);
+
+            // Tái sinh thể xác mới với linh hồn cũ
+            statesToRestore.forEach(state => {
+                const spineObj = spine.Spine.from({ skeleton: dataKey, atlas: atlasKey });
+                spineObj.skeletonKey = dataKey;
+                spineObj.atlasKey = atlasKey;
+                spawn(spineObj, state.name, id, state);
+            });
+
+            // Sắp xếp lại Z-Index cho chuẩn xác sau khi Update
+            reorderDOMBasedOnZIndex();
+
+        } catch (e) { alert(e.message); }
+        document.getElementById('loading-overlay').style.display = 'none';
+    }
+
+    // Nâng cấp hàm Spawn để nhận thêm tham số State khi Update
+    function spawn(obj, name, baseAssetId, restoreState = null) {
+        obj.baseAssetId = baseAssetId;
         obj.name = name;
-        obj.x = LOGICAL_WIDTH / 2; obj.y = LOGICAL_HEIGHT / 2;
         obj.eventMode = 'static'; obj.cursor = 'move';
         
-        if(obj.visible === undefined) obj.visible = true; 
-        
-        if (obj.state.data.skeletonData.animations.length > 0) {
-            obj.state.setAnimation(0, obj.state.data.skeletonData.animations[0].name, true);
+        if(restoreState) {
+            // Hồi sinh từ dữ liệu cũ
+            obj.uid = restoreState.uid;
+            obj.x = restoreState.x;
+            obj.y = restoreState.y;
+            obj.scale.set(restoreState.scaleX, restoreState.scaleY);
+            obj.visible = restoreState.visible;
+            obj.zIndex = restoreState.zIndex;
+            obj.attachedParentUid = restoreState.attachedParentUid;
+            obj.attachedBoneName = restoreState.attachedBoneName;
+            // Skin và Anim sẽ được gán trong hàm createHierarchyNode để đồng bộ giao diện
+        } else {
+            // Tạo mới hoàn toàn
+            obj.uid = 'spine_' + Date.now() + '_' + Math.floor(Math.random()*1000);
+            obj.x = LOGICAL_WIDTH / 2; obj.y = LOGICAL_HEIGHT / 2;
+            obj.visible = true;
+            obj.attachedParentUid = null;
+            obj.attachedBoneName = null;
+            if (obj.state.data.skeletonData.animations.length > 0) {
+                obj.state.setAnimation(0, obj.state.data.skeletonData.animations[0].name, true);
+            }
         }
 
         obj.on('pointerdown', (e) => { e.stopPropagation(); select(obj); });
@@ -313,17 +433,19 @@
         window.addEventListener('pointerup', () => drag = false);
 
         app.stage.addChild(obj);
-        createHierarchyNode(obj);
+        createHierarchyNode(obj, restoreState);
         select(obj);
         checkEmptyState();
     }
 
-    function createHierarchyNode(obj) {
+    function createHierarchyNode(obj, restoreState = null) {
         const list = document.getElementById('hierarchy-list');
         const div = document.createElement('div');
         div.className = `layer-item expanded active ${!obj.visible ? 'is-hidden' : ''}`;
         div.id = obj.uid;
         
+        if (restoreState && restoreState.attachedParentUid) { div.classList.add('attached'); }
+
         const eyeIcon = obj.visible ? '👁️' : '➖';
         const eyeOpacity = obj.visible ? '1' : '0.4';
         
@@ -341,13 +463,13 @@
                 <div class="prop-row">
                     <div style="width:60px; color:#e6a822;">Attach 🔗</div>
                     <select class="ins-attach-parent" style="width:48%; background:#2a2515; border-color:#e6a822"><option value="">- Parent Asset -</option></select>
-                    <select class="ins-attach-bone" style="width:48%; background:#2a2515; border-color:#e6a822" disabled><option value="">- Bone -</option></select>
+                    <select class="ins-attach-bone" style="width:48%; background:#2a2515; border-color:#e6a822" ${(!restoreState || !restoreState.attachedParentUid) ? 'disabled' : ''}><option value="">- Bone -</option></select>
                 </div>
                 <hr style="border-color:#222; margin: 10px 0;">
                 
                 <div class="prop-row"><div style="width:60px">Layer Z</div><input type="number" class="ins-z"></div>
-                <div class="prop-row"><div style="width:60px">Pos X</div><input type="number" class="ins-x" value="${Math.round(obj.x)}"></div>
-                <div class="prop-row"><div style="width:60px">Pos Y</div><input type="number" class="ins-y" value="${Math.round(obj.y)}"></div>
+                <div class="prop-row"><div style="width:60px">Pos X</div><input type="number" class="ins-x" value="${Math.round(obj.x)}" ${(restoreState && restoreState.attachedParentUid) ? 'disabled' : ''}></div>
+                <div class="prop-row"><div style="width:60px">Pos Y</div><input type="number" class="ins-y" value="${Math.round(obj.y)}" ${(restoreState && restoreState.attachedParentUid) ? 'disabled' : ''}></div>
                 
                 <div class="prop-row">
                     <div style="width:60px">Scale</div>
@@ -369,11 +491,23 @@
 
         const aSel = div.querySelector('.ins-anim');
         obj.skeleton.data.animations.forEach(a => { const opt = document.createElement('option'); opt.value = opt.text = a.name; aSel.add(opt); });
-        if(obj.state.tracks[0]) aSel.value = obj.state.tracks[0].animation.name;
-
+        
         const sSel = div.querySelector('.ins-skin');
         obj.skeleton.data.skins.forEach(s => { const opt = document.createElement('option'); opt.value = opt.text = s.name; sSel.add(opt); });
-        if(obj.skeleton.skin) sSel.value = obj.skeleton.skin.name;
+        
+        // HỒI SINH TRẠNG THÁI ANIMATION VÀ SKIN (Có bọc Try-Catch đề phòng Anim/Skin bị xóa trong file mới)
+        if (restoreState) {
+            if(restoreState.skin) {
+                try { obj.skeleton.setSkinByName(restoreState.skin); obj.skeleton.setSlotsToSetupPose(); sSel.value = restoreState.skin; } catch(e){}
+            } else if (obj.skeleton.skin) sSel.value = obj.skeleton.skin.name;
+
+            if(restoreState.anim) {
+                try { obj.state.setAnimation(0, restoreState.anim, true); aSel.value = restoreState.anim; } catch(e){}
+            } else if(obj.state.tracks[0]) aSel.value = obj.state.tracks[0].animation.name;
+        } else {
+            if(obj.skeleton.skin) sSel.value = obj.skeleton.skin.name;
+            if(obj.state.tracks[0]) aSel.value = obj.state.tracks[0].animation.name;
+        }
 
         const header = div.querySelector('.layer-header');
         header.addEventListener('click', (e) => { 
@@ -404,52 +538,55 @@
         div.querySelector('.ins-skin').onchange = (e) => { obj.skeleton.setSkinByName(e.target.value); obj.skeleton.setSlotsToSetupPose(); };
         div.querySelector('.ins-z').onchange = (e) => { obj.zIndex = Number(e.target.value); app.stage.sortChildren(); reorderDOMBasedOnZIndex(); };
 
-        // --- XỬ LÝ LOGIC SCALE X/Y VÀ KHÓA ---
         const scaleXIn = div.querySelector('.ins-scale-x');
         const scaleYIn = div.querySelector('.ins-scale-y');
         const btnLock = div.querySelector('.btn-lock');
         
-        let isLocked = true; // Mặc định mở lên là khóa tỷ lệ
-        let lockRatio = obj.scale.y / (obj.scale.x || 1); // Lưu tỷ lệ chênh lệch hiện tại
+        let isLocked = restoreState ? restoreState.isLocked : true;
+        let lockRatio = obj.scale.y / (obj.scale.x || 1); 
+
+        if (!isLocked) {
+            btnLock.classList.remove('locked');
+            btnLock.innerText = '🔓';
+            btnLock.style.opacity = '0.5';
+        }
 
         btnLock.addEventListener('click', (e) => {
             e.stopPropagation();
             isLocked = !isLocked;
             if (isLocked) {
-                btnLock.classList.add('locked');
-                btnLock.innerText = '🔗';
-                btnLock.style.opacity = '1';
-                lockRatio = obj.scale.y / (obj.scale.x || 1); // Cập nhật tỷ lệ mới khi bấm khóa lại
+                btnLock.classList.add('locked'); btnLock.innerText = '🔗'; btnLock.style.opacity = '1';
+                lockRatio = obj.scale.y / (obj.scale.x || 1); 
             } else {
-                btnLock.classList.remove('locked');
-                btnLock.innerText = '🔓';
-                btnLock.style.opacity = '0.5';
+                btnLock.classList.remove('locked'); btnLock.innerText = '🔓'; btnLock.style.opacity = '0.5';
             }
         });
 
         scaleXIn.oninput = (e) => {
-            const val = Number(e.target.value);
-            obj.scale.x = val;
-            if (isLocked) {
-                const newY = val * lockRatio;
-                obj.scale.y = newY;
-                scaleYIn.value = newY.toFixed(2);
-            }
+            const val = Number(e.target.value); obj.scale.x = val;
+            if (isLocked) { const newY = val * lockRatio; obj.scale.y = newY; scaleYIn.value = newY.toFixed(2); }
         };
 
         scaleYIn.oninput = (e) => {
-            const val = Number(e.target.value);
-            obj.scale.y = val;
-            if (isLocked) {
-                const newX = lockRatio !== 0 ? val / lockRatio : 0;
-                obj.scale.x = newX;
-                scaleXIn.value = newX.toFixed(2);
-            }
+            const val = Number(e.target.value); obj.scale.y = val;
+            if (isLocked) { const newX = lockRatio !== 0 ? val / lockRatio : 0; obj.scale.x = newX; scaleXIn.value = newX.toFixed(2); }
         };
 
         const parentSel = div.querySelector('.ins-attach-parent');
         const boneSel = div.querySelector('.ins-attach-bone');
         
+        // HỒI SINH TRẠNG THÁI ATTACH NẾU CÓ
+        if (restoreState && restoreState.attachedParentUid) {
+            const parentObj = app.stage.children.find(c => c.uid === restoreState.attachedParentUid);
+            if (parentObj) {
+                parentSel.innerHTML = `<option value="${parentObj.uid}">${parentObj.name}</option>`;
+                parentObj.skeleton.bones.forEach(b => {
+                    const opt = document.createElement('option'); opt.value = opt.text = b.data.name; boneSel.add(opt);
+                });
+                boneSel.value = restoreState.attachedBoneName;
+            }
+        }
+
         parentSel.addEventListener('focus', () => {
             const currentVal = parentSel.value;
             parentSel.innerHTML = '<option value="">- None -</option>';
@@ -494,14 +631,17 @@
             e.stopPropagation();
             const clone = spine.Spine.from({ skeleton: obj.skeletonKey, atlas: obj.atlasKey });
             clone.skeletonKey = obj.skeletonKey; clone.atlasKey = obj.atlasKey;
-            clone.attachedParentUid = null; clone.attachedBoneName = null;
             
-            const currentAnim = obj.state.tracks[0] ? obj.state.tracks[0].animation.name : null;
-            const currentSkin = obj.skeleton.skin ? obj.skeleton.skin.name : null;
-            const currentX = obj.x; const currentY = obj.y; 
-            const currentScaleX = obj.scale.x; const currentScaleY = obj.scale.y; // Lấy riêng X và Y
-            
-            clone.visible = obj.visible; 
+            const stateForClone = {
+                uid: 'spine_' + Date.now() + '_' + Math.floor(Math.random()*1000),
+                x: obj.x + 50, y: obj.y + 50,
+                scaleX: obj.scale.x, scaleY: obj.scale.y,
+                zIndex: obj.zIndex, visible: obj.visible,
+                anim: obj.state.tracks[0] ? obj.state.tracks[0].animation.name : null,
+                skin: obj.skeleton.skin ? obj.skeleton.skin.name : null,
+                attachedParentUid: null, attachedBoneName: null,
+                isLocked: isLocked
+            };
             
             let baseName = obj.name;
             const nameMatch = obj.name.match(/^(.*)_(\d+)$/);
@@ -517,36 +657,8 @@
                     }
                 }
             });
-            const newName = baseName + '_' + (maxNum + 1); 
             
-            spawn(clone, newName);
-            
-            clone.x = currentX + 50; clone.y = currentY + 50; 
-            clone.scale.set(currentScaleX, currentScaleY); // Copy trọn bộ Scale
-            
-            if (currentSkin) { clone.skeleton.setSkinByName(currentSkin); clone.skeleton.setSlotsToSetupPose(); }
-            if (currentAnim) { clone.state.setAnimation(0, currentAnim, true); }
-            
-            const newLayerDOM = document.getElementById(clone.uid);
-            if (newLayerDOM) {
-                newLayerDOM.querySelector('.ins-x').value = Math.round(clone.x);
-                newLayerDOM.querySelector('.ins-y').value = Math.round(clone.y);
-                newLayerDOM.querySelector('.ins-scale-x').value = clone.scale.x.toFixed(2);
-                newLayerDOM.querySelector('.ins-scale-y').value = clone.scale.y.toFixed(2);
-                if (currentAnim) newLayerDOM.querySelector('.ins-anim').value = currentAnim;
-                if (currentSkin) newLayerDOM.querySelector('.ins-skin').value = currentSkin;
-                
-                // Đồng bộ luôn trạng thái cái ổ khóa
-                if(!isLocked) {
-                    const newLockBtn = newLayerDOM.querySelector('.btn-lock');
-                    newLockBtn.classList.remove('locked');
-                    newLockBtn.innerText = '🔓';
-                    newLockBtn.style.opacity = '0.5';
-                    // Trigger click giả để cập nhật biến nội bộ của clone
-                    newLockBtn.click();
-                    newLockBtn.click(); // Hack nhỏ để ép trạng thái đồng nhất
-                }
-            }
+            spawn(clone, baseName + '_' + (maxNum + 1), obj.baseAssetId, stateForClone);
         };
 
         div.querySelector('.btn-remove').onclick = (e) => {
@@ -570,7 +682,9 @@
         };
 
         list.prepend(div); 
-        updateZIndexesFromDOM(); 
+        // Chỉ Update Z-Index mặc định nếu không phải là đang Restore (Update)
+        if(!restoreState) updateZIndexesFromDOM(); 
+        else { div.querySelector('.ins-z').value = restoreState.zIndex; }
     }
 
     function select(obj) {
