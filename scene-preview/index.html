@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spine 4.2 Pro Previewer - Frame Counter Edition</title>
+    <title>Spine 4.2 Pro Previewer - Multi-Texture Edition</title>
     
     <script src="https://unpkg.com/pixi.js@8.x/dist/pixi.min.js"></script>
     <script src="https://unpkg.com/@esotericsoftware/spine-pixi-v8@4.2/dist/iife/spine-pixi-v8.js"></script>
@@ -62,8 +62,6 @@
         }
         .timeline-container { flex: 1; display: flex; align-items: center; gap: 10px; }
         input[type=range].scrubber { flex: 1; accent-color: var(--accent); cursor: ew-resize; }
-
-        /* BỘ HIỂN THỊ FRAME MỚI THÊM */
         .frame-counter { font-family: monospace; font-size: 12px; color: #aaa; min-width: 65px; text-align: right; background: #111; padding: 4px 8px; border-radius: 4px; border: 1px solid #333; }
 
         #drop-zone { margin: 15px; padding: 25px 10px; border: 2px dashed #444; text-align: center; cursor: pointer; border-radius: 6px; font-size: 11px; margin-top: 60px; }
@@ -144,7 +142,7 @@
 
     <div id="sidebar-left" class="sidebar">
         <input type="file" id="file-folder" webkitdirectory directory multiple style="display:none">
-        <input type="file" id="update-file-input" multiple accept=".json,.skel,.atlas,.png" style="display:none">
+        <input type="file" id="update-file-input" multiple accept=".json,.skel,.atlas,.png,.jpg" style="display:none">
 
         <div id="drop-zone" onclick="document.getElementById('file-folder').click()">
             📁 Drop Folder Spine Here<br><small>Canvas: 1920 x 1080</small>
@@ -211,6 +209,9 @@
     const BUCKET = 'spine-assets';
 
     const spineFiles = {};
+    // BỘ NHỚ LƯU TRỮ TẠM TẤT CẢ FILE ĐÃ UPLOAD (Để phục vụ cho tính năng Atlas Parser)
+    const allUploadedFiles = {};
+
     let activeObj = null;
     let app = null;
     let currentUpdateId = null;
@@ -223,8 +224,6 @@
     let globalTimeScale = 1.0;
     let manualDelta = 0;
     let isDraggingTimeline = false;
-
-    // Giả định Spine chạy mượt ở 30 FPS để quy đổi Frame
     const FPS_TARGET = 30; 
 
     const LOGICAL_WIDTH = 1920;
@@ -281,7 +280,6 @@
                 }
             });
 
-            // Tự động đẩy Slider và hiển thị Frame khi đang Play
             if (isPlaying && !isDraggingTimeline) {
                 let referenceObj = activeObj || app.stage.children.find(c => c.isSpine);
                 if (referenceObj && referenceObj.state.tracks[0] && referenceObj.state.tracks[0].animation) {
@@ -292,7 +290,6 @@
                         const percent = (trackTime / duration) * 100;
                         document.getElementById('timeline-slider').value = percent;
                         
-                        // CẬP NHẬT FRAME COUNTER
                         const currentFrame = Math.round(trackTime * FPS_TARGET);
                         const totalFrames = Math.round(duration * FPS_TARGET);
                         document.getElementById('frame-display').innerText = `${currentFrame} / ${totalFrames}`;
@@ -306,6 +303,276 @@
         checkAndLoadSharedScene();
     })();
 
+    // --- LOGIC PHÂN TÍCH ATLAS MULTI-PAGE (CẬP NHẬT MỚI) ---
+    const fFolder = document.getElementById('file-folder');
+    fFolder.onchange = (e) => handleFiles(Array.from(e.target.files));
+
+    async function handleFiles(files) {
+        files.forEach(f => {
+            const fullPath = f.webkitRelativePath || f.name;
+            allUploadedFiles[fullPath] = f;
+        });
+
+        for (const [path, f] of Object.entries(allUploadedFiles)) {
+            const match = path.match(/(.+)\.(json|skel)$/i);
+            if (match) {
+                const basePath = match[1];
+                const atlasPath = basePath + '.atlas';
+                const atlasFile = allUploadedFiles[atlasPath];
+                
+                if (atlasFile) {
+                    // CỐT LÕI: Đọc file text của .atlas để lấy TẤT CẢ các tên ảnh được khai báo
+                    const text = await atlasFile.text();
+                    const imageNames = text.match(/^.+?\.(png|jpg|jpeg)\b/gim) || [];
+                    const uniqueImages = [...new Set(imageNames.map(s => s.trim()))];
+                    
+                    const pngFiles = [];
+                    let hasAllPngs = true;
+                    
+                    // Thư mục chứa file atlas
+                    const dirPath = basePath.substring(0, basePath.lastIndexOf('/') + 1);
+                    
+                    uniqueImages.forEach(imgName => {
+                        const targetPath = dirPath + imgName;
+                        if (allUploadedFiles[targetPath]) {
+                            pngFiles.push(allUploadedFiles[targetPath]);
+                        } else {
+                            // Fallback: Tìm file ở bất cứ đâu trong bộ upload (nếu bị mất cấu trúc folder)
+                            const fallback = Object.values(allUploadedFiles).find(file => file.name === imgName);
+                            if (fallback) pngFiles.push(fallback);
+                            else hasAllPngs = false;
+                        }
+                    });
+
+                    const assetName = basePath.split('/').pop();
+                    let folderPath = dirPath.slice(0, -1);
+                    if (!folderPath) folderPath = "Root Assets";
+
+                    spineFiles[basePath] = {
+                        id: basePath,
+                        name: assetName,
+                        folderPath: folderPath,
+                        json: path.endsWith('.json') ? f : null,
+                        skel: path.endsWith('.skel') ? f : null,
+                        atlas: atlasFile,
+                        pngs: pngFiles, // Lưu toàn bộ mảng PNGs
+                        ready: hasAllPngs && uniqueImages.length > 0
+                    };
+                }
+            }
+        }
+        renderList();
+    }
+
+    const fUpdate = document.getElementById('update-file-input');
+    function triggerUpdate(id) { currentUpdateId = id; fUpdate.click(); }
+
+    fUpdate.onchange = async (e) => {
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
+        
+        const group = spineFiles[currentUpdateId];
+        let newAtlasFile = group.atlas;
+        let newJsonFile = group.json || group.skel;
+        let newPngs = [...group.pngs];
+        
+        files.forEach(f => {
+            const match = f.name.match(/\.(json|skel|atlas|png|jpg|jpeg)$/i);
+            if (match) {
+                const ext = match[1].toLowerCase();
+                if (ext === 'json') group.json = f;
+                else if (ext === 'skel') group.skel = f;
+                else if (ext === 'atlas') newAtlasFile = f;
+                else {
+                    const idx = newPngs.findIndex(p => p.name === f.name);
+                    if (idx >= 0) newPngs[idx] = f;
+                    else newPngs.push(f);
+                }
+            }
+        });
+        
+        group.atlas = newAtlasFile;
+        group.pngs = newPngs;
+        
+        // Quét lại file atlas mới cập nhật xem đã đủ ảnh chưa
+        const text = await group.atlas.text();
+        const imageNames = text.match(/^.+?\.(png|jpg|jpeg)\b/gim) || [];
+        const uniqueImages = [...new Set(imageNames.map(s => s.trim()))];
+        
+        group.ready = uniqueImages.every(imgName => group.pngs.some(p => p.name === imgName));
+        
+        renderList();
+        if (group.ready) {
+            await executeLiveUpdate(currentUpdateId);
+        } else {
+            alert("Vẫn thiếu file ảnh yêu cầu bởi file Atlas mới.");
+            document.getElementById('loading-overlay').style.display = 'none';
+        }
+        fUpdate.value = ""; 
+    };
+
+    function renderList() {
+        const listContainer = document.getElementById('asset-list');
+        listContainer.innerHTML = '';
+        const root = { _isFolder: true, _assets: [], _children: {} };
+
+        Object.values(spineFiles).forEach(asset => {
+            let currentLevel = root;
+            if (asset.folderPath) {
+                const folders = asset.folderPath.split('/');
+                folders.forEach(folderName => {
+                    if (!currentLevel._children[folderName]) { currentLevel._children[folderName] = { _isFolder: true, _name: folderName, _assets: [], _children: {} }; }
+                    currentLevel = currentLevel._children[folderName];
+                });
+            }
+            currentLevel._assets.push(asset);
+        });
+
+        function createTreeDOM(node, containerDOM) {
+            Object.keys(node._children).forEach(folderName => {
+                const childNode = node._children[folderName];
+                const folderDiv = document.createElement('div');
+                folderDiv.className = 'folder-item'; 
+                folderDiv.innerHTML = `
+                    <div class="folder-header"><span>📁 ${folderName}</span><span class="toggle-icon">▶</span></div>
+                    <div class="folder-body"></div>
+                `;
+                folderDiv.querySelector('.folder-header').onclick = () => { folderDiv.classList.toggle('expanded'); };
+                createTreeDOM(childNode, folderDiv.querySelector('.folder-body')); 
+                containerDOM.appendChild(folderDiv);
+            });
+
+            node._assets.forEach(asset => {
+                const div = document.createElement('div');
+                div.className = `asset-item ${asset.ready ? 'ready' : ''}`;
+                div.innerHTML = `
+                    <div class="asset-header"><span>🩻 ${asset.name}</span><span class="toggle-icon">▶</span></div>
+                    <div class="asset-body">
+                        <div style="display:flex; gap:5px;">
+                            <button class="btn-ui" style="flex:1" ${!asset.ready ? 'disabled' : ''} onclick="uploadAndAdd('${asset.id}')">Add</button>
+                            <button class="btn-ui" style="flex:1; background:#d48a1a" ${!asset.ready ? 'disabled' : ''} onclick="triggerUpdate('${asset.id}')">Update</button>
+                        </div>
+                    </div>
+                `;
+                div.querySelector('.asset-header').onclick = () => { div.classList.toggle('expanded'); };
+                containerDOM.appendChild(div);
+            });
+        }
+        createTreeDOM(root, listContainer);
+    }
+
+    async function uploadAndAdd(id) {
+        document.getElementById('load-status').innerText = "Uploading & Loading...";
+        document.getElementById('loading-overlay').style.display = 'flex';
+        try {
+            const group = spineFiles[id];
+            const uid = Date.now();
+            const folder = `${id}_${uid}/`;
+
+            // THAY ĐỔI LỚN: Dùng vòng lặp đẩy toàn bộ mảng ảnh PNG lên Supabase
+            const pngUrls = [];
+            for (const pngFile of group.pngs) {
+                await supabaseClient.storage.from(BUCKET).upload(folder + pngFile.name, pngFile);
+                const url = supabaseClient.storage.from(BUCKET).getPublicUrl(folder + pngFile.name).data.publicUrl;
+                pngUrls.push(url);
+            }
+
+            await supabaseClient.storage.from(BUCKET).upload(folder + group.atlas.name, group.atlas);
+            const atlasUrl = supabaseClient.storage.from(BUCKET).getPublicUrl(folder + group.atlas.name).data.publicUrl;
+
+            const dataFile = group.json || group.skel;
+            await supabaseClient.storage.from(BUCKET).upload(folder + dataFile.name, dataFile);
+            const dataUrl = supabaseClient.storage.from(BUCKET).getPublicUrl(folder + dataFile.name).data.publicUrl;
+
+            const atlasKey = `at_${uid}`;
+            const dataKey = `sk_${uid}`;
+            PIXI.Assets.add({ alias: atlasKey, src: atlasUrl, format: '.atlas' });
+            PIXI.Assets.add({ alias: dataKey, src: dataUrl, format: group.json ? '.json' : '.skel' });
+            
+            await PIXI.Assets.load([atlasKey, dataKey]);
+            const spineObj = spine.Spine.from({ skeleton: dataKey, atlas: atlasKey });
+            
+            spineObj.skeletonKey = dataKey;
+            spineObj.atlasKey = atlasKey;
+            spineObj.attachedParentUid = null;
+            spineObj.attachedBoneName = null;
+            
+            // Lưu bộ array url để tái sử dụng Share
+            spineObj.urls = { atlasUrl: atlasUrl, dataUrl: dataUrl, pngUrls: pngUrls };
+            
+            spawn(spineObj, group.name, id);
+        } catch (e) { alert(e.message); }
+        document.getElementById('loading-overlay').style.display = 'none';
+    }
+
+    async function executeLiveUpdate(id) {
+        document.getElementById('load-status').innerText = "Updating Asset in Scene...";
+        document.getElementById('loading-overlay').style.display = 'flex';
+        
+        try {
+            const group = spineFiles[id];
+            const uid = Date.now();
+            const folder = `${id}_update_${uid}/`;
+
+            // Tương tự, update toàn bộ ảnh
+            const pngUrls = [];
+            for (const pngFile of group.pngs) {
+                await supabaseClient.storage.from(BUCKET).upload(folder + pngFile.name, pngFile);
+                const url = supabaseClient.storage.from(BUCKET).getPublicUrl(folder + pngFile.name).data.publicUrl;
+                pngUrls.push(url);
+            }
+
+            await supabaseClient.storage.from(BUCKET).upload(folder + group.atlas.name, group.atlas);
+            const atlasUrl = supabaseClient.storage.from(BUCKET).getPublicUrl(folder + group.atlas.name).data.publicUrl;
+
+            const dataFile = group.json || group.skel;
+            await supabaseClient.storage.from(BUCKET).upload(folder + dataFile.name, dataFile);
+            const dataUrl = supabaseClient.storage.from(BUCKET).getPublicUrl(folder + dataFile.name).data.publicUrl;
+
+            const atlasKey = `at_${uid}`;
+            const dataKey = `sk_${uid}`;
+            PIXI.Assets.add({ alias: atlasKey, src: atlasUrl, format: '.atlas' });
+            PIXI.Assets.add({ alias: dataKey, src: dataUrl, format: group.json ? '.json' : '.skel' });
+            
+            await PIXI.Assets.load([atlasKey, dataKey]);
+
+            const existingInstances = app.stage.children.filter(c => c.baseAssetId === id);
+            const statesToRestore = existingInstances.map(c => {
+                const dom = document.getElementById(c.uid);
+                const anims = [];
+                c.state.tracks.forEach(t => { if(t && t.animation) anims.push({ trackIndex: t.trackIndex, name: t.animation.name }); });
+
+                return {
+                    uid: c.uid, name: c.name, x: c.x, y: c.y,
+                    scaleX: c.scale.x, scaleY: c.scale.y,
+                    zIndex: c.zIndex, visible: c.visible,
+                    anims: anims, skins: c.activeSkins ? [...c.activeSkins] : [], 
+                    attachedParentUid: c.attachedParentUid, attachedBoneName: c.attachedBoneName,
+                    isLocked: dom ? dom.querySelector('.btn-lock').classList.contains('locked') : true
+                };
+            });
+
+            existingInstances.forEach(c => {
+                const dom = document.getElementById(c.uid);
+                if(dom) dom.remove();
+                app.stage.removeChild(c);
+            });
+            if(activeObj && activeObj.baseAssetId === id) select(null);
+
+            statesToRestore.forEach(state => {
+                const spineObj = spine.Spine.from({ skeleton: dataKey, atlas: atlasKey });
+                spineObj.skeletonKey = dataKey; spineObj.atlasKey = atlasKey;
+                spineObj.urls = { atlasUrl: atlasUrl, dataUrl: dataUrl, pngUrls: pngUrls };
+                spawn(spineObj, state.name, id, state);
+            });
+
+            reorderDOMBasedOnZIndex();
+
+        } catch (e) { alert(e.message); }
+        document.getElementById('loading-overlay').style.display = 'none';
+    }
+
+    // --- CÁC HÀM CÒN LẠI KHÔNG THAY ĐỔI VÀ ĐƯỢC GIỮ NGUYÊN BÊN DƯỚI NÀY ---
     function setupShareLogic() {
         const btnShare = document.getElementById('btn-share');
         const btnCopy = document.getElementById('btn-copy-link');
@@ -382,7 +649,7 @@
             for (const [assetId, urls] of Object.entries(sceneData.assets)) {
                 spineFiles[assetId] = {
                     id: assetId, name: assetId, folderPath: 'Shared Assets',
-                    json: { name: 'loaded' }, atlas: { name: 'loaded' }, png: { name: 'loaded' }
+                    json: { name: 'loaded' }, atlas: { name: 'loaded' }, pngs: [{ name: 'loaded' }], ready: true
                 };
 
                 const ext = urls.dataUrl.toLowerCase().includes('.skel') ? '.skel' : '.json';
@@ -445,7 +712,6 @@
                 btnPlay.style.background = '#2e7d32'; btnPlay.style.color = '#fff';
             }
             const percent = Number(e.target.value);
-            
             const referenceObj = activeObj || app.stage.children.find(c => c.isSpine);
 
             app.stage.children.forEach(child => {
@@ -455,7 +721,6 @@
                             const duration = track.animation.duration;
                             track.trackTime = (percent / 100) * duration;
                             
-                            // CẬP NHẬT FRAME COUNTER KHI KÉO SCRUBBER
                             if (child === referenceObj && track.trackIndex === 0) {
                                 const currentFrame = Math.round(track.trackTime * FPS_TARGET);
                                 const totalFrames = Math.round(duration * FPS_TARGET);
@@ -544,190 +809,6 @@
         if (!wrapper) return;
         const scale = (wrapper.clientWidth / LOGICAL_WIDTH) * 100;
         document.getElementById('view-scale').innerText = Math.round(scale) + "%";
-    }
-
-    const fFolder = document.getElementById('file-folder');
-    fFolder.onchange = (e) => handleFiles(Array.from(e.target.files));
-
-    function handleFiles(files) {
-        files.forEach(f => {
-            const fullPath = f.webkitRelativePath || f.name;
-            const match = fullPath.match(/(.+)\.(json|skel|atlas|png)$/i);
-            if (!match) return;
-
-            const fullId = match[1]; 
-            const parts = fullId.split('/');
-            const assetName = parts.pop(); 
-            const folderPath = parts.join('/'); 
-
-            if (!spineFiles[fullId]) {
-                spineFiles[fullId] = { id: fullId, name: assetName, folderPath: folderPath };
-            }
-            spineFiles[fullId][match[2].toLowerCase()] = f;
-        });
-        renderList();
-    }
-
-    const fUpdate = document.getElementById('update-file-input');
-    function triggerUpdate(id) { currentUpdateId = id; fUpdate.click(); }
-
-    fUpdate.onchange = async (e) => {
-        const files = Array.from(e.target.files);
-        if (files.length === 0) return;
-        files.forEach(f => {
-            const match = f.name.match(/\.(json|skel|atlas|png)$/i);
-            if (match) { spineFiles[currentUpdateId][match[1].toLowerCase()] = f; }
-        });
-        renderList();
-        await executeLiveUpdate(currentUpdateId);
-        fUpdate.value = ""; 
-    };
-
-    function renderList() {
-        const listContainer = document.getElementById('asset-list');
-        listContainer.innerHTML = '';
-        const root = { _isFolder: true, _assets: [], _children: {} };
-
-        Object.values(spineFiles).forEach(asset => {
-            let currentLevel = root;
-            if (asset.folderPath) {
-                const folders = asset.folderPath.split('/');
-                folders.forEach(folderName => {
-                    if (!currentLevel._children[folderName]) { currentLevel._children[folderName] = { _isFolder: true, _name: folderName, _assets: [], _children: {} }; }
-                    currentLevel = currentLevel._children[folderName];
-                });
-            }
-            currentLevel._assets.push(asset);
-        });
-
-        function createTreeDOM(node, containerDOM) {
-            Object.keys(node._children).forEach(folderName => {
-                const childNode = node._children[folderName];
-                const folderDiv = document.createElement('div');
-                folderDiv.className = 'folder-item'; 
-                folderDiv.innerHTML = `
-                    <div class="folder-header"><span>📁 ${folderName}</span><span class="toggle-icon">▶</span></div>
-                    <div class="folder-body"></div>
-                `;
-                folderDiv.querySelector('.folder-header').onclick = () => { folderDiv.classList.toggle('expanded'); };
-                createTreeDOM(childNode, folderDiv.querySelector('.folder-body')); 
-                containerDOM.appendChild(folderDiv);
-            });
-
-            node._assets.forEach(asset => {
-                const ready = (asset.json || asset.skel) && asset.atlas && asset.png;
-                const div = document.createElement('div');
-                div.className = `asset-item ${ready ? 'ready' : ''}`;
-                div.innerHTML = `
-                    <div class="asset-header"><span>🩻 ${asset.name}</span><span class="toggle-icon">▶</span></div>
-                    <div class="asset-body">
-                        <div style="display:flex; gap:5px;">
-                            <button class="btn-ui" style="flex:1" ${!ready ? 'disabled' : ''} onclick="uploadAndAdd('${asset.id}')">Add</button>
-                            <button class="btn-ui" style="flex:1; background:#d48a1a" ${!ready ? 'disabled' : ''} onclick="triggerUpdate('${asset.id}')">Update</button>
-                        </div>
-                    </div>
-                `;
-                div.querySelector('.asset-header').onclick = () => { div.classList.toggle('expanded'); };
-                containerDOM.appendChild(div);
-            });
-        }
-        createTreeDOM(root, listContainer);
-    }
-
-    async function uploadAndAdd(id) {
-        document.getElementById('load-status').innerText = "Uploading & Loading...";
-        document.getElementById('loading-overlay').style.display = 'flex';
-        try {
-            const group = spineFiles[id];
-            const uid = Date.now();
-            const folder = `${id}_${uid}/`;
-
-            await supabaseClient.storage.from(BUCKET).upload(folder + group.png.name, group.png);
-            await supabaseClient.storage.from(BUCKET).upload(folder + group.atlas.name, group.atlas);
-            const atlasUrl = supabaseClient.storage.from(BUCKET).getPublicUrl(folder + group.atlas.name).data.publicUrl;
-
-            const dataFile = group.json || group.skel;
-            await supabaseClient.storage.from(BUCKET).upload(folder + dataFile.name, dataFile);
-            const dataUrl = supabaseClient.storage.from(BUCKET).getPublicUrl(folder + dataFile.name).data.publicUrl;
-
-            const atlasKey = `at_${uid}`;
-            const dataKey = `sk_${uid}`;
-            PIXI.Assets.add({ alias: atlasKey, src: atlasUrl, format: '.atlas' });
-            PIXI.Assets.add({ alias: dataKey, src: dataUrl, format: group.json ? '.json' : '.skel' });
-            
-            await PIXI.Assets.load([atlasKey, dataKey]);
-            const spineObj = spine.Spine.from({ skeleton: dataKey, atlas: atlasKey });
-            
-            spineObj.skeletonKey = dataKey;
-            spineObj.atlasKey = atlasKey;
-            spineObj.attachedParentUid = null;
-            spineObj.attachedBoneName = null;
-            
-            spineObj.urls = { atlasUrl: atlasUrl, dataUrl: dataUrl, pngUrl: supabaseClient.storage.from(BUCKET).getPublicUrl(folder + group.png.name).data.publicUrl };
-            
-            spawn(spineObj, group.name, id);
-        } catch (e) { alert(e.message); }
-        document.getElementById('loading-overlay').style.display = 'none';
-    }
-
-    async function executeLiveUpdate(id) {
-        document.getElementById('load-status').innerText = "Updating Asset in Scene...";
-        document.getElementById('loading-overlay').style.display = 'flex';
-        
-        try {
-            const group = spineFiles[id];
-            const uid = Date.now();
-            const folder = `${id}_update_${uid}/`;
-
-            await supabaseClient.storage.from(BUCKET).upload(folder + group.png.name, group.png);
-            await supabaseClient.storage.from(BUCKET).upload(folder + group.atlas.name, group.atlas);
-            const atlasUrl = supabaseClient.storage.from(BUCKET).getPublicUrl(folder + group.atlas.name).data.publicUrl;
-
-            const dataFile = group.json || group.skel;
-            await supabaseClient.storage.from(BUCKET).upload(folder + dataFile.name, dataFile);
-            const dataUrl = supabaseClient.storage.from(BUCKET).getPublicUrl(folder + dataFile.name).data.publicUrl;
-
-            const atlasKey = `at_${uid}`;
-            const dataKey = `sk_${uid}`;
-            PIXI.Assets.add({ alias: atlasKey, src: atlasUrl, format: '.atlas' });
-            PIXI.Assets.add({ alias: dataKey, src: dataUrl, format: group.json ? '.json' : '.skel' });
-            
-            await PIXI.Assets.load([atlasKey, dataKey]);
-
-            const existingInstances = app.stage.children.filter(c => c.baseAssetId === id);
-            const statesToRestore = existingInstances.map(c => {
-                const dom = document.getElementById(c.uid);
-                const anims = [];
-                c.state.tracks.forEach(t => { if(t && t.animation) anims.push({ trackIndex: t.trackIndex, name: t.animation.name }); });
-
-                return {
-                    uid: c.uid, name: c.name, x: c.x, y: c.y,
-                    scaleX: c.scale.x, scaleY: c.scale.y,
-                    zIndex: c.zIndex, visible: c.visible,
-                    anims: anims, skins: c.activeSkins ? [...c.activeSkins] : [], 
-                    attachedParentUid: c.attachedParentUid, attachedBoneName: c.attachedBoneName,
-                    isLocked: dom ? dom.querySelector('.btn-lock').classList.contains('locked') : true
-                };
-            });
-
-            existingInstances.forEach(c => {
-                const dom = document.getElementById(c.uid);
-                if(dom) dom.remove();
-                app.stage.removeChild(c);
-            });
-            if(activeObj && activeObj.baseAssetId === id) select(null);
-
-            statesToRestore.forEach(state => {
-                const spineObj = spine.Spine.from({ skeleton: dataKey, atlas: atlasKey });
-                spineObj.skeletonKey = dataKey; spineObj.atlasKey = atlasKey;
-                spineObj.urls = { atlasUrl: atlasUrl, dataUrl: dataUrl, pngUrl: supabaseClient.storage.from(BUCKET).getPublicUrl(folder + group.png.name).data.publicUrl };
-                spawn(spineObj, state.name, id, state);
-            });
-
-            reorderDOMBasedOnZIndex();
-
-        } catch (e) { alert(e.message); }
-        document.getElementById('loading-overlay').style.display = 'none';
     }
 
     function spawn(obj, name, baseAssetId, restoreState = null) {
