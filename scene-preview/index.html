@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spine 4.2 Pro Previewer - Timeline & Playback Edition</title>
+    <title>Spine 4.2 Pro Previewer - Realtime Scrubbing Fix</title>
     
     <script src="https://unpkg.com/pixi.js@8.x/dist/pixi.min.js"></script>
     <script src="https://unpkg.com/@esotericsoftware/spine-pixi-v8@4.2/dist/iife/spine-pixi-v8.js"></script>
@@ -53,7 +53,6 @@
         @keyframes pulse-red { 0% { background-color: #8b2a2a; } 50% { background-color: #ff4444; box-shadow: 0 0 10px #ff4444; } 100% { background-color: #8b2a2a; } }
         .is-recording { animation: pulse-red 1s infinite !important; font-weight: bold; color: white !important; }
 
-        /* --- BẢNG PLAYBACK BAR --- */
         #playback-bar {
             position: absolute; bottom: 65px; left: 50%; transform: translateX(-50%);
             width: min(800px, 80%); background: rgba(30, 30, 30, 0.95);
@@ -195,12 +194,10 @@
     let app = null;
     let currentUpdateId = null;
 
-    // Record Vars
     let mediaRecorder;
     let recordedChunks = [];
     let isRecording = false;
 
-    // Timeline Vars
     let isPlaying = true;
     let globalTimeScale = 1.0;
     let manualDelta = 0;
@@ -230,16 +227,11 @@
         setupRecordLogic();
         setupPlaybackLogic();
         
-        // CUSTOM TICKER CHO HỆ THỐNG TIMELINE MỚI
         app.ticker.add((ticker) => {
             let dt = 0;
-            
-            // Xử lý chạy tự động theo Tốc độ (Speed Scale)
             if (isPlaying && !isDraggingTimeline) {
                 dt = (ticker.deltaMS / 1000) * globalTimeScale;
             }
-            
-            // Xử lý nạp thời gian thủ công khi ấn nút "Next Frame"
             if (manualDelta !== 0) {
                 dt = manualDelta;
                 manualDelta = 0;
@@ -247,12 +239,10 @@
 
             app.stage.children.forEach(child => {
                 if (child.isSpine) {
-                    // Cập nhật hoạt ảnh cho nhân vật nếu có thời gian trôi qua
                     if (dt > 0) {
                         child.update(dt);
                     }
 
-                    // Logic Attach Bone không đổi
                     if (child.attachedParentUid && child.attachedBoneName) {
                         const parent = app.stage.children.find(c => c.uid === child.attachedParentUid);
                         if (parent && parent.skeleton) {
@@ -273,7 +263,6 @@
                 }
             });
 
-            // Cập nhật thanh Slider Timeline tự động chạy theo nhân vật đang được chọn
             if (isPlaying && !isDraggingTimeline) {
                 let referenceObj = activeObj || app.stage.children.find(c => c.isSpine);
                 if (referenceObj && referenceObj.state.tracks[0] && referenceObj.state.tracks[0].animation) {
@@ -288,7 +277,6 @@
         });
     })();
 
-    // --- LOGIC HỆ THỐNG TIMELINE & PLAYBACK ---
     function setupPlaybackLogic() {
         const btnPlay = document.getElementById('btn-play-pause');
         const btnNext = document.getElementById('btn-next-frame');
@@ -296,15 +284,13 @@
         const speedVal = document.getElementById('speed-val');
         const timelineSlider = document.getElementById('timeline-slider');
 
-        // Bật/Tắt Play
         btnPlay.onclick = () => {
             isPlaying = !isPlaying;
             btnPlay.innerText = isPlaying ? '⏸ Pause' : '▶ Play';
-            btnPlay.style.background = isPlaying ? '#e6a822' : '#2e7d32'; // Đổi màu trạng thái
+            btnPlay.style.background = isPlaying ? '#e6a822' : '#2e7d32'; 
             btnPlay.style.color = isPlaying ? '#000' : '#fff';
         };
 
-        // Nhích từng Frame (1/30 giây)
         btnNext.onclick = () => {
             if (isPlaying) { 
                 isPlaying = false; 
@@ -315,13 +301,11 @@
             manualDelta = 1 / 30; 
         };
 
-        // Thay đổi Tốc Độ
         speedSlider.oninput = (e) => {
             globalTimeScale = Number(e.target.value);
             speedVal.innerText = globalTimeScale.toFixed(1) + 'x';
         };
 
-        // Tính năng Scrubbing: Kéo thanh Timeline
         timelineSlider.onmousedown = () => isDraggingTimeline = true;
         timelineSlider.onmouseup = () => isDraggingTimeline = false;
         timelineSlider.oninput = (e) => {
@@ -333,7 +317,6 @@
             }
             const percent = Number(e.target.value);
             
-            // Ép toàn bộ nhân vật trên Scene nhảy tới thời gian tương ứng
             app.stage.children.forEach(child => {
                 if (child.isSpine) {
                     child.state.tracks.forEach(track => {
@@ -342,9 +325,8 @@
                             track.trackTime = (percent / 100) * duration;
                         }
                     });
-                    // Ép API của Spine phải render Frame lập tức theo trackTime vừa set
-                    child.state.apply(child.skeleton);
-                    child.skeleton.updateWorldTransform();
+                    // FIX MƯỢT MÀ: Yêu cầu PixiJS update hình ảnh ngay lập tức tại thời điểm 0 (hiện tại)
+                    child.update(0);
                 }
             });
         };
@@ -399,6 +381,7 @@
         el.addEventListener('mousedown', (e) => {
             if (['INPUT', 'SELECT', 'OPTION', 'BUTTON', 'SPAN'].includes(e.target.tagName)) return;
             if (e.target.closest('.layer-header') || e.target.closest('.asset-header') || e.target.closest('.folder-header') || e.target.closest('.btn-lock') || e.target.closest('.skin-pill')) return;
+            
             isDown = true; el.style.cursor = 'grabbing';
             startY = e.pageY - el.offsetTop; scrollTop = el.scrollTop;
         });
@@ -645,14 +628,12 @@
         obj.name = name;
         obj.eventMode = 'static'; obj.cursor = 'move';
         
-        // QUAN TRỌNG: Cắt tự động cập nhật của Spine để có thể điều khiển Time Scale / Timeline tay
         obj.autoUpdate = false; 
         obj.isSpine = true;
 
         if(restoreState) {
             obj.uid = restoreState.uid;
-            obj.x = restoreState.x; 
-            obj.y = restoreState.y;
+            obj.x = restoreState.x; obj.y = restoreState.y;
             obj.scale.set(restoreState.scaleX, restoreState.scaleY);
             obj.visible = restoreState.visible;
             obj.zIndex = restoreState.zIndex;
