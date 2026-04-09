@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spine 4.2 Pro Previewer - Keyboard Trigger Edition</title>
+    <title>Spine 4.2 Pro Previewer - Sequence Freeze Edition</title>
     
     <script src="https://unpkg.com/pixi.js@8.x/dist/pixi.min.js"></script>
     <script src="https://unpkg.com/@esotericsoftware/spine-pixi-v8@4.2/dist/iife/spine-pixi-v8.js"></script>
@@ -146,7 +146,12 @@
         .fsm-badge { padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; color: white; }
         .fsm-btn-del { background: #8b2a2a; border: none; color: white; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 10px; }
         
-        #live-animator-dashboard { display: none; position: absolute; top: 20px; left: 20px; background: rgba(30, 30, 30, 0.9); padding: 15px; border-radius: 8px; border: 1px solid #444; z-index: 100; min-width: 250px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); backdrop-filter: blur(4px); }
+        #live-animator-dashboard { 
+            display: none; position: absolute; bottom: 65px; right: 20px; 
+            background: rgba(30, 30, 30, 0.95); padding: 15px; border-radius: 8px; 
+            border: 1px solid #444; z-index: 100; min-width: 280px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5); backdrop-filter: blur(4px); 
+        }
     </style>
 </head>
 <body>
@@ -170,9 +175,9 @@
         </div>
 
         <div id="live-animator-dashboard">
-            <div style="color:var(--accent); font-weight:bold; font-size:12px; margin-bottom:12px; display:flex; justify-content:space-between;">
-                <span>🎮 Live Parameters</span>
-                <span id="live-animator-target" style="color:#888;">Name</span>
+            <div style="color:var(--accent); font-weight:bold; font-size:12px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+                <span>🎮 Animator Editor <span id="live-animator-target" style="color:#aaa; font-weight:normal; margin-left:5px;">Name</span></span>
+                <button onclick="toggleAnimatorDashboard(false)" style="background:none; border:none; color:#888; cursor:pointer; font-size:14px; padding:0 5px;">✕</button>
             </div>
             <div id="live-params-list"></div>
         </div>
@@ -197,7 +202,8 @@
         <div id="bottom-info">
             <span>Drag: Move Asset | Grid: 1920x1080</span>
             <span>View Scale: <span id="view-scale" class="scale-badge">100%</span></span>
-            <span style="border-left: 1px solid #444; height: 15px;"></span>
+            <span style="border-left: 1px solid #444; height: 15px; margin: 0 5px;"></span>
+            <button id="btn-toggle-animator" class="btn-ui" onclick="toggleAnimatorDashboard()" style="background:#5c2a8c; padding: 4px 12px; width: auto; font-size: 10px; border-radius: 12px; display:none; margin-right:5px;">🎮 Animator</button>
             <button id="btn-record" class="btn-ui" style="background:#555; padding: 4px 12px; width: auto; font-size: 10px; border-radius: 12px;">⏺ Record</button>
             <button id="btn-share" class="btn-ui" style="background:#2e7d32; padding: 4px 12px; width: auto; font-size: 10px; border-radius: 12px; margin-left:5px;">🔗 Save & Share Scene</button>
         </div>
@@ -239,7 +245,10 @@
                             <span>Rules / Transitions (Luật chuyển đổi)</span>
                             <button class="btn-ui" onclick="addFsmRule()" style="width:auto; font-size:10px; padding:4px 12px; background:#4caf50;">+ Add Rule</button>
                         </div>
-                        <div style="font-size:11px; color:#888; margin-bottom:15px; font-style:italic;">* Đọc từ trên xuống. Nếu bỏ tick Loop, Animation sẽ "khóa" Track cho tới khi chạy xong mới đổi tiếp. Trigger (Key) luôn luôn được ưu tiên cắt ngang.</div>
+                        <div style="font-size:11px; color:#888; margin-bottom:15px; font-style:italic;">
+                            * Đọc từ trên xuống. Bạn có thể kết hợp thêm nhiều ô Queue để tạo chuỗi Combo liên hoàn.<br>
+                            * <b>End Action:</b> Hành động sẽ diễn ra sau khi Animation cuối cùng trong chuỗi kết thúc. Trigger luôn cắt ngang mọi trạng thái.
+                        </div>
                         <div id="fsm-rules-list"></div>
                     </div>
                 </div>
@@ -278,8 +287,9 @@
     const FPS_TARGET = 30; 
 
     let configObj = null;
+    
+    let isAnimatorDashboardOpen = false;
 
-    // --- BỘ LẮNG NGHE BÀN PHÍM TOÀN CỤC ---
     const keysDown = new Set();
     const keysJustPressed = new Set();
     window.addEventListener('keydown', e => {
@@ -335,7 +345,6 @@
             app.stage.children.forEach(child => {
                 if (child.isSpine) {
 
-                    // BẮT PHÍM TRIGGER
                     if (isPlaying && !isDraggingTimeline && child.animatorParams) {
                         child.animatorParams.forEach(p => {
                             if (p.type === 'trigger' && p.key && keysJustPressed.has(p.key.toLowerCase())) {
@@ -344,7 +353,6 @@
                         });
                     }
 
-                    // --- BỘ NÃO CỦA FSM ANIMATOR ---
                     if (isPlaying && !isDraggingTimeline && child.animatorRules && child.animatorRules.length > 0) {
                         let trackWinners = {};
                         
@@ -354,30 +362,31 @@
                             let param = child.animatorParams.find(p => p.name === rule.paramName);
                             if (!param) continue;
 
-                            // -------------------------------------------------------------
-                            // GIA CỐ HÀM KHÓA STATE (FIX LỖI CUT-OFF VỀ IDLE QUÁ SỚM)
-                            // Sử dụng String() ép kiểu mạnh để khắc phục lỗi JS đọc nhầm trạng thái Checkbox
-                            // -------------------------------------------------------------
                             let currEntry = child.state.tracks[rule.trackIndex];
                             let isLocked = false;
                             
                             if (currEntry && currEntry.animation) {
-                                // Ép chặt định dạng Loop để FSM không bị "lừa"
                                 let isLooping = (currEntry.loop === true || String(currEntry.loop) === 'true');
-                                
-                                // Tạo ngưỡng hoàn thành chắc chắn (Animation Duration không được âm hoặc 0)
                                 let animDuration = Math.max(currEntry.animation.duration, 0.01);
                                 let isComplete = (currEntry.trackTime >= animDuration);
+                                let hasNext = (currEntry.next != null); // Đang có hàng đợi chạy nối đuôi
                                 
-                                // Nếu Anim KHÔNG lặp và CHƯA CHẠY XONG -> Giữ ổ khóa!
-                                if (!isLooping && !isComplete) {
+                                // Nếu có hàng đợi nối đuôi, tuyệt đối không cho phép Rule nào cắt ngang (KHÓA CHẶT)
+                                if (hasNext) {
                                     isLocked = true;
+                                } else if (!isLooping) {
+                                    // Nếu không lặp và CHƯA CHẠY XONG -> KHÓA!
+                                    if (!isComplete) {
+                                        isLocked = true;
+                                    } 
+                                    // TÍNH NĂNG MỚI: Nếu ĐÃ CHẠY XONG nhưng được đánh dấu "Freeze" (Đóng băng) -> KHÓA MÃI MÃI!
+                                    else if (currEntry.customEndBehavior === 'freeze') {
+                                        isLocked = true;
+                                    }
                                 }
                             }
 
-                            // Chỉ Trigger mới có quyền cắt đứt trạng thái đang khóa
                             if (isLocked && param.type !== 'trigger') continue;
-                            // -------------------------------------------------------------
 
                             let isMatch = false;
                             if (param.type === 'trigger') {
@@ -407,20 +416,36 @@
                             let currAnim = currEntry && currEntry.animation ? currEntry.animation.name : null;
                             
                             if (currAnim !== rule.targetAnim || forceReplay) {
-                                // Lọc giá trị mixDuration an toàn
                                 let mixDur = parseFloat(rule.mixDuration);
                                 if (isNaN(mixDur)) mixDur = 0.2;
                                 child.state.data.defaultMix = mixDur;
                                 
-                                // ÉP KIỂU MẠNH CHO BIẾN LOOP ĐỂ CHỐNG LỖI UI STRING
-                                let isLoop = (rule.loop === true || String(rule.loop) === 'true');
+                                // DI SẢN BẢN CŨ & LOGIC END ACTION MỚI
+                                let endBehavior = rule.endBehavior || ((rule.loop === false || String(rule.loop) === 'false') ? 'return' : 'loop');
                                 
+                                let qAnims = rule.queueAnims || [];
+                                if (rule.queueAnim && qAnims.length === 0) qAnims = [rule.queueAnim];
+                                
+                                let isSingle = (qAnims.length === 0);
+                                let firstAnimLoop = isSingle ? (endBehavior === 'loop') : false;
+
                                 try { 
-                                    child.state.setAnimation(trackId, rule.targetAnim, isLoop); 
+                                    let entry = child.state.setAnimation(trackId, rule.targetAnim, firstAnimLoop); 
                                     
-                                    // Queue vẫn giữ nguyên để nối mượt
-                                    if (!isLoop && rule.queueAnim && rule.queueAnim !== "") {
-                                        child.state.addAnimation(trackId, rule.queueAnim, true, 0);
+                                    // Nhồi đánh dấu "End Behavior" vào Anim để Spine tự biết xử lý ở khung hình cuối
+                                    if (entry) entry.customEndBehavior = isSingle ? endBehavior : 'queue';
+                                    
+                                    if (!isSingle) {
+                                        for (let i = 0; i < qAnims.length; i++) {
+                                            let qa = qAnims[i];
+                                            if (qa && qa !== "") {
+                                                let isLastInQueue = (i === qAnims.length - 1);
+                                                let qaLoop = isLastInQueue ? (endBehavior === 'loop') : false;
+                                                let qEntry = child.state.addAnimation(trackId, qa, qaLoop, 0);
+                                                
+                                                if (qEntry) qEntry.customEndBehavior = isLastInQueue ? endBehavior : 'queue';
+                                            }
+                                        }
                                     }
                                 } catch(e){ console.error("Spine Animation Error:", e); }
                             }
@@ -430,7 +455,6 @@
                             if (p.type === 'trigger') p.value = false;
                         });
                     }
-                    // ------------------------------------------------
 
                     if (dt > 0) child.update(dt);
 
@@ -1492,7 +1516,7 @@
             paramName: configObj.animatorParams[0].name, operator: '==',
             value: configObj.animatorParams[0].type === 'bool' ? 'true' : '0',
             targetAnim: defaultAnim, trackIndex: 0, mixDuration: 0.2,
-            loop: true, queueAnim: ''
+            endBehavior: 'loop', queueAnims: []
         });
         renderAnimatorRules();
     }
@@ -1514,8 +1538,15 @@
             div.style.flexDirection = 'column';
             div.style.alignItems = 'stretch';
             
-            if (rule.loop === undefined) rule.loop = true;
-            if (rule.queueAnim === undefined) rule.queueAnim = '';
+            // Xử lý di sản bản cũ
+            let endBeh = rule.endBehavior;
+            if (!endBeh) endBeh = (rule.loop === false || String(rule.loop) === 'false') ? 'return' : 'loop';
+            rule.endBehavior = endBeh;
+
+            if (rule.queueAnims === undefined) {
+                rule.queueAnims = [];
+                if (rule.queueAnim) rule.queueAnims.push(rule.queueAnim); 
+            }
 
             let pOptions = configObj.animatorParams.map(p => `<option value="${p.name}" ${p.name===rule.paramName?'selected':''}>${p.name}</option>`).join('');
             
@@ -1544,7 +1575,14 @@
             }
             
             let animOptions = configObj.skeleton.data.animations.map(a => `<option value="${a.name}" ${a.name===rule.targetAnim?'selected':''}>${a.name}</option>`).join('');
-            let queueOptions = `<option value="">- None -</option>` + configObj.skeleton.data.animations.map(a => `<option value="${a.name}" ${a.name===rule.queueAnim?'selected':''}>${a.name}</option>`).join('');
+            
+            // Render Giao diện Hàng đợi Đa Animation
+            let queueUI = rule.queueAnims.map((qa, qi) => `
+                <select class="r-queue-item" data-qi="${qi}" style="width:75px; font-size:10px; padding:2px; background:#121212; border:1px solid #333; color:#fff;">
+                    <option value="">- Xóa -</option>
+                    ${configObj.skeleton.data.animations.map(a => `<option value="${a.name}" ${a.name===qa?'selected':''}>${a.name}</option>`).join('')}
+                </select>
+            `).join('');
 
             div.innerHTML = `
                 <div style="display:flex; gap:5px; align-items:center; width:100%;">
@@ -1557,17 +1595,25 @@
                 <div style="display:flex; gap:5px; align-items:center; width:100%; margin-top:5px;">
                     <span style="color:#4caf50; font-weight:bold; font-size:11px;">THEN</span>
                     <select class="r-anim" style="flex:2;">${animOptions}</select>
-                    <label style="font-size:10px; color:#aaa; display:flex; align-items:center; gap:2px; cursor:pointer;">
-                        <input class="r-loop" type="checkbox" ${rule.loop ? 'checked' : ''}> Loop
-                    </label>
+                    
+                    <span style="font-size:10px; color:#888; margin-left:5px;">End Action:</span>
+                    <select class="r-end-behavior" style="width:85px; font-size:10px; padding:2px; background:#1a1a1a; border:1px solid #333; color:#fff;">
+                        <option value="loop" ${endBeh === 'loop' ? 'selected' : ''}>🔄 Loop</option>
+                        <option value="return" ${endBeh === 'return' ? 'selected' : ''}>↩️ Return</option>
+                        <option value="freeze" ${endBeh === 'freeze' ? 'selected' : ''}>🛑 Freeze</option>
+                    </select>
                 </div>
                 <div style="display:flex; gap:5px; align-items:center; width:100%; margin-top:5px;">
                     <span style="font-size:10px; color:#888;">Track</span>
                     <input class="r-track" type="number" style="width:40px;" value="${rule.trackIndex}">
                     <span style="font-size:10px; color:#888;">Mix</span>
-                    <input class="r-mix" type="number" step="0.1" style="width:50px;" value="${rule.mixDuration}">
-                    <span style="font-size:10px; color:#888; margin-left:10px;">Queue Next:</span>
-                    <select class="r-queue" style="flex:1;" ${rule.loop ? 'disabled' : ''}>${queueOptions}</select>
+                    <input class="r-mix" type="number" step="0.1" style="width:40px;" value="${rule.mixDuration}">
+                    
+                    <span style="font-size:10px; color:#888; margin-left:5px;">Queue:</span>
+                    <div style="display:flex; gap:4px; flex-wrap:wrap; flex:1;">
+                        ${queueUI}
+                        <button class="btn-add-queue" style="background:#007acc; border:none; color:#fff; border-radius:3px; cursor:pointer; padding:0 6px;" title="Thêm Animation nối đuôi">+</button>
+                    </div>
                 </div>
             `;
 
@@ -1584,12 +1630,25 @@
             div.querySelector('.r-track').onchange = (e) => rule.trackIndex = parseInt(e.target.value) || 0;
             div.querySelector('.r-mix').onchange = (e) => rule.mixDuration = parseFloat(e.target.value) || 0;
             
-            div.querySelector('.r-loop').onchange = (e) => { 
-                rule.loop = e.target.checked; 
-                if(rule.loop) rule.queueAnim = ''; 
+            div.querySelector('.r-end-behavior').onchange = (e) => { 
+                rule.endBehavior = e.target.value; 
                 renderAnimatorRules(); 
             };
-            div.querySelector('.r-queue').onchange = (e) => rule.queueAnim = e.target.value;
+
+            div.querySelectorAll('.r-queue-item').forEach(sel => {
+                sel.onchange = (e) => {
+                    let qi = parseInt(e.target.getAttribute('data-qi'));
+                    let val = e.target.value;
+                    if (val === '') rule.queueAnims.splice(qi, 1);
+                    else rule.queueAnims[qi] = val;
+                    renderAnimatorRules();
+                };
+            });
+            
+            div.querySelector('.btn-add-queue').onclick = (e) => {
+                rule.queueAnims.push(configObj.skeleton.data.animations[0] ? configObj.skeleton.data.animations[0].name : '');
+                renderAnimatorRules();
+            };
 
             list.appendChild(div);
         });
@@ -1598,18 +1657,43 @@
     // ==========================================
     // LOGIC CHO BẢNG LIVE DASHBOARD (CANVAS)
     // ==========================================
+    function toggleAnimatorDashboard(forceState) {
+        if (forceState !== undefined) {
+            isAnimatorDashboardOpen = forceState;
+        } else {
+            isAnimatorDashboardOpen = !isAnimatorDashboardOpen;
+        }
+        
+        const btn = document.getElementById('btn-toggle-animator');
+        if (isAnimatorDashboardOpen) {
+            btn.style.background = '#4caf50';
+        } else {
+            btn.style.background = '#5c2a8c';
+        }
+        updateLiveDashboard();
+    }
+
     function updateLiveDashboard() {
         const dash = document.getElementById('live-animator-dashboard');
         const list = document.getElementById('live-params-list');
         const targetLabel = document.getElementById('live-animator-target');
+        const btnToggle = document.getElementById('btn-toggle-animator');
         
         if (!activeObj || !activeObj.animatorParams || activeObj.animatorParams.length === 0) {
+            dash.style.display = 'none';
+            btnToggle.style.display = 'none';
+            return;
+        }
+
+        btnToggle.style.display = 'inline-block';
+        
+        if (!isAnimatorDashboardOpen) {
             dash.style.display = 'none';
             return;
         }
 
         dash.style.display = 'block';
-        targetLabel.innerText = activeObj.name;
+        targetLabel.innerText = `[${activeObj.name}]`;
         list.innerHTML = '';
 
         activeObj.animatorParams.forEach(p => {
