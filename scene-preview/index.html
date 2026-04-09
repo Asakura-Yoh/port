@@ -356,17 +356,20 @@
 
                             // -------------------------------------------------------------
                             // GIA CỐ HÀM KHÓA STATE (FIX LỖI CUT-OFF VỀ IDLE QUÁ SỚM)
+                            // Sử dụng String() ép kiểu mạnh để khắc phục lỗi JS đọc nhầm trạng thái Checkbox
                             // -------------------------------------------------------------
                             let currEntry = child.state.tracks[rule.trackIndex];
                             let isLocked = false;
                             
                             if (currEntry && currEntry.animation) {
-                                // Kiểm tra xem animation hiện tại có phải là không lặp (loop = false) không
-                                let isLooping = (currEntry.loop === true);
-                                // Kiểm tra độ dài thực tế của trackTime so với thời lượng nguyên gốc
-                                let isComplete = (currEntry.trackTime >= currEntry.animation.duration);
+                                // Ép chặt định dạng Loop để FSM không bị "lừa"
+                                let isLooping = (currEntry.loop === true || String(currEntry.loop) === 'true');
                                 
-                                // NẾU CHƯA HOÀN THÀNH VÀ KHÔNG PHẢI ANIMATION LẶP -> GIỮ KHÓA CHẶT LẠI
+                                // Tạo ngưỡng hoàn thành chắc chắn (Animation Duration không được âm hoặc 0)
+                                let animDuration = Math.max(currEntry.animation.duration, 0.01);
+                                let isComplete = (currEntry.trackTime >= animDuration);
+                                
+                                // Nếu Anim KHÔNG lặp và CHƯA CHẠY XONG -> Giữ ổ khóa!
                                 if (!isLooping && !isComplete) {
                                     isLocked = true;
                                 }
@@ -409,12 +412,13 @@
                                 if (isNaN(mixDur)) mixDur = 0.2;
                                 child.state.data.defaultMix = mixDur;
                                 
-                                let isLoop = (String(rule.loop) !== 'false' && rule.loop !== false);
+                                // ÉP KIỂU MẠNH CHO BIẾN LOOP ĐỂ CHỐNG LỖI UI STRING
+                                let isLoop = (rule.loop === true || String(rule.loop) === 'true');
                                 
                                 try { 
                                     child.state.setAnimation(trackId, rule.targetAnim, isLoop); 
                                     
-                                    // SỬA FIX LỖI QUEUE: Chắc chắn delay = 0 để Spine tự xử lý mixDuration nối tiếp
+                                    // Queue vẫn giữ nguyên để nối mượt
                                     if (!isLoop && rule.queueAnim && rule.queueAnim !== "") {
                                         child.state.addAnimation(trackId, rule.queueAnim, true, 0);
                                     }
