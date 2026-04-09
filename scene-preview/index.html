@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spine 4.2 Pro Previewer - Multi-Texture Edition</title>
+    <title>Spine 4.2 Pro Previewer - Keyboard Trigger Edition</title>
     
     <script src="https://unpkg.com/pixi.js@8.x/dist/pixi.min.js"></script>
     <script src="https://unpkg.com/@esotericsoftware/spine-pixi-v8@4.2/dist/iife/spine-pixi-v8.js"></script>
@@ -133,6 +133,20 @@
         }
         .skin-pill:hover { background: #333; color: #fff; }
         .skin-pill.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: bold; }
+
+        /* --- FSM ANIMATOR CSS --- */
+        #animator-modal { position: absolute; inset: 0; background: rgba(0,0,0,0.85); display: none; justify-content: center; align-items: center; z-index: 2500; backdrop-filter: blur(5px); }
+        .animator-container { display: flex; width: 95%; max-width: 1100px; height: 85vh; background: #1e1e1e; border: 1px solid #444; border-radius: 8px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.7); flex-direction: column;}
+        .animator-header { background: #252526; padding: 15px 20px; font-weight: bold; color: var(--accent); display: flex; justify-content: space-between; border-bottom: 1px solid #000; }
+        .animator-body { display: flex; flex: 1; overflow: hidden; }
+        .animator-panel { flex: 1; padding: 15px; overflow-y: auto; }
+        .animator-panel:first-child { border-right: 1px solid #000; max-width: 350px; background: #1a1a1a; }
+        
+        .fsm-row { background: #252526; padding: 10px; border-radius: 4px; border: 1px solid #333; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .fsm-badge { padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; color: white; }
+        .fsm-btn-del { background: #8b2a2a; border: none; color: white; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 10px; }
+        
+        #live-animator-dashboard { display: none; position: absolute; top: 20px; left: 20px; background: rgba(30, 30, 30, 0.9); padding: 15px; border-radius: 8px; border: 1px solid #444; z-index: 100; min-width: 250px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); backdrop-filter: blur(4px); }
     </style>
 </head>
 <body>
@@ -153,6 +167,14 @@
     <div id="main-view">
         <div id="canvas-wrapper">
             <div id="canvas-container"></div>
+        </div>
+
+        <div id="live-animator-dashboard">
+            <div style="color:var(--accent); font-weight:bold; font-size:12px; margin-bottom:12px; display:flex; justify-content:space-between;">
+                <span>🎮 Live Parameters</span>
+                <span id="live-animator-target" style="color:#888;">Name</span>
+            </div>
+            <div id="live-params-list"></div>
         </div>
 
         <div id="playback-bar">
@@ -193,6 +215,36 @@
                 </div>
             </div>
         </div>
+
+        <div id="animator-modal">
+            <div class="animator-container">
+                <div class="animator-header">
+                    <span>🧠 FSM Animator Config <span id="animator-target-name" style="color:#fff; font-weight:normal; margin-left:10px;"></span></span>
+                    <button class="btn-ui" onclick="closeAnimatorConfig()" style="width:auto; padding:2px 10px; background:#8b2a2a;">✕ Close</button>
+                </div>
+                <div class="animator-body">
+                    <div class="animator-panel">
+                        <div class="section-title">Parameters (Biến số)</div>
+                        <div style="display:flex; gap:5px; margin-bottom: 15px;">
+                            <input type="text" id="fsm-new-param-name" placeholder="Param Name" style="flex:1;">
+                            <button class="btn-ui" onclick="addFsmParam('float')" style="width:auto; font-size:10px; padding:4px 6px; background:#4caf50;" title="Number">Float</button>
+                            <button class="btn-ui" onclick="addFsmParam('bool')" style="width:auto; font-size:10px; padding:4px 6px; background:#007acc;" title="True/False">Bool</button>
+                            <button class="btn-ui" onclick="addFsmParam('trigger')" style="width:auto; font-size:10px; padding:4px 6px; background:#e6a822; color:#000;" title="Keyboard Event">Trigger</button>
+                        </div>
+                        <div id="fsm-params-list"></div>
+                    </div>
+                    
+                    <div class="animator-panel">
+                        <div class="section-title" style="display:flex; justify-content:space-between; align-items:center;">
+                            <span>Rules / Transitions (Luật chuyển đổi)</span>
+                            <button class="btn-ui" onclick="addFsmRule()" style="width:auto; font-size:10px; padding:4px 12px; background:#4caf50;">+ Add Rule</button>
+                        </div>
+                        <div style="font-size:11px; color:#888; margin-bottom:15px; font-style:italic;">* Đọc từ trên xuống. Nếu bỏ tick Loop, Animation sẽ "khóa" Track cho tới khi chạy xong mới đổi tiếp. Trigger (Key) luôn luôn được ưu tiên cắt ngang.</div>
+                        <div id="fsm-rules-list"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div id="sidebar-right" class="sidebar">
@@ -209,7 +261,6 @@
     const BUCKET = 'spine-assets';
 
     const spineFiles = {};
-    // BỘ NHỚ LƯU TRỮ TẠM TẤT CẢ FILE ĐÃ UPLOAD (Để phục vụ cho tính năng Atlas Parser)
     const allUploadedFiles = {};
 
     let activeObj = null;
@@ -225,6 +276,31 @@
     let manualDelta = 0;
     let isDraggingTimeline = false;
     const FPS_TARGET = 30; 
+
+    let configObj = null;
+
+    // --- BỘ LẮNG NGHE BÀN PHÍM TOÀN CỤC ---
+    const keysDown = new Set();
+    const keysJustPressed = new Set();
+    window.addEventListener('keydown', e => {
+        if (['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) return;
+        const k = e.key.toLowerCase();
+        if (!keysDown.has(k)) {
+            keysDown.add(k);
+            keysJustPressed.add(k);
+        }
+    });
+    window.addEventListener('keyup', e => {
+        keysDown.delete(e.key.toLowerCase());
+    });
+
+    window.fireTrigger = function(uid, pName) {
+        const obj = app.stage.children.find(c => c.uid === uid);
+        if (obj && obj.animatorParams) {
+            const p = obj.animatorParams.find(pa => pa.name === pName);
+            if (p) p.value = true;
+        }
+    };
 
     const LOGICAL_WIDTH = 1920;
     const LOGICAL_HEIGHT = 1080;
@@ -258,6 +334,100 @@
 
             app.stage.children.forEach(child => {
                 if (child.isSpine) {
+
+                    // BẮT PHÍM TRIGGER
+                    if (isPlaying && !isDraggingTimeline && child.animatorParams) {
+                        child.animatorParams.forEach(p => {
+                            if (p.type === 'trigger' && p.key && keysJustPressed.has(p.key.toLowerCase())) {
+                                p.value = true;
+                            }
+                        });
+                    }
+
+                    // --- BỘ NÃO CỦA FSM ANIMATOR ---
+                    if (isPlaying && !isDraggingTimeline && child.animatorRules && child.animatorRules.length > 0) {
+                        let trackWinners = {};
+                        
+                        for (let rule of child.animatorRules) {
+                            if (trackWinners[rule.trackIndex]) continue;
+                            
+                            let param = child.animatorParams.find(p => p.name === rule.paramName);
+                            if (!param) continue;
+
+                            // -------------------------------------------------------------
+                            // GIA CỐ HÀM KHÓA STATE (FIX LỖI CUT-OFF VỀ IDLE QUÁ SỚM)
+                            // -------------------------------------------------------------
+                            let currEntry = child.state.tracks[rule.trackIndex];
+                            let isLocked = false;
+                            
+                            if (currEntry && currEntry.animation) {
+                                // Kiểm tra xem animation hiện tại có phải là không lặp (loop = false) không
+                                let isLooping = (currEntry.loop === true);
+                                // Kiểm tra độ dài thực tế của trackTime so với thời lượng nguyên gốc
+                                let isComplete = (currEntry.trackTime >= currEntry.animation.duration);
+                                
+                                // NẾU CHƯA HOÀN THÀNH VÀ KHÔNG PHẢI ANIMATION LẶP -> GIỮ KHÓA CHẶT LẠI
+                                if (!isLooping && !isComplete) {
+                                    isLocked = true;
+                                }
+                            }
+
+                            // Chỉ Trigger mới có quyền cắt đứt trạng thái đang khóa
+                            if (isLocked && param.type !== 'trigger') continue;
+                            // -------------------------------------------------------------
+
+                            let isMatch = false;
+                            if (param.type === 'trigger') {
+                                isMatch = (param.value === true);
+                            } else if (param.type === 'bool') {
+                                isMatch = (String(param.value) === String(rule.value));
+                            } else if (param.type === 'float') {
+                                let pVal = parseFloat(param.value);
+                                let rVal = parseFloat(rule.value);
+                                if (rule.operator === '>') isMatch = pVal > rVal;
+                                else if (rule.operator === '<') isMatch = pVal < rVal;
+                                else if (rule.operator === '==') isMatch = pVal === rVal;
+                                else if (rule.operator === '>=') isMatch = pVal >= rVal;
+                                else if (rule.operator === '<=') isMatch = pVal <= rVal;
+                            }
+                            if (isMatch) trackWinners[rule.trackIndex] = rule;
+                        }
+
+                        for (let tIdx in trackWinners) {
+                            let rule = trackWinners[tIdx];
+                            let trackId = parseInt(tIdx);
+                            
+                            let param = child.animatorParams.find(p => p.name === rule.paramName);
+                            let forceReplay = (param && param.type === 'trigger');
+                            
+                            let currEntry = child.state.tracks[trackId];
+                            let currAnim = currEntry && currEntry.animation ? currEntry.animation.name : null;
+                            
+                            if (currAnim !== rule.targetAnim || forceReplay) {
+                                // Lọc giá trị mixDuration an toàn
+                                let mixDur = parseFloat(rule.mixDuration);
+                                if (isNaN(mixDur)) mixDur = 0.2;
+                                child.state.data.defaultMix = mixDur;
+                                
+                                let isLoop = (String(rule.loop) !== 'false' && rule.loop !== false);
+                                
+                                try { 
+                                    child.state.setAnimation(trackId, rule.targetAnim, isLoop); 
+                                    
+                                    // SỬA FIX LỖI QUEUE: Chắc chắn delay = 0 để Spine tự xử lý mixDuration nối tiếp
+                                    if (!isLoop && rule.queueAnim && rule.queueAnim !== "") {
+                                        child.state.addAnimation(trackId, rule.queueAnim, true, 0);
+                                    }
+                                } catch(e){ console.error("Spine Animation Error:", e); }
+                            }
+                        }
+
+                        child.animatorParams.forEach(p => {
+                            if (p.type === 'trigger') p.value = false;
+                        });
+                    }
+                    // ------------------------------------------------
+
                     if (dt > 0) child.update(dt);
 
                     if (child.attachedParentUid && child.attachedBoneName) {
@@ -279,6 +449,8 @@
                     }
                 }
             });
+
+            keysJustPressed.clear();
 
             if (isPlaying && !isDraggingTimeline) {
                 let referenceObj = activeObj || app.stage.children.find(c => c.isSpine);
@@ -303,7 +475,6 @@
         checkAndLoadSharedScene();
     })();
 
-    // --- LOGIC PHÂN TÍCH ATLAS MULTI-PAGE (CẬP NHẬT MỚI) ---
     const fFolder = document.getElementById('file-folder');
     fFolder.onchange = (e) => handleFiles(Array.from(e.target.files));
 
@@ -321,7 +492,6 @@
                 const atlasFile = allUploadedFiles[atlasPath];
                 
                 if (atlasFile) {
-                    // CỐT LÕI: Đọc file text của .atlas để lấy TẤT CẢ các tên ảnh được khai báo
                     const text = await atlasFile.text();
                     const imageNames = text.match(/^.+?\.(png|jpg|jpeg)\b/gim) || [];
                     const uniqueImages = [...new Set(imageNames.map(s => s.trim()))];
@@ -329,7 +499,6 @@
                     const pngFiles = [];
                     let hasAllPngs = true;
                     
-                    // Thư mục chứa file atlas
                     const dirPath = basePath.substring(0, basePath.lastIndexOf('/') + 1);
                     
                     uniqueImages.forEach(imgName => {
@@ -337,7 +506,6 @@
                         if (allUploadedFiles[targetPath]) {
                             pngFiles.push(allUploadedFiles[targetPath]);
                         } else {
-                            // Fallback: Tìm file ở bất cứ đâu trong bộ upload (nếu bị mất cấu trúc folder)
                             const fallback = Object.values(allUploadedFiles).find(file => file.name === imgName);
                             if (fallback) pngFiles.push(fallback);
                             else hasAllPngs = false;
@@ -355,7 +523,7 @@
                         json: path.endsWith('.json') ? f : null,
                         skel: path.endsWith('.skel') ? f : null,
                         atlas: atlasFile,
-                        pngs: pngFiles, // Lưu toàn bộ mảng PNGs
+                        pngs: pngFiles,
                         ready: hasAllPngs && uniqueImages.length > 0
                     };
                 }
@@ -394,7 +562,6 @@
         group.atlas = newAtlasFile;
         group.pngs = newPngs;
         
-        // Quét lại file atlas mới cập nhật xem đã đủ ảnh chưa
         const text = await group.atlas.text();
         const imageNames = text.match(/^.+?\.(png|jpg|jpeg)\b/gim) || [];
         const uniqueImages = [...new Set(imageNames.map(s => s.trim()))];
@@ -469,7 +636,6 @@
             const uid = Date.now();
             const folder = `${id}_${uid}/`;
 
-            // THAY ĐỔI LỚN: Dùng vòng lặp đẩy toàn bộ mảng ảnh PNG lên Supabase
             const pngUrls = [];
             for (const pngFile of group.pngs) {
                 await supabaseClient.storage.from(BUCKET).upload(folder + pngFile.name, pngFile);
@@ -497,7 +663,6 @@
             spineObj.attachedParentUid = null;
             spineObj.attachedBoneName = null;
             
-            // Lưu bộ array url để tái sử dụng Share
             spineObj.urls = { atlasUrl: atlasUrl, dataUrl: dataUrl, pngUrls: pngUrls };
             
             spawn(spineObj, group.name, id);
@@ -514,7 +679,6 @@
             const uid = Date.now();
             const folder = `${id}_update_${uid}/`;
 
-            // Tương tự, update toàn bộ ảnh
             const pngUrls = [];
             for (const pngFile of group.pngs) {
                 await supabaseClient.storage.from(BUCKET).upload(folder + pngFile.name, pngFile);
@@ -548,6 +712,8 @@
                     zIndex: c.zIndex, visible: c.visible,
                     anims: anims, skins: c.activeSkins ? [...c.activeSkins] : [], 
                     attachedParentUid: c.attachedParentUid, attachedBoneName: c.attachedBoneName,
+                    animatorParams: c.animatorParams ? JSON.parse(JSON.stringify(c.animatorParams)) : [],
+                    animatorRules: c.animatorRules ? JSON.parse(JSON.stringify(c.animatorRules)) : [],
                     isLocked: dom ? dom.querySelector('.btn-lock').classList.contains('locked') : true
                 };
             });
@@ -572,7 +738,6 @@
         document.getElementById('loading-overlay').style.display = 'none';
     }
 
-    // --- CÁC HÀM CÒN LẠI KHÔNG THAY ĐỔI VÀ ĐƯỢC GIỮ NGUYÊN BÊN DƯỚI NÀY ---
     function setupShareLogic() {
         const btnShare = document.getElementById('btn-share');
         const btnCopy = document.getElementById('btn-copy-link');
@@ -600,6 +765,8 @@
                         zIndex: c.zIndex, visible: c.visible,
                         anims: anims, skins: c.activeSkins ? [...c.activeSkins] : [],
                         attachedParentUid: c.attachedParentUid, attachedBoneName: c.attachedBoneName,
+                        animatorParams: c.animatorParams ? JSON.parse(JSON.stringify(c.animatorParams)) : [],
+                        animatorRules: c.animatorRules ? JSON.parse(JSON.stringify(c.animatorRules)) : [],
                         isLocked: dom ? dom.querySelector('.btn-lock').classList.contains('locked') : true
                     });
 
@@ -829,6 +996,10 @@
             obj.attachedBoneName = restoreState.attachedBoneName;
             obj.activeSkins = restoreState.skins ? [...restoreState.skins] : [];
             if(!obj.urls && restoreState.urls) obj.urls = restoreState.urls;
+            
+            // Kế thừa Animator Config
+            obj.animatorParams = restoreState.animatorParams ? JSON.parse(JSON.stringify(restoreState.animatorParams)) : [];
+            obj.animatorRules = restoreState.animatorRules ? JSON.parse(JSON.stringify(restoreState.animatorRules)) : [];
         } else {
             obj.uid = 'spine_' + Date.now() + '_' + Math.floor(Math.random()*1000);
             obj.x = LOGICAL_WIDTH / 2; obj.y = LOGICAL_HEIGHT / 2;
@@ -837,6 +1008,9 @@
             obj.activeSkins = [];
             if (obj.skeleton.skin) { obj.activeSkins.push(obj.skeleton.skin.name); } 
             else if (obj.skeleton.data.skins.length > 0) { obj.activeSkins.push(obj.skeleton.data.skins[0].name); }
+
+            obj.animatorParams = [];
+            obj.animatorRules = [];
         }
 
         applyMixedSkins(obj);
@@ -936,6 +1110,13 @@
                 </div>
 
                 <hr class="ui-divider">
+                
+                <div class="section-title">Logic Animator (FSM)</div>
+                <div class="prop-row">
+                    <button class="btn-ui btn-animator" style="background:#5c2a8c; font-size:11px;">🧠 Configure Logic Rules</button>
+                </div>
+
+                <hr class="ui-divider">
 
                 <div class="section-title">Appearance</div>
                 <div class="prop-row" style="align-items: flex-start;">
@@ -1025,6 +1206,11 @@
                 obj.state.setAnimation(currentMaxTrack, defaultAnim, true);
                 addTrackUI(currentMaxTrack, defaultAnim);
             }
+        };
+
+        div.querySelector('.btn-animator').onclick = (e) => {
+            e.stopPropagation();
+            openAnimatorConfig(obj);
         };
 
         const header = div.querySelector('.layer-header');
@@ -1154,7 +1340,9 @@
                 anims: currentAnimsToClone, 
                 skins: [...obj.activeSkins], 
                 attachedParentUid: null, attachedBoneName: null,
-                isLocked: isLocked, urls: obj.urls
+                isLocked: isLocked, urls: obj.urls,
+                animatorParams: JSON.parse(JSON.stringify(obj.animatorParams)),
+                animatorRules: JSON.parse(JSON.stringify(obj.animatorRules))
             };
             
             let baseName = obj.name;
@@ -1211,6 +1399,241 @@
                 current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }
         }
+        updateLiveDashboard();
+    }
+
+    // ==========================================
+    // LOGIC CHO BẢNG FSM ANIMATOR CONFIG
+    // ==========================================
+    function openAnimatorConfig(obj) {
+        configObj = obj;
+        document.getElementById('animator-target-name').innerText = `[${obj.name}]`;
+        document.getElementById('animator-modal').style.display = 'flex';
+        renderAnimatorParams();
+        renderAnimatorRules();
+    }
+
+    function closeAnimatorConfig() {
+        document.getElementById('animator-modal').style.display = 'none';
+        configObj = null;
+        updateLiveDashboard();
+    }
+
+    function addFsmParam(type) {
+        if (!configObj) return;
+        const nameInput = document.getElementById('fsm-new-param-name');
+        const pName = nameInput.value.trim();
+        if (!pName) return alert("Vui lòng nhập tên Parameter");
+        if (configObj.animatorParams.some(p => p.name === pName)) return alert("Tên Parameter đã tồn tại!");
+        
+        configObj.animatorParams.push({ name: pName, type: type, value: type === 'bool' ? false : 0, key: '' });
+        nameInput.value = '';
+        renderAnimatorParams();
+        renderAnimatorRules(); 
+    }
+
+    function removeFsmParam(idx) {
+        if (!configObj) return;
+        configObj.animatorParams.splice(idx, 1);
+        renderAnimatorParams();
+        renderAnimatorRules();
+    }
+
+    function renderAnimatorParams() {
+        const list = document.getElementById('fsm-params-list');
+        list.innerHTML = '';
+        if (!configObj) return;
+        
+        configObj.animatorParams.forEach((p, idx) => {
+            const div = document.createElement('div');
+            div.className = 'fsm-row';
+            let valUI = '';
+            let typeColor = '#4caf50';
+
+            if (p.type === 'bool') {
+                typeColor = '#007acc';
+                valUI = `<input type="checkbox" style="width:auto; transform:scale(1.2); margin-left:10px;" ${p.value ? 'checked' : ''} onchange="updateFsmParamValue(${idx}, this.checked)">`;
+            } else if (p.type === 'trigger') {
+                typeColor = '#e6a822';
+                valUI = `<span style="font-size:11px; margin-left:10px; color:#aaa;">Phím:</span>
+                         <input type="text" maxlength="1" style="width:30px; text-align:center; padding:2px; font-weight:bold; margin-left:5px; text-transform:uppercase;" value="${p.key || ''}" onchange="updateFsmParamKey(${idx}, this.value)" placeholder="-">`;
+            } else {
+                valUI = `<input type="number" step="0.1" style="width:60px; margin-left:10px;" value="${p.value}" onchange="updateFsmParamValue(${idx}, parseFloat(this.value))">`;
+            }
+
+            div.innerHTML = `
+                <span class="fsm-badge" style="background:${typeColor}; color:${p.type==='trigger'?'#000':'#fff'};">${p.type}</span>
+                <span style="flex:1; font-weight:bold;">${p.name}</span>
+                ${valUI}
+                <button class="fsm-btn-del" style="margin-left:10px;" onclick="removeFsmParam(${idx})">✕</button>
+            `;
+            list.appendChild(div);
+        });
+    }
+
+    function updateFsmParamValue(idx, val) {
+        if(configObj && configObj.animatorParams[idx]) configObj.animatorParams[idx].value = val;
+    }
+    
+    function updateFsmParamKey(idx, val) {
+        if(configObj && configObj.animatorParams[idx]) configObj.animatorParams[idx].key = val.toLowerCase();
+    }
+
+    function addFsmRule() {
+        if (!configObj) return;
+        if (configObj.animatorParams.length === 0) return alert("Bạn phải tạo Parameter (Biến số) trước khi tạo Rule.");
+        
+        const defaultAnim = configObj.skeleton.data.animations[0] ? configObj.skeleton.data.animations[0].name : '';
+        configObj.animatorRules.push({
+            paramName: configObj.animatorParams[0].name, operator: '==',
+            value: configObj.animatorParams[0].type === 'bool' ? 'true' : '0',
+            targetAnim: defaultAnim, trackIndex: 0, mixDuration: 0.2,
+            loop: true, queueAnim: ''
+        });
+        renderAnimatorRules();
+    }
+
+    function removeFsmRule(idx) {
+        if (!configObj) return;
+        configObj.animatorRules.splice(idx, 1);
+        renderAnimatorRules();
+    }
+
+    function renderAnimatorRules() {
+        const list = document.getElementById('fsm-rules-list');
+        list.innerHTML = '';
+        if (!configObj) return;
+
+        configObj.animatorRules.forEach((rule, idx) => {
+            const div = document.createElement('div');
+            div.className = 'fsm-row';
+            div.style.flexDirection = 'column';
+            div.style.alignItems = 'stretch';
+            
+            if (rule.loop === undefined) rule.loop = true;
+            if (rule.queueAnim === undefined) rule.queueAnim = '';
+
+            let pOptions = configObj.animatorParams.map(p => `<option value="${p.name}" ${p.name===rule.paramName?'selected':''}>${p.name}</option>`).join('');
+            
+            const currentP = configObj.animatorParams.find(p => p.name === rule.paramName) || configObj.animatorParams[0];
+            let opUI = '';
+            let valUI = '';
+
+            if (currentP.type === 'trigger') {
+                opUI = `<span style="font-size:10px; color:#e6a822; flex:1; text-align:center; font-weight:bold;">⚡ is Triggered</span>`;
+                valUI = `<input class="r-val" type="hidden" value="true">`;
+            } else if (currentP.type === 'bool') {
+                opUI = `<select class="r-op" style="flex:1;"><option value="==">==</option></select>`;
+                valUI = `<select class="r-val" style="flex:1;">
+                            <option value="true" ${String(rule.value)==='true'?'selected':''}>True</option>
+                            <option value="false" ${String(rule.value)==='false'?'selected':''}>False</option>
+                         </select>`;
+            } else {
+                opUI = `<select class="r-op" style="flex:1;">
+                              <option value="==" ${rule.operator==='=='?'selected':''}>==</option>
+                              <option value=">" ${rule.operator==='>'?'selected':''}>></option>
+                              <option value="<" ${rule.operator==='<'?'selected':''}>&lt;</option>
+                              <option value=">=" ${rule.operator==='>='?'selected':''}>&gt;=</option>
+                              <option value="<=" ${rule.operator==='<='?'selected':''}>&lt;=</option>
+                        </select>`;
+                valUI = `<input class="r-val" type="number" step="0.1" style="flex:1;" value="${rule.value}">`;
+            }
+            
+            let animOptions = configObj.skeleton.data.animations.map(a => `<option value="${a.name}" ${a.name===rule.targetAnim?'selected':''}>${a.name}</option>`).join('');
+            let queueOptions = `<option value="">- None -</option>` + configObj.skeleton.data.animations.map(a => `<option value="${a.name}" ${a.name===rule.queueAnim?'selected':''}>${a.name}</option>`).join('');
+
+            div.innerHTML = `
+                <div style="display:flex; gap:5px; align-items:center; width:100%;">
+                    <span style="color:#e6a822; font-weight:bold; font-size:11px;">IF</span>
+                    <select class="r-param" style="flex:2;">${pOptions}</select>
+                    ${opUI}
+                    ${valUI}
+                    <button class="fsm-btn-del" onclick="removeFsmRule(${idx})">✕</button>
+                </div>
+                <div style="display:flex; gap:5px; align-items:center; width:100%; margin-top:5px;">
+                    <span style="color:#4caf50; font-weight:bold; font-size:11px;">THEN</span>
+                    <select class="r-anim" style="flex:2;">${animOptions}</select>
+                    <label style="font-size:10px; color:#aaa; display:flex; align-items:center; gap:2px; cursor:pointer;">
+                        <input class="r-loop" type="checkbox" ${rule.loop ? 'checked' : ''}> Loop
+                    </label>
+                </div>
+                <div style="display:flex; gap:5px; align-items:center; width:100%; margin-top:5px;">
+                    <span style="font-size:10px; color:#888;">Track</span>
+                    <input class="r-track" type="number" style="width:40px;" value="${rule.trackIndex}">
+                    <span style="font-size:10px; color:#888;">Mix</span>
+                    <input class="r-mix" type="number" step="0.1" style="width:50px;" value="${rule.mixDuration}">
+                    <span style="font-size:10px; color:#888; margin-left:10px;">Queue Next:</span>
+                    <select class="r-queue" style="flex:1;" ${rule.loop ? 'disabled' : ''}>${queueOptions}</select>
+                </div>
+            `;
+
+            div.querySelector('.r-param').onchange = (e) => {
+                rule.paramName = e.target.value;
+                const newP = configObj.animatorParams.find(p => p.name === rule.paramName);
+                if(newP.type === 'bool' || newP.type === 'trigger') { rule.operator = '=='; rule.value = 'true'; }
+                renderAnimatorRules(); 
+            };
+            if(div.querySelector('.r-op')) div.querySelector('.r-op').onchange = (e) => rule.operator = e.target.value;
+            if(div.querySelector('.r-val')) div.querySelector('.r-val').onchange = (e) => rule.value = e.target.value;
+            
+            div.querySelector('.r-anim').onchange = (e) => rule.targetAnim = e.target.value;
+            div.querySelector('.r-track').onchange = (e) => rule.trackIndex = parseInt(e.target.value) || 0;
+            div.querySelector('.r-mix').onchange = (e) => rule.mixDuration = parseFloat(e.target.value) || 0;
+            
+            div.querySelector('.r-loop').onchange = (e) => { 
+                rule.loop = e.target.checked; 
+                if(rule.loop) rule.queueAnim = ''; 
+                renderAnimatorRules(); 
+            };
+            div.querySelector('.r-queue').onchange = (e) => rule.queueAnim = e.target.value;
+
+            list.appendChild(div);
+        });
+    }
+
+    // ==========================================
+    // LOGIC CHO BẢNG LIVE DASHBOARD (CANVAS)
+    // ==========================================
+    function updateLiveDashboard() {
+        const dash = document.getElementById('live-animator-dashboard');
+        const list = document.getElementById('live-params-list');
+        const targetLabel = document.getElementById('live-animator-target');
+        
+        if (!activeObj || !activeObj.animatorParams || activeObj.animatorParams.length === 0) {
+            dash.style.display = 'none';
+            return;
+        }
+
+        dash.style.display = 'block';
+        targetLabel.innerText = activeObj.name;
+        list.innerHTML = '';
+
+        activeObj.animatorParams.forEach(p => {
+            const row = document.createElement('div');
+            row.style.marginBottom = '12px';
+            
+            if (p.type === 'trigger') {
+                row.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                                    <span style="font-size:11px; color:#fff; font-weight:bold;">${p.name} <span style="color:#aaa; font-weight:normal;">[${p.key ? p.key.toUpperCase() : '?'}]</span></span>
+                                    <button class="btn-ui" style="width:auto; padding:4px 10px; font-size:10px; background:#e6a822; color:#000;" onclick="fireTrigger('${activeObj.uid}', '${p.name}')">🔥 FIRE</button>
+                                 </div>`;
+            } else if (p.type === 'bool') {
+                row.innerHTML = `<label style="font-size:12px; cursor:pointer; color:#fff; display:flex; align-items:center; gap:8px;">
+                                    <input type="checkbox" style="width:16px; height:16px; margin:0;" ${p.value ? 'checked' : ''}> ${p.name}
+                                 </label>`;
+                row.querySelector('input').onchange = (e) => p.value = e.target.checked;
+            } else {
+                row.innerHTML = `<div style="font-size:11px; margin-bottom:4px; display:flex; justify-content:space-between; color:#fff;">
+                                    <span>${p.name}</span> <span class="val-display" style="color:var(--accent); font-weight:bold;">${p.value}</span>
+                                 </div>
+                                 <input type="range" min="-10" max="10" step="0.1" value="${p.value}" style="width:100%; accent-color:#4caf50;">`;
+                row.querySelector('input').oninput = (e) => {
+                    p.value = parseFloat(e.target.value);
+                    row.querySelector('.val-display').innerText = p.value;
+                };
+            }
+            list.appendChild(row);
+        });
     }
 
     function checkEmptyState() {
