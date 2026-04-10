@@ -187,6 +187,7 @@
 </head>
 <body>
 
+    <!-- CUSTOM UI MODAL DIALOG -->
     <div id="ui-modal" class="ui-modal-overlay screen">
         <div class="ui-modal-box">
             <h3 id="ui-modal-title" style="color:var(--accent); margin-bottom:15px; font-size: 18px;">Notification</h3>
@@ -199,6 +200,7 @@
         </div>
     </div>
 
+    <!-- MÀN HÌNH SAVE & SHARE SETTINGS CHUYÊN SÂU -->
     <div id="share-settings-modal" class="ui-modal-overlay screen">
         <div class="ui-modal-box">
             <h3 style="color:var(--accent); margin-bottom:15px; font-size: 18px;">Save & Share Settings</h3>
@@ -221,6 +223,7 @@
         </div>
     </div>
 
+    <!-- MÀN HÌNH 1: AUTHENTICATION -->
     <div id="auth-screen" class="screen" style="justify-content:center; align-items:center;">
         <div class="auth-box">
             <h2 style="color:var(--accent); margin-bottom:25px;">Spine Workspace</h2>
@@ -231,6 +234,7 @@
         </div>
     </div>
 
+    <!-- MÀN HÌNH 2: DASHBOARD -->
     <div id="dashboard-screen" class="screen">
         <div class="dash-container">
             <div class="dash-header">
@@ -247,6 +251,7 @@
             </div>
 
             <div id="grid-my-scenes" class="scene-grid">
+                <!-- Sẽ được vẽ bằng JS (Đã sửa lỗi nhân bản HTML) -->
             </div>
 
             <div id="grid-shared-scenes" class="scene-grid" style="display:none;">
@@ -254,6 +259,7 @@
         </div>
     </div>
 
+    <!-- MÀN HÌNH 3: EDITOR CHÍNH -->
     <div id="editor-screen" class="screen">
         <button class="toggle-btn" id="toggle-l" onclick="toggleSidebar('left')">◀</button>
         <button class="toggle-btn" id="toggle-r" onclick="toggleSidebar('right')">▶</button>
@@ -661,6 +667,7 @@
         `;
         
         userIndex.my_scenes.forEach((sc, idx) => {
+            // Hiển thị thêm badge cho Private Scene
             let badge = '';
             if (sc.allowedEmails && sc.allowedEmails.length > 0) {
                 badge = `<span style="background:#8b2a2a; color:#fff; font-size:9px; padding:2px 6px; border-radius:10px; margin-left:8px; vertical-align:middle;">🔒 Private</span>`;
@@ -1296,7 +1303,7 @@
                 allowedEmails = settings.emails;
             }
 
-            // AUTO-HEAL LỖI KHÓA CỬA: Luôn tự động điền email của bạn vào danh sách nếu có bật bảo mật
+            // AUTO-HEAL: LUÔN TỰ ĐỘNG CHÈN EMAIL CỦA CHỦ NHÂN VÀO DANH SÁCH BẢO MẬT
             if (allowedEmails.length > 0 && !allowedEmails.includes(currentUser.email.toLowerCase())) {
                 allowedEmails.push(currentUser.email.toLowerCase());
             }
@@ -1347,13 +1354,18 @@
                 // LƯU FILE LÊN STORAGE
                 await supabaseClient.storage.from(BUCKET).upload(`saved_scenes/${sceneId}.json`, blob, { upsert: true, cacheControl: '0' });
 
-                // BẢO MẬT: LƯU EMAIL VÀO DATABASE BẢNG SCENE_PERMISSIONS
+                // BẢO MẬT: LƯU EMAIL VÀO DATABASE BẢNG SCENE_PERMISSIONS (THÊM BẪY LỖI ĐỂ KIỂM TRA)
                 const emailsStr = allowedEmails.join(',');
-                await supabaseClient.from('scene_permissions').upsert({
+                const { error: dbErr } = await supabaseClient.from('scene_permissions').upsert({
                     scene_id: sceneId,
                     owner_email: currentUser.email,
                     allowed_emails: emailsStr
                 });
+
+                if (dbErr) {
+                    console.error("DB Permission Error:", dbErr);
+                    throw new Error("Lỗi khi lưu quyền truy cập vào Database: " + dbErr.message);
+                }
 
                 // Cập nhật Database cá nhân
                 let idx = userIndex.my_scenes.findIndex(s => s.id === sceneId);
@@ -1436,13 +1448,27 @@
             const textData = await data.text();
             const sceneData = JSON.parse(textData);
 
-            // Ghi lại lịch sử truy cập
+            // Ghi lại lịch sử truy cập & KIỂM TRA CHỦ NHÂN TỪ DATABASE ĐỂ PHỤC HỒI QUYỀN
             if (currentUser) {
-                const isMine = userIndex.my_scenes.some(s => s.id === sceneId);
-                const isAlreadyShared = userIndex.shared_with_me.some(s => s.id === sceneId);
-                if (!isMine && !isAlreadyShared) {
-                    userIndex.shared_with_me.push({ id: sceneId, name: `Shared Scene (${sceneId})`, date: new Date().toLocaleDateString() });
-                    saveUserIndex();
+                if (permData && permData.owner_email && permData.owner_email.toLowerCase() === currentUser.email.toLowerCase()) {
+                    // ĐÂY CHÍNH XÁC LÀ SCENE CỦA MÌNH TỪ DATABASE
+                    const isMine = userIndex.my_scenes.some(s => s.id === sceneId);
+                    if (!isMine) {
+                        // Phục hồi lại vào My Scenes nếu bị rớt bộ nhớ tạm ở Client
+                        let recoveredEmails = [];
+                        if (permData.allowed_emails && permData.allowed_emails.trim() !== '') {
+                            recoveredEmails = permData.allowed_emails.split(',').map(e => e.trim());
+                        }
+                        userIndex.my_scenes.push({ id: sceneId, name: `Scene (${sceneId.substring(0,6)})`, date: new Date().toLocaleDateString(), allowedEmails: recoveredEmails });
+                        saveUserIndex();
+                    }
+                } else {
+                    // NẾU KHÔNG PHẢI CHỦ NHÂN THÌ MỚI CHO VÀO SHARED WITH ME
+                    const isAlreadyShared = userIndex.shared_with_me.some(s => s.id === sceneId);
+                    if (!isAlreadyShared) {
+                        userIndex.shared_with_me.push({ id: sceneId, name: `Shared Scene (${sceneId.substring(0,6)})`, date: new Date().toLocaleDateString() });
+                        saveUserIndex();
+                    }
                 }
             }
 
