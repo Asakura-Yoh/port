@@ -1303,6 +1303,11 @@
                 allowedEmails = settings.emails;
             }
 
+            // AUTO-HEAL LỖI KHÓA CỬA: Luôn tự động điền email của bạn vào danh sách nếu có bật bảo mật
+            if (allowedEmails.length > 0 && !allowedEmails.includes(currentUser.email.toLowerCase())) {
+                allowedEmails.push(currentUser.email.toLowerCase());
+            }
+
             document.getElementById('load-status').innerText = "Saving Scene to Cloud...";
             document.getElementById('loading-overlay').style.display = 'flex';
 
@@ -1670,7 +1675,7 @@
                 const layerDOM = document.getElementById(obj.uid);
                 if(layerDOM) {
                     layerDOM.querySelector('.ins-x').value = Math.round(obj.x);
-                    layerDOM.querySelector('.ins-y').value = Math.round(obj.y);
+                    layerDOM.querySelector('.ins-y').value = Math.round(child.y);
                 }
             }
         });
