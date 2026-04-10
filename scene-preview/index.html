@@ -230,7 +230,7 @@
                 </div>
                 <div class="animator-body">
                     <div class="animator-panel">
-                        <div class="section-title">Parameters (Biến số)</div>
+                        <div class="section-title">Parameters</div>
                         <div style="display:flex; gap:5px; margin-bottom: 15px;">
                             <input type="text" id="fsm-new-param-name" placeholder="Param Name" style="flex:1;">
                             <button class="btn-ui" onclick="addFsmParam('float')" style="width:auto; font-size:10px; padding:4px 6px; background:#4caf50;" title="Number">Float</button>
@@ -242,12 +242,12 @@
                     
                     <div class="animator-panel">
                         <div class="section-title" style="display:flex; justify-content:space-between; align-items:center;">
-                            <span>Rules / Transitions (Luật chuyển đổi)</span>
+                            <span>Rules / Transitions</span>
                             <button class="btn-ui" onclick="addFsmRule()" style="width:auto; font-size:10px; padding:4px 12px; background:#4caf50;">+ Add Rule</button>
                         </div>
                         <div style="font-size:11px; color:#888; margin-bottom:15px; font-style:italic;">
-                            * Đọc từ trên xuống. Bạn có thể kết hợp thêm nhiều ô Queue để tạo chuỗi Combo liên hoàn.<br>
-                            * <b>End Action:</b> Hành động sẽ diễn ra sau khi Animation cuối cùng trong chuỗi kết thúc. Trigger luôn cắt ngang mọi trạng thái.
+                            * Evaluated from top to bottom. You can add multiple Queue items to create a Combo Sequence.<br>
+                            * <b>End Action:</b> The action that occurs after the last Animation in the sequence finishes. Trigger always interrupts any state.
                         </div>
                         <div id="fsm-rules-list"></div>
                     </div>
@@ -600,7 +600,7 @@
         if (group.ready) {
             await executeLiveUpdate(currentUpdateId);
         } else {
-            alert("Vẫn thiếu file ảnh yêu cầu bởi file Atlas mới.");
+            alert("Missing image files required by the new Atlas file.");
             document.getElementById('loading-overlay').style.display = 'none';
         }
         fUpdate.value = ""; 
@@ -1451,8 +1451,8 @@
         if (!configObj) return;
         const nameInput = document.getElementById('fsm-new-param-name');
         const pName = nameInput.value.trim();
-        if (!pName) return alert("Vui lòng nhập tên Parameter");
-        if (configObj.animatorParams.some(p => p.name === pName)) return alert("Tên Parameter đã tồn tại!");
+        if (!pName) return alert("Please enter a Parameter name.");
+        if (configObj.animatorParams.some(p => p.name === pName)) return alert("Parameter name already exists!");
         
         configObj.animatorParams.push({ name: pName, type: type, value: type === 'bool' ? false : 0, key: '' });
         nameInput.value = '';
@@ -1483,7 +1483,7 @@
                 valUI = `<input type="checkbox" style="width:auto; transform:scale(1.2); margin-left:10px;" ${p.value ? 'checked' : ''} onchange="updateFsmParamValue(${idx}, this.checked)">`;
             } else if (p.type === 'trigger') {
                 typeColor = '#e6a822';
-                valUI = `<span style="font-size:11px; margin-left:10px; color:#aaa;">Phím:</span>
+                valUI = `<span style="font-size:11px; margin-left:10px; color:#aaa;">Key:</span>
                          <input type="text" maxlength="1" style="width:30px; text-align:center; padding:2px; font-weight:bold; margin-left:5px; text-transform:uppercase;" value="${p.key || ''}" onchange="updateFsmParamKey(${idx}, this.value)" placeholder="-">`;
             } else {
                 valUI = `<input type="number" step="0.1" style="width:60px; margin-left:10px;" value="${p.value}" onchange="updateFsmParamValue(${idx}, parseFloat(this.value))">`;
@@ -1509,7 +1509,7 @@
 
     function addFsmRule() {
         if (!configObj) return;
-        if (configObj.animatorParams.length === 0) return alert("Bạn phải tạo Parameter (Biến số) trước khi tạo Rule.");
+        if (configObj.animatorParams.length === 0) return alert("You must create a Parameter before adding a Rule.");
         
         const defaultAnim = configObj.skeleton.data.animations[0] ? configObj.skeleton.data.animations[0].name : '';
         configObj.animatorRules.push({
@@ -1579,7 +1579,7 @@
             // Render Giao diện Hàng đợi Đa Animation
             let queueUI = rule.queueAnims.map((qa, qi) => `
                 <select class="r-queue-item" data-qi="${qi}" style="width:75px; font-size:10px; padding:2px; background:#121212; border:1px solid #333; color:#fff;">
-                    <option value="">- Xóa -</option>
+                    <option value="">- Remove -</option>
                     ${configObj.skeleton.data.animations.map(a => `<option value="${a.name}" ${a.name===qa?'selected':''}>${a.name}</option>`).join('')}
                 </select>
             `).join('');
@@ -1612,7 +1612,7 @@
                     <span style="font-size:10px; color:#888; margin-left:5px;">Queue:</span>
                     <div style="display:flex; gap:4px; flex-wrap:wrap; flex:1;">
                         ${queueUI}
-                        <button class="btn-add-queue" style="background:#007acc; border:none; color:#fff; border-radius:3px; cursor:pointer; padding:0 6px;" title="Thêm Animation nối đuôi">+</button>
+                        <button class="btn-add-queue" style="background:#007acc; border:none; color:#fff; border-radius:3px; cursor:pointer; padding:0 6px;" title="Add Queue Animation">+</button>
                     </div>
                 </div>
             `;
