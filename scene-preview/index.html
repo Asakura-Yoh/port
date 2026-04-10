@@ -785,9 +785,8 @@
         userIndex.my_scenes.splice(idx, 1);
         await saveUserIndex();
         
-        // Dọn dẹp cả Storage và bảng Permissions
-        await supabaseClient.storage.from(BUCKET).remove([`saved_scenes/${id}.json`]);
-        await supabaseClient.from('scene_permissions').delete().eq('scene_id', id);
+        // GỌI HÀM XÓA BẢO MẬT BÊN DATABASE
+        await supabaseClient.rpc('delete_scene_data', { p_scene_id: id });
         
         document.getElementById('loading-overlay').style.display = 'none';
         renderDashboard();
@@ -1308,7 +1307,7 @@
                 allowedEmails.push(currentUser.email.toLowerCase());
             }
 
-            document.getElementById('load-status').innerText = "Saving Scene to Cloud...";
+            document.getElementById('load-status').innerText = "Saving Scene to Cloud Database...";
             document.getElementById('loading-overlay').style.display = 'flex';
 
             try {
@@ -1339,32 +1338,27 @@
                     });
                 });
 
-                // ĐÓNG GÓI JSON (Loại bỏ các email ra khỏi file JSON công khai)
+                // ĐÓNG GÓI JSON DỮ LIỆU
                 const sceneData = { 
                     assets: assetsMap, 
                     instances: instances 
                 };
                 
-                const jsonString = JSON.stringify(sceneData);
-                const blob = new Blob([jsonString], {type: "application/json"});
-                
                 const sceneId = existingId ? existingId : 'sc_' + generateUID(); 
                 currentSceneId = sceneId; 
 
-                // LƯU FILE LÊN STORAGE
-                await supabaseClient.storage.from(BUCKET).upload(`saved_scenes/${sceneId}.json`, blob, { upsert: true, cacheControl: '0' });
-
-                // BẢO MẬT: LƯU EMAIL VÀO DATABASE BẢNG SCENE_PERMISSIONS (THÊM BẪY LỖI ĐỂ KIỂM TRA)
+                // BẢO MẬT TỐI CAO: Bắn thẳng dữ liệu JSON vào Database qua RPC, bỏ qua hoàn toàn Storage File
                 const emailsStr = allowedEmails.join(',');
-                const { error: dbErr } = await supabaseClient.from('scene_permissions').upsert({
-                    scene_id: sceneId,
-                    owner_email: currentUser.email,
-                    allowed_emails: emailsStr
+                const { error: dbErr } = await supabaseClient.rpc('save_scene_data', {
+                    p_scene_id: sceneId,
+                    p_owner_email: currentUser.email,
+                    p_allowed_emails: emailsStr,
+                    p_scene_data: sceneData
                 });
 
                 if (dbErr) {
-                    console.error("DB Permission Error:", dbErr);
-                    throw new Error("Lỗi khi lưu quyền truy cập vào Database: " + dbErr.message);
+                    console.error("RPC Save Error:", dbErr);
+                    throw new Error("Lỗi khi lưu bảo mật: " + dbErr.message);
                 }
 
                 // Cập nhật Database cá nhân
@@ -1408,62 +1402,41 @@
     }
 
     async function checkAndLoadSharedScene(sceneId) {
-        document.getElementById('load-status').innerText = "Verifying Access Permissions...";
+        document.getElementById('load-status').innerText = "Verifying Security & Downloading Data...";
         document.getElementById('loading-overlay').style.display = 'flex';
 
         try {
-            // LỚP 1: KIỂM TRA QUYỀN TỪ DATABASE TRƯỚC (APP-LEVEL SECURITY ĐỂ BÁO LỖI UI)
-            const { data: permData, error: permErr } = await supabaseClient
-                .from('scene_permissions')
-                .select('*')
-                .eq('scene_id', sceneId)
-                .single();
+            // TẢI TRỰC TIẾP TỪ DATABASE (LỚP SERVER SẼ TỰ ĐỘNG CHẶN NẾU KHÔNG CÓ QUYỀN)
+            const { data: responseData, error: dbErr } = await supabaseClient.rpc('get_scene_data', {
+                p_scene_id: sceneId
+            });
 
-            if (permData && permData.allowed_emails && permData.allowed_emails.trim() !== '') {
-                const allowed = permData.allowed_emails.split(',').map(e => e.trim().toLowerCase());
-                if (!currentUser) {
-                    document.getElementById('loading-overlay').style.display = 'none';
-                    await showModal('Private Scene', "This is a private scene. Please log in to view it.", 'alert');
+            if (dbErr) {
+                document.getElementById('loading-overlay').style.display = 'none';
+                if (dbErr.message.includes('Vui lòng đăng nhập')) {
+                    await showModal('Private Scene', dbErr.message, 'alert');
                     showScreen('auth');
-                    return;
-                }
-                if (currentUser.email !== permData.owner_email && !allowed.includes(currentUser.email)) {
-                    document.getElementById('loading-overlay').style.display = 'none';
-                    await showModal('Access Denied', "Your account does not have permission to view this scene.", 'alert');
+                } else {
+                    await showModal('Access Denied', dbErr.message, 'alert');
                     goToDashboard();
-                    return;
                 }
+                return;
             }
 
-            // LỚP 2: TẢI FILE TỪ STORAGE BẰNG HÀM DOWNLOAD (SỬ DỤNG AUTH TOKEN ĐỂ VƯỢT RLS)
-            document.getElementById('load-status').innerText = "Downloading Scene Data...";
-            
-            const { data, error: downloadErr } = await supabaseClient.storage.from(BUCKET).download(`saved_scenes/${sceneId}.json`);
-            
-            if (downloadErr || !data) {
-                // Máy chủ Storage từ chối trả file do luật RLS
-                throw new Error("Scene not found or Blocked by Server Security Policy.");
-            }
-            
-            const textData = await data.text();
-            const sceneData = JSON.parse(textData);
+            const sceneData = responseData.data;
+            const ownerEmail = responseData.owner_email;
+            const allowedEmailsStr = responseData.allowed_emails;
 
-            // Ghi lại lịch sử truy cập & KIỂM TRA CHỦ NHÂN TỪ DATABASE ĐỂ PHỤC HỒI QUYỀN
+            // PHỤC HỒI QUYỀN CHỦ NHÂN (DỰA VÀO DATABASE THAY VÌ CACHE)
             if (currentUser) {
-                if (permData && permData.owner_email && permData.owner_email.toLowerCase() === currentUser.email.toLowerCase()) {
-                    // ĐÂY CHÍNH XÁC LÀ SCENE CỦA MÌNH TỪ DATABASE
+                if (ownerEmail.toLowerCase() === currentUser.email.toLowerCase()) {
                     const isMine = userIndex.my_scenes.some(s => s.id === sceneId);
                     if (!isMine) {
-                        // Phục hồi lại vào My Scenes nếu bị rớt bộ nhớ tạm ở Client
-                        let recoveredEmails = [];
-                        if (permData.allowed_emails && permData.allowed_emails.trim() !== '') {
-                            recoveredEmails = permData.allowed_emails.split(',').map(e => e.trim());
-                        }
+                        let recoveredEmails = allowedEmailsStr.trim() !== '' ? allowedEmailsStr.split(',').map(e => e.trim()) : [];
                         userIndex.my_scenes.push({ id: sceneId, name: `Scene (${sceneId.substring(0,6)})`, date: new Date().toLocaleDateString(), allowedEmails: recoveredEmails });
                         saveUserIndex();
                     }
                 } else {
-                    // NẾU KHÔNG PHẢI CHỦ NHÂN THÌ MỚI CHO VÀO SHARED WITH ME
                     const isAlreadyShared = userIndex.shared_with_me.some(s => s.id === sceneId);
                     if (!isAlreadyShared) {
                         userIndex.shared_with_me.push({ id: sceneId, name: `Shared Scene (${sceneId.substring(0,6)})`, date: new Date().toLocaleDateString() });
@@ -1500,8 +1473,8 @@
             reorderDOMBasedOnZIndex();
             
         } catch (e) { 
-            showModal('Access Error', e.message, 'alert'); 
-            goToDashboard(); // Lỗi thì trả về Dashboard
+            showModal('System Error', e.message, 'alert'); 
+            goToDashboard(); 
         }
         
         document.getElementById('loading-overlay').style.display = 'none';
