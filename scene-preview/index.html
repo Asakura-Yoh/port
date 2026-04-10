@@ -212,16 +212,13 @@
             </div>
 
             <div id="grid-my-scenes" class="scene-grid">
-                <!-- Nút Create New luôn nằm đầu tiên ở Tab My Scenes -->
                 <div class="btn-create-new" onclick="createNewScene()">
                     <span style="font-size:30px; margin-bottom:10px;">+</span>
                     <span>Create New Scene</span>
                 </div>
-                <!-- Danh sách scene sẽ render vào đây -->
             </div>
 
             <div id="grid-shared-scenes" class="scene-grid" style="display:none;">
-                <!-- Danh sách shared scene sẽ render vào đây -->
             </div>
         </div>
     </div>
@@ -449,9 +446,27 @@
         
         if(!email || !password) { errObj.innerText = "Please enter email and password."; errObj.style.display = 'block'; return; }
         
+        document.getElementById('load-status').innerText = "Creating account...";
+        document.getElementById('loading-overlay').style.display = 'flex';
+
         const { data, error } = await supabaseClient.auth.signUp({ email, password });
-        if (error) { errObj.innerText = error.message; errObj.style.display = 'block'; }
-        else { alert("Registration successful! You can now log in."); }
+        
+        document.getElementById('loading-overlay').style.display = 'none';
+
+        if (error) { 
+            errObj.innerText = error.message; 
+            errObj.style.display = 'block'; 
+        } else {
+            if (data.session) {
+                currentUser = data.user;
+                await loadUserIndex();
+                document.getElementById('user-email-display').innerText = currentUser.email;
+                showScreen('dashboard');
+                renderDashboard();
+            } else {
+                alert("Registration successful! Please check your email to verify your account.");
+            }
+        }
     }
 
     async function signIn() {
@@ -461,9 +476,17 @@
         
         if(!email || !password) { errObj.innerText = "Please enter email and password."; errObj.style.display = 'block'; return; }
         
+        document.getElementById('load-status').innerText = "Signing in...";
+        document.getElementById('loading-overlay').style.display = 'flex';
+
         const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-        if (error) { errObj.innerText = error.message; errObj.style.display = 'block'; }
-        else {
+        
+        document.getElementById('loading-overlay').style.display = 'none';
+
+        if (error) { 
+            errObj.innerText = error.message; 
+            errObj.style.display = 'block'; 
+        } else {
             currentUser = data.user;
             await loadUserIndex();
             document.getElementById('user-email-display').innerText = currentUser.email;
@@ -476,7 +499,6 @@
         await supabaseClient.auth.signOut();
         currentUser = null;
         userIndex = { my_scenes: [], shared_with_me: [] };
-        // Clear URL params on sign out
         window.history.pushState({}, '', window.location.pathname);
         showScreen('auth');
     }
@@ -519,7 +541,6 @@
 
     function renderDashboard() {
         const gridMy = document.getElementById('grid-my-scenes');
-        // Keep the Create New button, clear the rest
         const createBtnHTML = gridMy.innerHTML.split('<!-- Danh sách')[0]; 
         
         let myScenesHTML = createBtnHTML;
@@ -563,11 +584,11 @@
     }
 
     function createNewScene() {
-        window.location.href = window.location.pathname; // Clear URL params
+        window.location.href = window.location.pathname; 
     }
     
     function goToDashboard() {
-        window.location.href = window.location.pathname; // Reload without params goes to dashboard if logged in
+        window.location.href = window.location.pathname; 
     }
 
     async function deleteMyScene(id, idx) {
@@ -579,7 +600,6 @@
         userIndex.my_scenes.splice(idx, 1);
         await saveUserIndex();
         
-        // Delete physical file
         await supabaseClient.storage.from(BUCKET).remove([`saved_scenes/${id}.json`]);
         
         document.getElementById('loading-overlay').style.display = 'none';
@@ -777,11 +797,9 @@
             }
         });
 
-        // Khởi động luồng Auth & Routing thay vì chạy thẳng Editor
         initSystem();
     })();
 
-    // --- LOGIC PHÂN TÍCH ATLAS MULTI-PAGE ---
     const fFolder = document.getElementById('file-folder');
     fFolder.onchange = (e) => handleFiles(Array.from(e.target.files));
 
@@ -940,7 +958,7 @@
         document.getElementById('loading-overlay').style.display = 'flex';
         try {
             const group = spineFiles[id];
-            const uid = Date.now();
+            const uid = crypto.randomUUID().split('-')[0];
 
             const pngUrls = [];
             let atlasText = await group.atlas.text();
@@ -984,7 +1002,7 @@
         
         try {
             const group = spineFiles[id];
-            const uid = Date.now();
+            const uid = crypto.randomUUID().split('-')[0];
 
             const pngUrls = [];
             let atlasText = await group.atlas.text();
@@ -1047,7 +1065,6 @@
         document.getElementById('loading-overlay').style.display = 'none';
     }
 
-    // --- SỬA LẠI LOGIC LƯU ĐỂ HỖ TRỢ UPSERT & DASHBOARD ---
     function setupShareLogic() {
         const btnShare = document.getElementById('btn-share');
         const btnCopy = document.getElementById('btn-copy-link');
@@ -1083,7 +1100,7 @@
                 for (const assetId of uniqueAssetIds) {
                     const group = spineFiles[assetId];
                     if (group && group.pngs && group.pngs[0].name !== 'loaded') {
-                        const uid = Date.now() + Math.floor(Math.random()*1000);
+                        const uid = crypto.randomUUID().split('-')[0];
                         const cleanId = assetId.replace(/[^a-zA-Z0-9_-]/g, '');
                         const folder = `${cleanId}_share_${uid}/`;
 
@@ -1128,12 +1145,10 @@
                 const jsonString = JSON.stringify(sceneData);
                 const blob = new Blob([jsonString], {type: "application/json"});
                 
-                // LOGIC GHI ĐÈ
-                const sceneId = existingId ? existingId : 'sc_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5); 
+                const sceneId = existingId ? existingId : 'sc_' + crypto.randomUUID().replace(/-/g, ''); 
 
                 await supabaseClient.storage.from(BUCKET).upload(`saved_scenes/${sceneId}.json`, blob, { upsert: true });
 
-                // Cập nhật Index
                 let idx = userIndex.my_scenes.findIndex(s => s.id === sceneId);
                 if (idx >= 0) {
                     userIndex.my_scenes[idx].date = new Date().toLocaleDateString();
@@ -1142,7 +1157,6 @@
                 }
                 await saveUserIndex();
 
-                // Đổi link URL tĩnh lặng nếu là file mới
                 if (!existingId) {
                     const url = new URL(window.location.href);
                     url.searchParams.set('scene', sceneId);
@@ -1173,7 +1187,6 @@
             if (!response.ok) throw new Error("Scene not found.");
             const sceneData = await response.json();
 
-            // Nếu user đã login, lưu lại lịch sử Shared Scene
             if (currentUser) {
                 const isMine = userIndex.my_scenes.some(s => s.id === sceneId);
                 const isAlreadyShared = userIndex.shared_with_me.some(s => s.id === sceneId);
@@ -1373,7 +1386,7 @@
             obj.animatorParams = restoreState.animatorParams ? JSON.parse(JSON.stringify(restoreState.animatorParams)) : [];
             obj.animatorRules = restoreState.animatorRules ? JSON.parse(JSON.stringify(restoreState.animatorRules)) : [];
         } else {
-            obj.uid = 'spine_' + Date.now() + '_' + Math.floor(Math.random()*1000);
+            obj.uid = 'spine_' + crypto.randomUUID();
             obj.x = LOGICAL_WIDTH / 2; obj.y = LOGICAL_HEIGHT / 2;
             obj.visible = true; obj.attachedParentUid = null; obj.attachedBoneName = null;
             
@@ -1705,7 +1718,7 @@
             });
 
             const stateForClone = {
-                uid: 'spine_' + Date.now() + '_' + Math.floor(Math.random()*1000),
+                uid: 'spine_' + crypto.randomUUID(),
                 x: obj.x, y: obj.y, 
                 scaleX: obj.scale.x, scaleY: obj.scale.y,
                 zIndex: obj.zIndex, visible: obj.visible,
@@ -1882,7 +1895,6 @@
             div.style.flexDirection = 'column';
             div.style.alignItems = 'stretch';
             
-            // Xử lý di sản bản cũ
             let endBeh = rule.endBehavior;
             if (!endBeh) endBeh = (rule.loop === false || String(rule.loop) === 'false') ? 'return' : 'loop';
             rule.endBehavior = endBeh;
