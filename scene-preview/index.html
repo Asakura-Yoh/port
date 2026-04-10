@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spine 4.2 Pro Previewer - Sequence Freeze Edition</title>
+    <title>Spine 4.2 Pro Previewer - Studio Workspace</title>
     
     <script src="https://unpkg.com/pixi.js@8.x/dist/pixi.min.js"></script>
     <script src="https://unpkg.com/@esotericsoftware/spine-pixi-v8@4.2/dist/iife/spine-pixi-v8.js"></script>
@@ -12,13 +12,40 @@
     <style>
         :root { --bg-dark: #121212; --bg-panel: #1e1e1e; --accent: #007acc; --text: #cccccc; --border: #333333; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg-dark); color: var(--text); display: flex; width: 100vw; height: 100vh; overflow: hidden; position: relative; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg-dark); color: var(--text); display: block; margin: 0; overflow: hidden; }
 
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: var(--bg-panel); border-left: 1px solid #222; }
         ::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
+        /* --- SCREEN SYSTEM --- */
+        .screen { position: absolute; inset: 0; width: 100vw; height: 100vh; overflow: hidden; background: var(--bg-dark); display: none; }
+        #editor-screen { flex-direction: row; }
+        
+        /* --- AUTH & DASHBOARD CSS --- */
+        .auth-box { background: #1e1e1e; padding: 40px; border-radius: 8px; border: 1px solid #333; width: 400px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .auth-box input { width: 100%; margin-bottom: 15px; padding: 12px; font-size: 14px; background: #121212; border: 1px solid #444; color: #fff; border-radius: 4px; outline: none; }
+        .auth-box input:focus { border-color: var(--accent); }
+        
+        .dash-container { padding: 40px; display: flex; flex-direction: column; width: 100%; height: 100%; overflow-y: auto; max-width: 1400px; margin: 0 auto; }
+        .dash-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 20px; margin-bottom: 20px; }
+        .dash-tabs { display: flex; gap: 20px; margin-bottom: 20px; border-bottom: 1px solid #333; }
+        .dash-tab { padding: 10px 20px; cursor: pointer; color: #888; font-weight: bold; border-bottom: 3px solid transparent; transition: 0.2s; }
+        .dash-tab:hover { color: #fff; }
+        .dash-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+        
+        .scene-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; }
+        .scene-card { background: #1e1e1e; border: 1px solid #333; border-radius: 8px; padding: 20px; display: flex; flex-direction: column; transition: 0.2s; position: relative; }
+        .scene-card:hover { border-color: var(--accent); transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.3); }
+        .scene-title { font-size: 16px; font-weight: bold; color: #fff; margin-bottom: 8px; word-wrap: break-word; }
+        .scene-date { font-size: 11px; color: #888; margin-bottom: 20px; }
+        .scene-actions { display: flex; gap: 10px; margin-top: auto; }
+        
+        .btn-create-new { background: rgba(0, 122, 204, 0.1); border: 2px dashed var(--accent); border-radius: 8px; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; transition: 0.2s; min-height: 150px; color: var(--accent); font-weight: bold; }
+        .btn-create-new:hover { background: var(--accent); color: #fff; }
+
+        /* --- EDITOR CSS --- */
         .sidebar { background: var(--bg-panel); border: 1px solid #000; display: flex; flex-direction: column; transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease; width: 300px; z-index: 10; flex-shrink: 0; }
         .sidebar.hidden { width: 0 !important; opacity: 0; pointer-events: none; border: none; }
         #sidebar-left { border-right: 1px solid #000; }
@@ -47,7 +74,7 @@
         #canvas-container { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
         canvas { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
         
-        #bottom-info { position: absolute; bottom: 15px; background: rgba(0,0,0,0.8); padding: 8px 20px; border-radius: 20px; font-size: 11px; color: #666; display: flex; align-items: center; gap: 20px; z-index: 5; }
+        #bottom-info { position: absolute; bottom: 15px; background: rgba(0,0,0,0.8); padding: 8px 20px; border-radius: 20px; font-size: 11px; color: #666; display: flex; align-items: center; gap: 15px; z-index: 5; }
         .scale-badge { color: var(--accent); font-weight: bold; }
 
         @keyframes pulse-red { 0% { background-color: #8b2a2a; } 50% { background-color: #ff4444; box-shadow: 0 0 10px #ff4444; } 100% { background-color: #8b2a2a; } }
@@ -95,7 +122,7 @@
         .btn-ui:hover { filter: brightness(1.2); }
         .btn-ui:disabled { opacity: 0.5; cursor: not-allowed; filter: none; }
         
-        #loading-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.85); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }
+        #loading-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.85); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 3000; }
         #share-modal { position: absolute; inset: 0; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 2000; backdrop-filter: blur(5px); }
         .modal-content { background: #252526; padding: 25px; border-radius: 8px; border: 1px solid #444; width: 400px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
         .modal-content input { font-size: 13px; padding: 10px; margin: 15px 0; background: #121212; }
@@ -156,110 +183,158 @@
 </head>
 <body>
 
-    <button class="toggle-btn" id="toggle-l" onclick="toggleSidebar('left')">◀</button>
-    <button class="toggle-btn" id="toggle-r" onclick="toggleSidebar('right')">▶</button>
-
-    <div id="sidebar-left" class="sidebar">
-        <input type="file" id="file-folder" webkitdirectory directory multiple style="display:none">
-        <input type="file" id="update-file-input" multiple accept=".json,.skel,.atlas,.png,.jpg" style="display:none">
-
-        <div id="drop-zone" onclick="document.getElementById('file-folder').click()">
-            📁 Drop Folder Spine Here<br><small>Canvas: 1920 x 1080</small>
+    <!-- MÀN HÌNH 1: AUTHENTICATION -->
+    <div id="auth-screen" class="screen" style="justify-content:center; align-items:center;">
+        <div class="auth-box">
+            <h2 style="color:var(--accent); margin-bottom:25px;">Spine Workspace</h2>
+            <input type="email" id="auth-email" placeholder="Email Address">
+            <input type="password" id="auth-pwd" placeholder="Password">
+            <button class="btn-ui" onclick="signIn()" style="margin-bottom:10px; padding:12px;">Login</button>
+            <button class="btn-ui" onclick="signUp()" style="background:#444; padding:12px;">Create Account</button>
+            <div id="auth-error" style="color:#ff4444; margin-top:15px; font-size:12px; display:none;"></div>
         </div>
-        <div id="asset-list"></div>
     </div>
 
-    <div id="main-view">
-        <div id="canvas-wrapper">
-            <div id="canvas-container"></div>
-        </div>
-
-        <div id="live-animator-dashboard">
-            <div style="color:var(--accent); font-weight:bold; font-size:12px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
-                <span>🎮 Animator Editor <span id="live-animator-target" style="color:#aaa; font-weight:normal; margin-left:5px;">Name</span></span>
-                <button onclick="toggleAnimatorDashboard(false)" style="background:none; border:none; color:#888; cursor:pointer; font-size:14px; padding:0 5px;">✕</button>
-            </div>
-            <div id="live-params-list"></div>
-        </div>
-
-        <div id="playback-bar">
-            <button class="btn-ui" id="btn-play-pause" style="width:80px; padding:6px; font-size:12px; background:#e6a822; color:#000;">⏸ Pause</button>
-            <button class="btn-ui" id="btn-next-frame" style="width:80px; padding:6px; font-size:12px; background:#444;" title="Step 1 Frame (1/30s)">⏭ Frame</button>
-
-            <div class="timeline-container">
-                <span style="font-size:10px; color:#888; font-weight:bold;">TIMELINE</span>
-                <input type="range" id="timeline-slider" class="scrubber" min="0" max="100" step="0.1" value="0">
-                <span id="frame-display" class="frame-counter">0 / 0</span>
-            </div>
-
-            <div style="display:flex; align-items:center; gap:8px; border-left:1px solid #555; padding-left:15px;">
-                <span style="font-size:10px; color:#888; font-weight:bold;">SPEED</span>
-                <input type="range" id="speed-slider" class="scrubber" style="width:80px;" min="0.1" max="3" step="0.1" value="1">
-                <span id="speed-val" style="font-size:12px; font-weight:bold; color:var(--accent); width:30px;">1.0x</span>
-            </div>
-        </div>
-        
-        <div id="bottom-info">
-            <span>Drag: Move Asset | Grid: 1920x1080</span>
-            <span>View Scale: <span id="view-scale" class="scale-badge">100%</span></span>
-            <span style="border-left: 1px solid #444; height: 15px; margin: 0 5px;"></span>
-            <button id="btn-toggle-animator" class="btn-ui" onclick="toggleAnimatorDashboard()" style="background:#5c2a8c; padding: 4px 12px; width: auto; font-size: 10px; border-radius: 12px; display:none; margin-right:5px;">🎮 Animator</button>
-            <button id="btn-record" class="btn-ui" style="background:#555; padding: 4px 12px; width: auto; font-size: 10px; border-radius: 12px;">⏺ Record</button>
-            <button id="btn-share" class="btn-ui" style="background:#2e7d32; padding: 4px 12px; width: auto; font-size: 10px; border-radius: 12px; margin-left:5px;">🔗 Save & Share Scene</button>
-        </div>
-        
-        <div id="loading-overlay">🚀 <span id="load-status" style="margin-top:10px;">Processing...</span></div>
-        
-        <div id="share-modal">
-            <div class="modal-content">
-                <h3 style="color:var(--accent); margin-bottom:10px;">🎉 Scene Saved Successfully!</h3>
-                <p style="font-size:13px; color:#aaa;">Anyone with this link can view this exact scene arrangement.</p>
-                <input type="text" id="share-link-input" readonly>
-                <div style="display:flex; gap:10px;">
-                    <button class="btn-ui" id="btn-copy-link" style="flex:2;">Copy Link</button>
-                    <button class="btn-ui" onclick="document.getElementById('share-modal').style.display='none'" style="flex:1; background:#444;">Close</button>
+    <!-- MÀN HÌNH 2: DASHBOARD -->
+    <div id="dashboard-screen" class="screen">
+        <div class="dash-container">
+            <div class="dash-header">
+                <h1 style="color:var(--accent); margin:0;">Workspace</h1>
+                <div style="display:flex; align-items:center; gap:20px;">
+                    <span id="user-email-display" style="color:#aaa; font-size:13px;"></span>
+                    <button class="btn-ui" style="width:auto; padding:8px 16px; background:#8b2a2a;" onclick="signOut()">Sign Out</button>
                 </div>
             </div>
-        </div>
+            
+            <div class="dash-tabs">
+                <div class="dash-tab active" id="tab-my-scenes" onclick="switchDashTab('my')">My Scenes</div>
+                <div class="dash-tab" id="tab-shared-scenes" onclick="switchDashTab('shared')">Shared With Me</div>
+            </div>
 
-        <div id="animator-modal">
-            <div class="animator-container">
-                <div class="animator-header">
-                    <span>🧠 FSM Animator Config <span id="animator-target-name" style="color:#fff; font-weight:normal; margin-left:10px;"></span></span>
-                    <button class="btn-ui" onclick="closeAnimatorConfig()" style="width:auto; padding:2px 10px; background:#8b2a2a;">✕ Close</button>
+            <div id="grid-my-scenes" class="scene-grid">
+                <!-- Nút Create New luôn nằm đầu tiên ở Tab My Scenes -->
+                <div class="btn-create-new" onclick="createNewScene()">
+                    <span style="font-size:30px; margin-bottom:10px;">+</span>
+                    <span>Create New Scene</span>
                 </div>
-                <div class="animator-body">
-                    <div class="animator-panel">
-                        <div class="section-title">Parameters</div>
-                        <div style="display:flex; gap:5px; margin-bottom: 15px;">
-                            <input type="text" id="fsm-new-param-name" placeholder="Param Name" style="flex:1;">
-                            <button class="btn-ui" onclick="addFsmParam('float')" style="width:auto; font-size:10px; padding:4px 6px; background:#4caf50;" title="Number">Float</button>
-                            <button class="btn-ui" onclick="addFsmParam('bool')" style="width:auto; font-size:10px; padding:4px 6px; background:#007acc;" title="True/False">Bool</button>
-                            <button class="btn-ui" onclick="addFsmParam('trigger')" style="width:auto; font-size:10px; padding:4px 6px; background:#e6a822; color:#000;" title="Keyboard Event">Trigger</button>
-                        </div>
-                        <div id="fsm-params-list"></div>
-                    </div>
-                    
-                    <div class="animator-panel">
-                        <div class="section-title" style="display:flex; justify-content:space-between; align-items:center;">
-                            <span>Rules / Transitions</span>
-                            <button class="btn-ui" onclick="addFsmRule()" style="width:auto; font-size:10px; padding:4px 12px; background:#4caf50;">+ Add Rule</button>
-                        </div>
-                        <div style="font-size:11px; color:#888; margin-bottom:15px; font-style:italic;">
-                            * Evaluated from top to bottom. You can add multiple Queue items to create a Combo Sequence.<br>
-                            * <b>End Action:</b> The action that occurs after the last Animation in the sequence finishes. Trigger always interrupts any state.
-                        </div>
-                        <div id="fsm-rules-list"></div>
-                    </div>
-                </div>
+                <!-- Danh sách scene sẽ render vào đây -->
+            </div>
+
+            <div id="grid-shared-scenes" class="scene-grid" style="display:none;">
+                <!-- Danh sách shared scene sẽ render vào đây -->
             </div>
         </div>
     </div>
 
-    <div id="sidebar-right" class="sidebar">
-        <div class="ins-header-main">Scene Layers</div>
-        <div id="hierarchy-list">
-            <div id="empty-state" style="padding: 20px; text-align: center; color: #555; font-size: 11px;">No assets in scene</div>
+    <!-- MÀN HÌNH 3: EDITOR CHÍNH -->
+    <div id="editor-screen" class="screen">
+        <button class="toggle-btn" id="toggle-l" onclick="toggleSidebar('left')">◀</button>
+        <button class="toggle-btn" id="toggle-r" onclick="toggleSidebar('right')">▶</button>
+
+        <div id="sidebar-left" class="sidebar">
+            <input type="file" id="file-folder" webkitdirectory directory multiple style="display:none">
+            <input type="file" id="update-file-input" multiple accept=".json,.skel,.atlas,.png,.jpg" style="display:none">
+
+            <div id="drop-zone" onclick="document.getElementById('file-folder').click()">
+                📁 Drop Folder Spine Here<br><small>Canvas: 1920 x 1080</small>
+            </div>
+            <div id="asset-list"></div>
+        </div>
+
+        <div id="main-view">
+            <div id="canvas-wrapper">
+                <div id="canvas-container"></div>
+            </div>
+
+            <div id="live-animator-dashboard">
+                <div style="color:var(--accent); font-weight:bold; font-size:12px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+                    <span>🎮 Animator Editor <span id="live-animator-target" style="color:#aaa; font-weight:normal; margin-left:5px;">Name</span></span>
+                    <button onclick="toggleAnimatorDashboard(false)" style="background:none; border:none; color:#888; cursor:pointer; font-size:14px; padding:0 5px;">✕</button>
+                </div>
+                <div id="live-params-list"></div>
+            </div>
+
+            <div id="playback-bar">
+                <button class="btn-ui" id="btn-play-pause" style="width:80px; padding:6px; font-size:12px; background:#e6a822; color:#000;">⏸ Pause</button>
+                <button class="btn-ui" id="btn-next-frame" style="width:80px; padding:6px; font-size:12px; background:#444;" title="Step 1 Frame (1/30s)">⏭ Frame</button>
+
+                <div class="timeline-container">
+                    <span style="font-size:10px; color:#888; font-weight:bold;">TIMELINE</span>
+                    <input type="range" id="timeline-slider" class="scrubber" min="0" max="100" step="0.1" value="0">
+                    <span id="frame-display" class="frame-counter">0 / 0</span>
+                </div>
+
+                <div style="display:flex; align-items:center; gap:8px; border-left:1px solid #555; padding-left:15px;">
+                    <span style="font-size:10px; color:#888; font-weight:bold;">SPEED</span>
+                    <input type="range" id="speed-slider" class="scrubber" style="width:80px;" min="0.1" max="3" step="0.1" value="1">
+                    <span id="speed-val" style="font-size:12px; font-weight:bold; color:var(--accent); width:30px;">1.0x</span>
+                </div>
+            </div>
+            
+            <div id="bottom-info">
+                <button class="btn-ui" onclick="goToDashboard()" style="background:#8b2a2a; padding: 4px 12px; width: auto; font-size: 10px; border-radius: 12px; margin-right:15px;">⬅ Dashboard</button>
+                
+                <span>Drag: Move Asset | Grid: 1920x1080</span>
+                <span>View Scale: <span id="view-scale" class="scale-badge">100%</span></span>
+                <span style="border-left: 1px solid #444; height: 15px; margin: 0 5px;"></span>
+                <button id="btn-toggle-animator" class="btn-ui" onclick="toggleAnimatorDashboard()" style="background:#5c2a8c; padding: 4px 12px; width: auto; font-size: 10px; border-radius: 12px; display:none; margin-right:5px;">🎮 Animator</button>
+                <button id="btn-record" class="btn-ui" style="background:#555; padding: 4px 12px; width: auto; font-size: 10px; border-radius: 12px;">⏺ Record</button>
+                <button id="btn-share" class="btn-ui" style="background:#2e7d32; padding: 4px 12px; width: auto; font-size: 10px; border-radius: 12px; margin-left:5px;">🔗 Save & Share Scene</button>
+            </div>
+            
+            <div id="loading-overlay">🚀 <span id="load-status" style="margin-top:10px;">Processing...</span></div>
+            
+            <div id="share-modal">
+                <div class="modal-content">
+                    <h3 style="color:var(--accent); margin-bottom:10px;">🎉 Scene Saved Successfully!</h3>
+                    <p style="font-size:13px; color:#aaa;">Anyone with this link can view this exact scene arrangement.</p>
+                    <input type="text" id="share-link-input" readonly>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn-ui" id="btn-copy-link" style="flex:2;">Copy Link</button>
+                        <button class="btn-ui" onclick="document.getElementById('share-modal').style.display='none'" style="flex:1; background:#444;">Close</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="animator-modal">
+                <div class="animator-container">
+                    <div class="animator-header">
+                        <span>🧠 FSM Animator Config <span id="animator-target-name" style="color:#fff; font-weight:normal; margin-left:10px;"></span></span>
+                        <button class="btn-ui" onclick="closeAnimatorConfig()" style="width:auto; padding:2px 10px; background:#8b2a2a;">✕ Close</button>
+                    </div>
+                    <div class="animator-body">
+                        <div class="animator-panel">
+                            <div class="section-title">Parameters</div>
+                            <div style="display:flex; gap:5px; margin-bottom: 15px;">
+                                <input type="text" id="fsm-new-param-name" placeholder="Param Name" style="flex:1;">
+                                <button class="btn-ui" onclick="addFsmParam('float')" style="width:auto; font-size:10px; padding:4px 6px; background:#4caf50;" title="Number">Float</button>
+                                <button class="btn-ui" onclick="addFsmParam('bool')" style="width:auto; font-size:10px; padding:4px 6px; background:#007acc;" title="True/False">Bool</button>
+                                <button class="btn-ui" onclick="addFsmParam('trigger')" style="width:auto; font-size:10px; padding:4px 6px; background:#e6a822; color:#000;" title="Keyboard Event">Trigger</button>
+                            </div>
+                            <div id="fsm-params-list"></div>
+                        </div>
+                        
+                        <div class="animator-panel">
+                            <div class="section-title" style="display:flex; justify-content:space-between; align-items:center;">
+                                <span>Rules / Transitions</span>
+                                <button class="btn-ui" onclick="addFsmRule()" style="width:auto; font-size:10px; padding:4px 12px; background:#4caf50;">+ Add Rule</button>
+                            </div>
+                            <div style="font-size:11px; color:#888; margin-bottom:15px; font-style:italic;">
+                                * Evaluated from top to bottom. You can add multiple Queue items to create a Combo Sequence.<br>
+                                * <b>End Action:</b> The action that occurs after the last Animation in the sequence finishes. Trigger always interrupts any state.
+                            </div>
+                            <div id="fsm-rules-list"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="sidebar-right" class="sidebar">
+            <div class="ins-header-main">Scene Layers</div>
+            <div id="hierarchy-list">
+                <div id="empty-state" style="padding: 20px; text-align: center; color: #555; font-size: 11px;">No assets in scene</div>
+            </div>
         </div>
     </div>
 
@@ -268,6 +343,10 @@
     const SB_KEY = 'sb_publishable_guA6fUpSMtATt1sZcPtK0g_vFVVlEig';
     const supabaseClient = window.supabase.createClient(SB_URL, SB_KEY);
     const BUCKET = 'spine-assets';
+
+    // --- GLOBAL VARIABLES ---
+    let currentUser = null;
+    let userIndex = { my_scenes: [], shared_with_me: [] };
 
     const spineFiles = {};
     const allUploadedFiles = {};
@@ -287,11 +366,12 @@
     const FPS_TARGET = 30; 
 
     let configObj = null;
-    
     let isAnimatorDashboardOpen = false;
 
     const keysDown = new Set();
     const keysJustPressed = new Set();
+    
+    // --- KEYBOARD LISTENER ---
     window.addEventListener('keydown', e => {
         if (['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) return;
         const k = e.key.toLowerCase();
@@ -315,6 +395,208 @@
     const LOGICAL_WIDTH = 1920;
     const LOGICAL_HEIGHT = 1080;
 
+    // ==========================================
+    // MODULE 1: AUTH & DASHBOARD SYSTEM
+    // ==========================================
+    async function initSystem() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const sceneIdParam = urlParams.get('scene');
+
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        
+        if (session) {
+            currentUser = session.user;
+            await loadUserIndex();
+            document.getElementById('user-email-display').innerText = currentUser.email;
+            
+            if (sceneIdParam) {
+                showScreen('editor');
+                checkAndLoadSharedScene(sceneIdParam);
+            } else {
+                showScreen('dashboard');
+                renderDashboard();
+            }
+        } else {
+            if (sceneIdParam) {
+                // Guest mode: Auto forward to Editor to view shared link
+                showScreen('editor');
+                checkAndLoadSharedScene(sceneIdParam);
+            } else {
+                showScreen('auth');
+            }
+        }
+    }
+
+    function showScreen(screenName) {
+        document.getElementById('auth-screen').style.display = 'none';
+        document.getElementById('dashboard-screen').style.display = 'none';
+        document.getElementById('editor-screen').style.display = 'none';
+        
+        if (screenName === 'editor') {
+            document.getElementById('editor-screen').style.display = 'flex';
+            setTimeout(updateScaleDisplay, 100);
+        } else if (screenName === 'dashboard') {
+            document.getElementById('dashboard-screen').style.display = 'flex';
+        } else {
+            document.getElementById('auth-screen').style.display = 'flex';
+        }
+    }
+
+    async function signUp() {
+        const email = document.getElementById('auth-email').value;
+        const password = document.getElementById('auth-pwd').value;
+        const errObj = document.getElementById('auth-error');
+        
+        if(!email || !password) { errObj.innerText = "Please enter email and password."; errObj.style.display = 'block'; return; }
+        
+        const { data, error } = await supabaseClient.auth.signUp({ email, password });
+        if (error) { errObj.innerText = error.message; errObj.style.display = 'block'; }
+        else { alert("Registration successful! You can now log in."); }
+    }
+
+    async function signIn() {
+        const email = document.getElementById('auth-email').value;
+        const password = document.getElementById('auth-pwd').value;
+        const errObj = document.getElementById('auth-error');
+        
+        if(!email || !password) { errObj.innerText = "Please enter email and password."; errObj.style.display = 'block'; return; }
+        
+        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        if (error) { errObj.innerText = error.message; errObj.style.display = 'block'; }
+        else {
+            currentUser = data.user;
+            await loadUserIndex();
+            document.getElementById('user-email-display').innerText = currentUser.email;
+            showScreen('dashboard');
+            renderDashboard();
+        }
+    }
+
+    async function signOut() {
+        await supabaseClient.auth.signOut();
+        currentUser = null;
+        userIndex = { my_scenes: [], shared_with_me: [] };
+        // Clear URL params on sign out
+        window.history.pushState({}, '', window.location.pathname);
+        showScreen('auth');
+    }
+
+    async function loadUserIndex() {
+        if (!currentUser) return;
+        try {
+            const { data, error } = await supabaseClient.storage.from(BUCKET).download(`users/${currentUser.id}/index.json`);
+            if (data) {
+                const text = await data.text();
+                userIndex = JSON.parse(text);
+            } else {
+                userIndex = { my_scenes: [], shared_with_me: [] };
+            }
+        } catch (e) {
+            userIndex = { my_scenes: [], shared_with_me: [] };
+        }
+    }
+
+    async function saveUserIndex() {
+        if (!currentUser) return;
+        const blob = new Blob([JSON.stringify(userIndex)], {type: "application/json"});
+        await supabaseClient.storage.from(BUCKET).upload(`users/${currentUser.id}/index.json`, blob, { upsert: true });
+    }
+
+    function switchDashTab(tabName) {
+        document.getElementById('tab-my-scenes').classList.remove('active');
+        document.getElementById('tab-shared-scenes').classList.remove('active');
+        document.getElementById('grid-my-scenes').style.display = 'none';
+        document.getElementById('grid-shared-scenes').style.display = 'none';
+        
+        if (tabName === 'my') {
+            document.getElementById('tab-my-scenes').classList.add('active');
+            document.getElementById('grid-my-scenes').style.display = 'grid';
+        } else {
+            document.getElementById('tab-shared-scenes').classList.add('active');
+            document.getElementById('grid-shared-scenes').style.display = 'grid';
+        }
+    }
+
+    function renderDashboard() {
+        const gridMy = document.getElementById('grid-my-scenes');
+        // Keep the Create New button, clear the rest
+        const createBtnHTML = gridMy.innerHTML.split('<!-- Danh sách')[0]; 
+        
+        let myScenesHTML = createBtnHTML;
+        userIndex.my_scenes.forEach((sc, idx) => {
+            myScenesHTML += `
+                <div class="scene-card">
+                    <div class="scene-title">${sc.name}</div>
+                    <div class="scene-date">Last updated: ${sc.date}</div>
+                    <div class="scene-actions">
+                        <button class="btn-ui" style="flex:1;" onclick="openScene('${sc.id}')">Open Editor</button>
+                        <button class="btn-ui" style="width:auto; padding:8px 12px; background:#8b2a2a;" onclick="deleteMyScene('${sc.id}', ${idx})">🗑</button>
+                    </div>
+                </div>
+            `;
+        });
+        gridMy.innerHTML = myScenesHTML;
+
+        const gridShared = document.getElementById('grid-shared-scenes');
+        let sharedScenesHTML = '';
+        if (userIndex.shared_with_me.length === 0) {
+            sharedScenesHTML = `<div style="grid-column: 1 / -1; color:#888; text-align:center; padding: 40px;">You haven't opened any shared scenes yet.</div>`;
+        } else {
+            userIndex.shared_with_me.forEach((sc, idx) => {
+                sharedScenesHTML += `
+                    <div class="scene-card">
+                        <div class="scene-title">${sc.name}</div>
+                        <div class="scene-date">Opened on: ${sc.date}</div>
+                        <div class="scene-actions">
+                            <button class="btn-ui" style="flex:1; background:#007acc;" onclick="openScene('${sc.id}')">View Scene</button>
+                            <button class="btn-ui" style="width:auto; padding:8px 12px; background:#444;" title="Remove from list" onclick="removeSharedScene(${idx})">✕</button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        gridShared.innerHTML = sharedScenesHTML;
+    }
+
+    function openScene(id) {
+        window.location.href = '?scene=' + id;
+    }
+
+    function createNewScene() {
+        window.location.href = window.location.pathname; // Clear URL params
+    }
+    
+    function goToDashboard() {
+        window.location.href = window.location.pathname; // Reload without params goes to dashboard if logged in
+    }
+
+    async function deleteMyScene(id, idx) {
+        if(!confirm("Are you sure you want to permanently delete this scene? Links shared with others will be broken.")) return;
+        
+        document.getElementById('load-status').innerText = "Deleting Scene...";
+        document.getElementById('loading-overlay').style.display = 'flex';
+        
+        userIndex.my_scenes.splice(idx, 1);
+        await saveUserIndex();
+        
+        // Delete physical file
+        await supabaseClient.storage.from(BUCKET).remove([`saved_scenes/${id}.json`]);
+        
+        document.getElementById('loading-overlay').style.display = 'none';
+        renderDashboard();
+    }
+
+    async function removeSharedScene(idx) {
+        if(!confirm("Remove this scene from your list? (The actual scene will not be deleted)")) return;
+        userIndex.shared_with_me.splice(idx, 1);
+        await saveUserIndex();
+        renderDashboard();
+    }
+
+
+    // ==========================================
+    // MODULE 2: APP INITIALIZATION & PIXI CORE
+    // ==========================================
     (async () => {
         app = new PIXI.Application();
         await app.init({ 
@@ -353,6 +635,7 @@
                         });
                     }
 
+                    // --- BỘ NÃO CỦA FSM ANIMATOR ---
                     if (isPlaying && !isDraggingTimeline && child.animatorRules && child.animatorRules.length > 0) {
                         let trackWinners = {};
                         
@@ -369,17 +652,14 @@
                                 let isLooping = (currEntry.loop === true || String(currEntry.loop) === 'true');
                                 let animDuration = Math.max(currEntry.animation.duration, 0.01);
                                 let isComplete = (currEntry.trackTime >= animDuration);
-                                let hasNext = (currEntry.next != null); // Đang có hàng đợi chạy nối đuôi
+                                let hasNext = (currEntry.next != null); 
                                 
-                                // Nếu có hàng đợi nối đuôi, tuyệt đối không cho phép Rule nào cắt ngang (KHÓA CHẶT)
                                 if (hasNext) {
                                     isLocked = true;
                                 } else if (!isLooping) {
-                                    // Nếu không lặp và CHƯA CHẠY XONG -> KHÓA!
                                     if (!isComplete) {
                                         isLocked = true;
                                     } 
-                                    // TÍNH NĂNG MỚI: Nếu ĐÃ CHẠY XONG nhưng được đánh dấu "Freeze" (Đóng băng) -> KHÓA MÃI MÃI!
                                     else if (currEntry.customEndBehavior === 'freeze') {
                                         isLocked = true;
                                     }
@@ -420,7 +700,6 @@
                                 if (isNaN(mixDur)) mixDur = 0.2;
                                 child.state.data.defaultMix = mixDur;
                                 
-                                // DI SẢN BẢN CŨ & LOGIC END ACTION MỚI
                                 let endBehavior = rule.endBehavior || ((rule.loop === false || String(rule.loop) === 'false') ? 'return' : 'loop');
                                 
                                 let qAnims = rule.queueAnims || [];
@@ -431,8 +710,6 @@
 
                                 try { 
                                     let entry = child.state.setAnimation(trackId, rule.targetAnim, firstAnimLoop); 
-                                    
-                                    // Nhồi đánh dấu "End Behavior" vào Anim để Spine tự biết xử lý ở khung hình cuối
                                     if (entry) entry.customEndBehavior = isSingle ? endBehavior : 'queue';
                                     
                                     if (!isSingle) {
@@ -500,9 +777,11 @@
             }
         });
 
-        checkAndLoadSharedScene();
+        // Khởi động luồng Auth & Routing thay vì chạy thẳng Editor
+        initSystem();
     })();
 
+    // --- LOGIC PHÂN TÍCH ATLAS MULTI-PAGE ---
     const fFolder = document.getElementById('file-folder');
     fFolder.onchange = (e) => handleFiles(Array.from(e.target.files));
 
@@ -657,26 +936,27 @@
     }
 
     async function uploadAndAdd(id) {
-        document.getElementById('load-status').innerText = "Uploading & Loading...";
+        document.getElementById('load-status').innerText = "Processing Local Assets...";
         document.getElementById('loading-overlay').style.display = 'flex';
         try {
             const group = spineFiles[id];
             const uid = Date.now();
-            const folder = `${id}_${uid}/`;
 
             const pngUrls = [];
+            let atlasText = await group.atlas.text();
+
             for (const pngFile of group.pngs) {
-                await supabaseClient.storage.from(BUCKET).upload(folder + pngFile.name, pngFile);
-                const url = supabaseClient.storage.from(BUCKET).getPublicUrl(folder + pngFile.name).data.publicUrl;
-                pngUrls.push(url);
+                const blobUrl = URL.createObjectURL(pngFile);
+                pngUrls.push(blobUrl);
+                const escapedName = pngFile.name.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+                atlasText = atlasText.replace(new RegExp('^' + escapedName + '(\\r?)$', 'gm'), blobUrl + '$1');
             }
 
-            await supabaseClient.storage.from(BUCKET).upload(folder + group.atlas.name, group.atlas);
-            const atlasUrl = supabaseClient.storage.from(BUCKET).getPublicUrl(folder + group.atlas.name).data.publicUrl;
+            const atlasBlob = new Blob([atlasText], { type: 'text/plain' });
+            const atlasUrl = URL.createObjectURL(atlasBlob);
 
             const dataFile = group.json || group.skel;
-            await supabaseClient.storage.from(BUCKET).upload(folder + dataFile.name, dataFile);
-            const dataUrl = supabaseClient.storage.from(BUCKET).getPublicUrl(folder + dataFile.name).data.publicUrl;
+            const dataUrl = URL.createObjectURL(dataFile);
 
             const atlasKey = `at_${uid}`;
             const dataKey = `sk_${uid}`;
@@ -705,21 +985,22 @@
         try {
             const group = spineFiles[id];
             const uid = Date.now();
-            const folder = `${id}_update_${uid}/`;
 
             const pngUrls = [];
+            let atlasText = await group.atlas.text();
+
             for (const pngFile of group.pngs) {
-                await supabaseClient.storage.from(BUCKET).upload(folder + pngFile.name, pngFile);
-                const url = supabaseClient.storage.from(BUCKET).getPublicUrl(folder + pngFile.name).data.publicUrl;
-                pngUrls.push(url);
+                const blobUrl = URL.createObjectURL(pngFile);
+                pngUrls.push(blobUrl);
+                const escapedName = pngFile.name.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+                atlasText = atlasText.replace(new RegExp('^' + escapedName + '(\\r?)$', 'gm'), blobUrl + '$1');
             }
 
-            await supabaseClient.storage.from(BUCKET).upload(folder + group.atlas.name, group.atlas);
-            const atlasUrl = supabaseClient.storage.from(BUCKET).getPublicUrl(folder + group.atlas.name).data.publicUrl;
+            const atlasBlob = new Blob([atlasText], { type: 'text/plain' });
+            const atlasUrl = URL.createObjectURL(atlasBlob);
 
             const dataFile = group.json || group.skel;
-            await supabaseClient.storage.from(BUCKET).upload(folder + dataFile.name, dataFile);
-            const dataUrl = supabaseClient.storage.from(BUCKET).getPublicUrl(folder + dataFile.name).data.publicUrl;
+            const dataUrl = URL.createObjectURL(dataFile);
 
             const atlasKey = `at_${uid}`;
             const dataKey = `sk_${uid}`;
@@ -766,6 +1047,7 @@
         document.getElementById('loading-overlay').style.display = 'none';
     }
 
+    // --- SỬA LẠI LOGIC LƯU ĐỂ HỖ TRỢ UPSERT & DASHBOARD ---
     function setupShareLogic() {
         const btnShare = document.getElementById('btn-share');
         const btnCopy = document.getElementById('btn-copy-link');
@@ -774,13 +1056,56 @@
         btnShare.onclick = async () => {
             const spines = app.stage.children.filter(c => c.isSpine);
             if (spines.length === 0) { alert("Scene is empty! Add some assets first."); return; }
+            
+            if (!currentUser) { alert("You are in Guest Mode. Please login to save scenes!"); return; }
 
-            document.getElementById('load-status').innerText = "Saving Scene to Cloud...";
+            const urlParams = new URLSearchParams(window.location.search);
+            const existingId = urlParams.get('scene');
+            let sceneName = "Untitled Scene";
+
+            if (!existingId) {
+                sceneName = prompt("Enter a name for this scene:", "My New Scene");
+                if (!sceneName) return; 
+            } else {
+                const existingInfo = userIndex.my_scenes.find(s => s.id === existingId);
+                if (existingInfo) sceneName = existingInfo.name;
+            }
+
+            document.getElementById('load-status').innerText = "Saving & Uploading Assets to Cloud...";
             document.getElementById('loading-overlay').style.display = 'flex';
 
             try {
                 const instances = [];
                 const assetsMap = {};
+                
+                const uniqueAssetIds = [...new Set(spines.map(c => c.baseAssetId))];
+
+                for (const assetId of uniqueAssetIds) {
+                    const group = spineFiles[assetId];
+                    if (group && group.pngs && group.pngs[0].name !== 'loaded') {
+                        const uid = Date.now() + Math.floor(Math.random()*1000);
+                        const cleanId = assetId.replace(/[^a-zA-Z0-9_-]/g, '');
+                        const folder = `${cleanId}_share_${uid}/`;
+
+                        const supPngUrls = [];
+                        for (const pngFile of group.pngs) {
+                            await supabaseClient.storage.from(BUCKET).upload(folder + pngFile.name, pngFile);
+                            supPngUrls.push(supabaseClient.storage.from(BUCKET).getPublicUrl(folder + pngFile.name).data.publicUrl);
+                        }
+
+                        await supabaseClient.storage.from(BUCKET).upload(folder + group.atlas.name, group.atlas);
+                        const atlasUrl = supabaseClient.storage.from(BUCKET).getPublicUrl(folder + group.atlas.name).data.publicUrl;
+
+                        const dataFile = group.json || group.skel;
+                        await supabaseClient.storage.from(BUCKET).upload(folder + dataFile.name, dataFile);
+                        const dataUrl = supabaseClient.storage.from(BUCKET).getPublicUrl(folder + dataFile.name).data.publicUrl;
+
+                        assetsMap[assetId] = { atlasUrl: atlasUrl, dataUrl: dataUrl, pngUrls: supPngUrls };
+                    } else {
+                        const repInst = spines.find(c => c.baseAssetId === assetId);
+                        assetsMap[assetId] = repInst.urls;
+                    }
+                }
 
                 spines.forEach(c => {
                     const dom = document.getElementById(c.uid);
@@ -797,21 +1122,34 @@
                         animatorRules: c.animatorRules ? JSON.parse(JSON.stringify(c.animatorRules)) : [],
                         isLocked: dom ? dom.querySelector('.btn-lock').classList.contains('locked') : true
                     });
-
-                    if(!assetsMap[c.baseAssetId]) { assetsMap[c.baseAssetId] = c.urls; }
                 });
 
                 const sceneData = { assets: assetsMap, instances: instances };
                 const jsonString = JSON.stringify(sceneData);
                 const blob = new Blob([jsonString], {type: "application/json"});
-                const sceneId = 'sc_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5); 
-
-                await supabaseClient.storage.from(BUCKET).upload(`saved_scenes/${sceneId}.json`, blob);
-
-                const url = new URL(window.location.href);
-                url.searchParams.set('scene', sceneId);
                 
-                shareInput.value = url.toString();
+                // LOGIC GHI ĐÈ
+                const sceneId = existingId ? existingId : 'sc_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5); 
+
+                await supabaseClient.storage.from(BUCKET).upload(`saved_scenes/${sceneId}.json`, blob, { upsert: true });
+
+                // Cập nhật Index
+                let idx = userIndex.my_scenes.findIndex(s => s.id === sceneId);
+                if (idx >= 0) {
+                    userIndex.my_scenes[idx].date = new Date().toLocaleDateString();
+                } else {
+                    userIndex.my_scenes.push({ id: sceneId, name: sceneName, date: new Date().toLocaleDateString() });
+                }
+                await saveUserIndex();
+
+                // Đổi link URL tĩnh lặng nếu là file mới
+                if (!existingId) {
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('scene', sceneId);
+                    window.history.pushState({}, '', url);
+                }
+                
+                shareInput.value = window.location.href;
                 document.getElementById('share-modal').style.display = 'flex';
 
             } catch (e) { alert("Failed to save scene: " + e.message); }
@@ -824,11 +1162,7 @@
         };
     }
 
-    async function checkAndLoadSharedScene() {
-        const params = new URLSearchParams(window.location.search);
-        const sceneId = params.get('scene');
-        if (!sceneId) return;
-
+    async function checkAndLoadSharedScene(sceneId) {
         document.getElementById('load-status').innerText = "Downloading Shared Scene...";
         document.getElementById('loading-overlay').style.display = 'flex';
 
@@ -838,6 +1172,16 @@
             
             if (!response.ok) throw new Error("Scene not found.");
             const sceneData = await response.json();
+
+            // Nếu user đã login, lưu lại lịch sử Shared Scene
+            if (currentUser) {
+                const isMine = userIndex.my_scenes.some(s => s.id === sceneId);
+                const isAlreadyShared = userIndex.shared_with_me.some(s => s.id === sceneId);
+                if (!isMine && !isAlreadyShared) {
+                    userIndex.shared_with_me.push({ id: sceneId, name: `Shared Scene (${sceneId})`, date: new Date().toLocaleDateString() });
+                    saveUserIndex();
+                }
+            }
 
             document.getElementById('load-status').innerText = "Loading Textures & Assets...";
 
@@ -1576,7 +1920,6 @@
             
             let animOptions = configObj.skeleton.data.animations.map(a => `<option value="${a.name}" ${a.name===rule.targetAnim?'selected':''}>${a.name}</option>`).join('');
             
-            // Render Giao diện Hàng đợi Đa Animation
             let queueUI = rule.queueAnims.map((qa, qi) => `
                 <select class="r-queue-item" data-qi="${qi}" style="width:75px; font-size:10px; padding:2px; background:#121212; border:1px solid #333; color:#fff;">
                     <option value="">- Remove -</option>
