@@ -1425,17 +1425,18 @@
                 }
             }
 
-            // LỚP 2: TẢI FILE TỪ STORAGE (MÁY CHỦ SẼ TỰ ĐỘNG CHẶN NẾU HACKER CỐ VƯỢT QUA LỚP 1)
+            // LỚP 2: TẢI FILE TỪ STORAGE BẰNG HÀM DOWNLOAD (SỬ DỤNG AUTH TOKEN ĐỂ VƯỢT RLS)
             document.getElementById('load-status').innerText = "Downloading Scene Data...";
             
-            const { data } = supabaseClient.storage.from(BUCKET).getPublicUrl(`saved_scenes/${sceneId}.json`);
-            const response = await fetch(data.publicUrl + '?t=' + Date.now()); 
+            const { data, error: downloadErr } = await supabaseClient.storage.from(BUCKET).download(`saved_scenes/${sceneId}.json`);
             
-            if (!response.ok) {
+            if (downloadErr || !data) {
                 // Máy chủ Storage từ chối trả file do luật RLS
                 throw new Error("Scene not found or Blocked by Server Security Policy.");
             }
-            const sceneData = await response.json();
+            
+            const textData = await data.text();
+            const sceneData = JSON.parse(textData);
 
             // Ghi lại lịch sử truy cập
             if (currentUser) {
