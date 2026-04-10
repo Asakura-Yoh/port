@@ -179,9 +179,26 @@
             border: 1px solid #444; z-index: 100; min-width: 280px; 
             box-shadow: 0 4px 15px rgba(0,0,0,0.5); backdrop-filter: blur(4px); 
         }
+
+        /* --- CUSTOM UI MODAL --- */
+        #ui-modal { position: absolute; inset: 0; background: rgba(0,0,0,0.85); display: none; justify-content: center; align-items: center; z-index: 5000; backdrop-filter: blur(5px); }
+        .ui-modal-box { background: #1e1e1e; padding: 30px; border-radius: 8px; border: 1px solid #333; width: 400px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
     </style>
 </head>
 <body>
+
+    <!-- CUSTOM UI MODAL DIALOG -->
+    <div id="ui-modal" class="screen">
+        <div class="ui-modal-box">
+            <h3 id="ui-modal-title" style="color:var(--accent); margin-bottom:15px; font-size: 18px;">Notification</h3>
+            <p id="ui-modal-msg" style="font-size:13px; margin-bottom:20px; line-height:1.5; color:#ccc;"></p>
+            <input type="text" id="ui-modal-input" style="display:none; width:100%; margin-bottom:20px; padding:10px; background:#121212; border:1px solid #444; color:#fff; border-radius:4px; outline:none;">
+            <div style="display:flex; gap:10px;">
+                <button id="ui-modal-btn-cancel" class="btn-ui" style="flex:1; background:#444; display:none;">Cancel</button>
+                <button id="ui-modal-btn-ok" class="btn-ui" style="flex:1;">OK</button>
+            </div>
+        </div>
+    </div>
 
     <!-- MÀN HÌNH 1: AUTHENTICATION -->
     <div id="auth-screen" class="screen" style="justify-content:center; align-items:center;">
@@ -191,7 +208,6 @@
             <input type="password" id="auth-pwd" placeholder="Password">
             <button class="btn-ui" onclick="signIn()" style="margin-bottom:10px; padding:12px;">Login</button>
             <button class="btn-ui" onclick="signUp()" style="background:#444; padding:12px;">Create Account</button>
-            <div id="auth-error" style="color:#ff4444; margin-top:15px; font-size:12px; display:none;"></div>
         </div>
     </div>
 
@@ -344,6 +360,7 @@
     // --- GLOBAL VARIABLES ---
     let currentUser = null;
     let userIndex = { my_scenes: [], shared_with_me: [] };
+    let currentSceneId = null; // Biến quản lý ID nội bộ chống lỗi URL
 
     const spineFiles = {};
     const allUploadedFiles = {};
@@ -368,17 +385,56 @@
     const keysDown = new Set();
     const keysJustPressed = new Set();
     
-    // --- KEYBOARD LISTENER ---
+    // --- CUSTOM UI MODAL LOGIC ---
+    function showModal(title, msg, type = 'alert', defaultInput = '') {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('ui-modal');
+            document.getElementById('ui-modal-title').innerText = title;
+            document.getElementById('ui-modal-msg').innerText = msg;
+            
+            const input = document.getElementById('ui-modal-input');
+            const btnCancel = document.getElementById('ui-modal-btn-cancel');
+            const btnOk = document.getElementById('ui-modal-btn-ok');
+
+            input.style.display = type === 'prompt' ? 'block' : 'none';
+            input.value = defaultInput;
+            btnCancel.style.display = (type === 'confirm' || type === 'prompt') ? 'block' : 'none';
+
+            modal.style.display = 'flex';
+
+            btnOk.onclick = () => {
+                modal.style.display = 'none';
+                if (type === 'prompt') resolve(input.value);
+                else resolve(true);
+            };
+
+            btnCancel.onclick = () => {
+                modal.style.display = 'none';
+                if (type === 'prompt') resolve(null);
+                else resolve(false);
+            };
+        });
+    }
+
+    function generateUID() {
+        if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+            return crypto.randomUUID().replace(/-/g, '');
+        }
+        return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+    }
+
     window.addEventListener('keydown', e => {
         if (['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) return;
-        const k = e.key.toLowerCase();
+        if (!e.key) return; 
+        const k = String(e.key).toLowerCase();
         if (!keysDown.has(k)) {
             keysDown.add(k);
             keysJustPressed.add(k);
         }
     });
     window.addEventListener('keyup', e => {
-        keysDown.delete(e.key.toLowerCase());
+        if (!e.key) return; 
+        keysDown.delete(String(e.key).toLowerCase());
     });
 
     window.fireTrigger = function(uid, pName) {
@@ -398,6 +454,7 @@
     async function initSystem() {
         const urlParams = new URLSearchParams(window.location.search);
         const sceneIdParam = urlParams.get('scene');
+        if (sceneIdParam) currentSceneId = sceneIdParam; // Ghi nhận ID ban đầu
 
         const { data: { session } } = await supabaseClient.auth.getSession();
         
@@ -415,7 +472,6 @@
             }
         } else {
             if (sceneIdParam) {
-                // Guest mode: Auto forward to Editor to view shared link
                 showScreen('editor');
                 checkAndLoadSharedScene(sceneIdParam);
             } else {
@@ -442,9 +498,8 @@
     async function signUp() {
         const email = document.getElementById('auth-email').value;
         const password = document.getElementById('auth-pwd').value;
-        const errObj = document.getElementById('auth-error');
         
-        if(!email || !password) { errObj.innerText = "Please enter email and password."; errObj.style.display = 'block'; return; }
+        if(!email || !password) { showModal('Error', "Please enter email and password.", 'alert'); return; }
         
         document.getElementById('load-status').innerText = "Creating account...";
         document.getElementById('loading-overlay').style.display = 'flex';
@@ -454,8 +509,7 @@
         document.getElementById('loading-overlay').style.display = 'none';
 
         if (error) { 
-            errObj.innerText = error.message; 
-            errObj.style.display = 'block'; 
+            showModal('Error', error.message, 'alert');
         } else {
             if (data.session) {
                 currentUser = data.user;
@@ -464,7 +518,7 @@
                 showScreen('dashboard');
                 renderDashboard();
             } else {
-                alert("Registration successful! Please check your email to verify your account.");
+                showModal('Success', "Registration successful! Please check your email to verify your account.", 'alert');
             }
         }
     }
@@ -472,9 +526,8 @@
     async function signIn() {
         const email = document.getElementById('auth-email').value;
         const password = document.getElementById('auth-pwd').value;
-        const errObj = document.getElementById('auth-error');
         
-        if(!email || !password) { errObj.innerText = "Please enter email and password."; errObj.style.display = 'block'; return; }
+        if(!email || !password) { showModal('Error', "Please enter email and password.", 'alert'); return; }
         
         document.getElementById('load-status').innerText = "Signing in...";
         document.getElementById('loading-overlay').style.display = 'flex';
@@ -484,8 +537,7 @@
         document.getElementById('loading-overlay').style.display = 'none';
 
         if (error) { 
-            errObj.innerText = error.message; 
-            errObj.style.display = 'block'; 
+            showModal('Error', error.message, 'alert');
         } else {
             currentUser = data.user;
             await loadUserIndex();
@@ -499,7 +551,25 @@
         await supabaseClient.auth.signOut();
         currentUser = null;
         userIndex = { my_scenes: [], shared_with_me: [] };
-        window.history.pushState({}, '', window.location.pathname);
+        currentSceneId = null; // Dọn dẹp
+        
+        if (window.location.protocol !== 'blob:') {
+            try { 
+                const url = new URL(window.location.href);
+                url.searchParams.delete('scene');
+                window.history.pushState({}, '', url.toString()); 
+            } catch(e) {}
+        }
+        
+        const spines = app.stage.children.filter(c => c.isSpine);
+        spines.forEach(c => {
+            const dom = document.getElementById(c.uid);
+            if(dom) dom.remove();
+            app.stage.removeChild(c);
+        });
+        activeObj = null;
+        checkEmptyState();
+        
         showScreen('auth');
     }
 
@@ -541,9 +611,15 @@
 
     function renderDashboard() {
         const gridMy = document.getElementById('grid-my-scenes');
-        const createBtnHTML = gridMy.innerHTML.split('<!-- Danh sách')[0]; 
         
-        let myScenesHTML = createBtnHTML;
+        // SỬA LỖI NHÂN BẢN: Hardcode lại nút Create thay vì lấy từ HTML cũ
+        let myScenesHTML = `
+            <div class="btn-create-new" onclick="createNewScene()">
+                <span style="font-size:30px; margin-bottom:10px;">+</span>
+                <span>Create New Scene</span>
+            </div>
+        `;
+        
         userIndex.my_scenes.forEach((sc, idx) => {
             myScenesHTML += `
                 <div class="scene-card">
@@ -580,19 +656,64 @@
     }
 
     function openScene(id) {
-        window.location.href = '?scene=' + id;
+        currentSceneId = id; // Ghi nhận ID khi mở
+        if (window.location.protocol !== 'blob:') {
+            try {
+                const url = new URL(window.location.href);
+                url.searchParams.set('scene', id);
+                window.history.pushState({}, '', url.toString());
+            } catch(e) {}
+        }
+
+        const spines = app.stage.children.filter(c => c.isSpine);
+        spines.forEach(c => {
+            const dom = document.getElementById(c.uid);
+            if(dom) dom.remove();
+            app.stage.removeChild(c);
+        });
+        activeObj = null;
+        checkEmptyState();
+        
+        showScreen('editor');
+        checkAndLoadSharedScene(id);
     }
 
     function createNewScene() {
-        window.location.href = window.location.pathname; 
+        currentSceneId = null; // Xóa ID để hệ thống biết đây là đồ mới
+        try { window.history.pushState({}, '', window.location.pathname); } catch(e) {}
+        
+        const spines = app.stage.children.filter(c => c.isSpine);
+        spines.forEach(c => {
+            const dom = document.getElementById(c.uid);
+            if(dom) dom.remove();
+            app.stage.removeChild(c);
+        });
+        activeObj = null;
+        checkEmptyState();
+        
+        showScreen('editor');
     }
     
     function goToDashboard() {
-        window.location.href = window.location.pathname; 
+        currentSceneId = null; // Dọn dẹp
+        try { window.history.pushState({}, '', window.location.pathname); } catch(e) {}
+        
+        const spines = app.stage.children.filter(c => c.isSpine);
+        spines.forEach(c => {
+            const dom = document.getElementById(c.uid);
+            if(dom) dom.remove();
+            app.stage.removeChild(c);
+        });
+        activeObj = null;
+        checkEmptyState();
+        
+        showScreen('dashboard');
+        renderDashboard();
     }
 
     async function deleteMyScene(id, idx) {
-        if(!confirm("Are you sure you want to permanently delete this scene? Links shared with others will be broken.")) return;
+        const confirmed = await showModal('Confirm Delete', "Are you sure you want to permanently delete this scene? Links shared with others will be broken.", 'confirm');
+        if(!confirmed) return;
         
         document.getElementById('load-status').innerText = "Deleting Scene...";
         document.getElementById('loading-overlay').style.display = 'flex';
@@ -607,7 +728,9 @@
     }
 
     async function removeSharedScene(idx) {
-        if(!confirm("Remove this scene from your list? (The actual scene will not be deleted)")) return;
+        const confirmed = await showModal('Confirm Remove', "Remove this scene from your list? (The actual scene will not be deleted)", 'confirm');
+        if(!confirmed) return;
+
         userIndex.shared_with_me.splice(idx, 1);
         await saveUserIndex();
         renderDashboard();
@@ -649,7 +772,7 @@
 
                     if (isPlaying && !isDraggingTimeline && child.animatorParams) {
                         child.animatorParams.forEach(p => {
-                            if (p.type === 'trigger' && p.key && keysJustPressed.has(p.key.toLowerCase())) {
+                            if (p.type === 'trigger' && p.key && keysJustPressed.has(String(p.key).toLowerCase())) {
                                 p.value = true;
                             }
                         });
@@ -872,7 +995,7 @@
         files.forEach(f => {
             const match = f.name.match(/\.(json|skel|atlas|png|jpg|jpeg)$/i);
             if (match) {
-                const ext = match[1].toLowerCase();
+                const ext = match[1]?.toLowerCase();
                 if (ext === 'json') group.json = f;
                 else if (ext === 'skel') group.skel = f;
                 else if (ext === 'atlas') newAtlasFile = f;
@@ -897,7 +1020,7 @@
         if (group.ready) {
             await executeLiveUpdate(currentUpdateId);
         } else {
-            alert("Missing image files required by the new Atlas file.");
+            showModal('Error', "Missing image files required by the new Atlas file.", 'alert');
             document.getElementById('loading-overlay').style.display = 'none';
         }
         fUpdate.value = ""; 
@@ -953,36 +1076,45 @@
         createTreeDOM(root, listContainer);
     }
 
+    // --- REVERT TO SUPABASE UPLOAD (ROBUST, NO BLOB URLS) ---
     async function uploadAndAdd(id) {
-        document.getElementById('load-status').innerText = "Processing Local Assets...";
+        if (!currentUser) {
+            showModal('Warning', "You must be logged in to upload and preview new assets. This ensures the security of the server.", 'alert');
+            return;
+        }
+
+        document.getElementById('load-status').innerText = "Uploading & Parsing Assets via Cloud...";
         document.getElementById('loading-overlay').style.display = 'flex';
         try {
             const group = spineFiles[id];
-            const uid = crypto.randomUUID().split('-')[0];
+            const uid = generateUID().substring(0, 8);
+            const cleanId = id.replace(/[^a-zA-Z0-9_-]/g, '');
+            const folder = `${cleanId}_${uid}/`;
 
             const pngUrls = [];
-            let atlasText = await group.atlas.text();
-
             for (const pngFile of group.pngs) {
-                const blobUrl = URL.createObjectURL(pngFile);
-                pngUrls.push(blobUrl);
-                const escapedName = pngFile.name.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
-                atlasText = atlasText.replace(new RegExp('^' + escapedName + '(\\r?)$', 'gm'), blobUrl + '$1');
+                await supabaseClient.storage.from(BUCKET).upload(folder + pngFile.name, pngFile);
+                const url = supabaseClient.storage.from(BUCKET).getPublicUrl(folder + pngFile.name).data.publicUrl;
+                pngUrls.push(url);
             }
 
-            const atlasBlob = new Blob([atlasText], { type: 'text/plain' });
-            const atlasUrl = URL.createObjectURL(atlasBlob);
+            await supabaseClient.storage.from(BUCKET).upload(folder + group.atlas.name, group.atlas);
+            const atlasUrl = supabaseClient.storage.from(BUCKET).getPublicUrl(folder + group.atlas.name).data.publicUrl;
 
             const dataFile = group.json || group.skel;
-            const dataUrl = URL.createObjectURL(dataFile);
+            await supabaseClient.storage.from(BUCKET).upload(folder + dataFile.name, dataFile);
+            const dataUrl = supabaseClient.storage.from(BUCKET).getPublicUrl(folder + dataFile.name).data.publicUrl;
 
             const atlasKey = `at_${uid}`;
             const dataKey = `sk_${uid}`;
+            
             PIXI.Assets.add({ alias: atlasKey, src: atlasUrl, format: '.atlas' });
             PIXI.Assets.add({ alias: dataKey, src: dataUrl, format: group.json ? '.json' : '.skel' });
             
             await PIXI.Assets.load([atlasKey, dataKey]);
+            
             const spineObj = spine.Spine.from({ skeleton: dataKey, atlas: atlasKey });
+            if (!spineObj || !spineObj.skeleton) throw new Error("Skeleton data is null. Unsupported format or corrupted file.");
             
             spineObj.skeletonKey = dataKey;
             spineObj.atlasKey = atlasKey;
@@ -992,36 +1124,42 @@
             spineObj.urls = { atlasUrl: atlasUrl, dataUrl: dataUrl, pngUrls: pngUrls };
             
             spawn(spineObj, group.name, id);
-        } catch (e) { alert(e.message); }
+        } catch (e) { showModal('Error', e.message, 'alert'); }
         document.getElementById('loading-overlay').style.display = 'none';
     }
 
     async function executeLiveUpdate(id) {
-        document.getElementById('load-status').innerText = "Updating Asset in Scene...";
+        if (!currentUser) {
+            showModal('Warning', "You must be logged in to update assets.", 'alert');
+            return;
+        }
+
+        document.getElementById('load-status').innerText = "Uploading Update via Cloud...";
         document.getElementById('loading-overlay').style.display = 'flex';
         
         try {
             const group = spineFiles[id];
-            const uid = crypto.randomUUID().split('-')[0];
+            const uid = generateUID().substring(0, 8);
+            const cleanId = id.replace(/[^a-zA-Z0-9_-]/g, '');
+            const folder = `${cleanId}_update_${uid}/`;
 
             const pngUrls = [];
-            let atlasText = await group.atlas.text();
-
             for (const pngFile of group.pngs) {
-                const blobUrl = URL.createObjectURL(pngFile);
-                pngUrls.push(blobUrl);
-                const escapedName = pngFile.name.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
-                atlasText = atlasText.replace(new RegExp('^' + escapedName + '(\\r?)$', 'gm'), blobUrl + '$1');
+                await supabaseClient.storage.from(BUCKET).upload(folder + pngFile.name, pngFile);
+                const url = supabaseClient.storage.from(BUCKET).getPublicUrl(folder + pngFile.name).data.publicUrl;
+                pngUrls.push(url);
             }
 
-            const atlasBlob = new Blob([atlasText], { type: 'text/plain' });
-            const atlasUrl = URL.createObjectURL(atlasBlob);
+            await supabaseClient.storage.from(BUCKET).upload(folder + group.atlas.name, group.atlas);
+            const atlasUrl = supabaseClient.storage.from(BUCKET).getPublicUrl(folder + group.atlas.name).data.publicUrl;
 
             const dataFile = group.json || group.skel;
-            const dataUrl = URL.createObjectURL(dataFile);
+            await supabaseClient.storage.from(BUCKET).upload(folder + dataFile.name, dataFile);
+            const dataUrl = supabaseClient.storage.from(BUCKET).getPublicUrl(folder + dataFile.name).data.publicUrl;
 
             const atlasKey = `at_${uid}`;
             const dataKey = `sk_${uid}`;
+            
             PIXI.Assets.add({ alias: atlasKey, src: atlasUrl, format: '.atlas' });
             PIXI.Assets.add({ alias: dataKey, src: dataUrl, format: group.json ? '.json' : '.skel' });
             
@@ -1061,7 +1199,7 @@
 
             reorderDOMBasedOnZIndex();
 
-        } catch (e) { alert(e.message); }
+        } catch (e) { showModal('Error', e.message, 'alert'); }
         document.getElementById('loading-overlay').style.display = 'none';
     }
 
@@ -1072,23 +1210,29 @@
 
         btnShare.onclick = async () => {
             const spines = app.stage.children.filter(c => c.isSpine);
-            if (spines.length === 0) { alert("Scene is empty! Add some assets first."); return; }
+            if (spines.length === 0) { showModal('Warning', "Scene is empty! Add some assets first.", 'alert'); return; }
             
-            if (!currentUser) { alert("You are in Guest Mode. Please login to save scenes!"); return; }
+            if (!currentUser) { showModal('Warning', "You are in Guest Mode. Please login to save scenes!", 'alert'); return; }
 
-            const urlParams = new URLSearchParams(window.location.search);
-            const existingId = urlParams.get('scene');
+            let existingId = null;
             let sceneName = "Untitled Scene";
 
-            if (!existingId) {
-                sceneName = prompt("Enter a name for this scene:", "My New Scene");
-                if (!sceneName) return; 
-            } else {
-                const existingInfo = userIndex.my_scenes.find(s => s.id === existingId);
-                if (existingInfo) sceneName = existingInfo.name;
+            // KIỂM TRA QUYỀN SỞ HỮU SCENE
+            if (currentSceneId) {
+                const existingInfo = userIndex.my_scenes.find(s => s.id === currentSceneId);
+                if (existingInfo) {
+                    existingId = currentSceneId; // Là đồ của mình -> Ghi đè
+                    sceneName = existingInfo.name;
+                }
             }
 
-            document.getElementById('load-status').innerText = "Saving & Uploading Assets to Cloud...";
+            if (!existingId) {
+                // Scene mới tinh HOẶC Scene của người khác (Fork/Save As)
+                sceneName = await showModal('Save Scene', "Enter a name for this scene:", 'prompt', "My New Scene");
+                if (!sceneName) return; 
+            }
+
+            document.getElementById('load-status').innerText = "Saving Scene to Cloud...";
             document.getElementById('loading-overlay').style.display = 'flex';
 
             try {
@@ -1098,30 +1242,8 @@
                 const uniqueAssetIds = [...new Set(spines.map(c => c.baseAssetId))];
 
                 for (const assetId of uniqueAssetIds) {
-                    const group = spineFiles[assetId];
-                    if (group && group.pngs && group.pngs[0].name !== 'loaded') {
-                        const uid = crypto.randomUUID().split('-')[0];
-                        const cleanId = assetId.replace(/[^a-zA-Z0-9_-]/g, '');
-                        const folder = `${cleanId}_share_${uid}/`;
-
-                        const supPngUrls = [];
-                        for (const pngFile of group.pngs) {
-                            await supabaseClient.storage.from(BUCKET).upload(folder + pngFile.name, pngFile);
-                            supPngUrls.push(supabaseClient.storage.from(BUCKET).getPublicUrl(folder + pngFile.name).data.publicUrl);
-                        }
-
-                        await supabaseClient.storage.from(BUCKET).upload(folder + group.atlas.name, group.atlas);
-                        const atlasUrl = supabaseClient.storage.from(BUCKET).getPublicUrl(folder + group.atlas.name).data.publicUrl;
-
-                        const dataFile = group.json || group.skel;
-                        await supabaseClient.storage.from(BUCKET).upload(folder + dataFile.name, dataFile);
-                        const dataUrl = supabaseClient.storage.from(BUCKET).getPublicUrl(folder + dataFile.name).data.publicUrl;
-
-                        assetsMap[assetId] = { atlasUrl: atlasUrl, dataUrl: dataUrl, pngUrls: supPngUrls };
-                    } else {
-                        const repInst = spines.find(c => c.baseAssetId === assetId);
-                        assetsMap[assetId] = repInst.urls;
-                    }
+                    const repInst = spines.find(c => c.baseAssetId === assetId);
+                    assetsMap[assetId] = repInst.urls; // Use URLs already uploaded by uploadAndAdd
                 }
 
                 spines.forEach(c => {
@@ -1145,7 +1267,8 @@
                 const jsonString = JSON.stringify(sceneData);
                 const blob = new Blob([jsonString], {type: "application/json"});
                 
-                const sceneId = existingId ? existingId : 'sc_' + crypto.randomUUID().replace(/-/g, ''); 
+                const sceneId = existingId ? existingId : 'sc_' + generateUID(); 
+                currentSceneId = sceneId; // Khóa chặt ID hiện tại vào biến nhớ
 
                 await supabaseClient.storage.from(BUCKET).upload(`saved_scenes/${sceneId}.json`, blob, { upsert: true });
 
@@ -1157,16 +1280,25 @@
                 }
                 await saveUserIndex();
 
-                if (!existingId) {
+                // KHẮC PHỤC LỖI TẠO LINK CHIA SẺ TRONG MÔI TRƯỜNG BLOB
+                let finalShareUrl = "";
+                if (window.location.protocol === 'blob:') {
+                    // Môi trường giả lập Canvas: Hardcode tạm domain thật của bạn
+                    finalShareUrl = `https://rigandroll.net/?scene=${sceneId}`;
+                } else {
+                    // Môi trường thật: Tự động lấy domain hiện tại (GitHub Pages, v.v.)
                     const url = new URL(window.location.href);
                     url.searchParams.set('scene', sceneId);
-                    window.history.pushState({}, '', url);
+                    finalShareUrl = url.toString();
+                    if (!existingId) {
+                        try { window.history.pushState({}, '', finalShareUrl); } catch(e) {}
+                    }
                 }
                 
-                shareInput.value = window.location.href;
+                shareInput.value = finalShareUrl;
                 document.getElementById('share-modal').style.display = 'flex';
 
-            } catch (e) { alert("Failed to save scene: " + e.message); }
+            } catch (e) { showModal('Error', "Failed to save scene: " + e.message, 'alert'); }
             document.getElementById('loading-overlay').style.display = 'none';
         };
 
@@ -1204,7 +1336,7 @@
                     json: { name: 'loaded' }, atlas: { name: 'loaded' }, pngs: [{ name: 'loaded' }], ready: true
                 };
 
-                const ext = urls.dataUrl.toLowerCase().includes('.skel') ? '.skel' : '.json';
+                const ext = urls.dataUrl?.toLowerCase().includes('.skel') ? '.skel' : '.json';
                 PIXI.Assets.add({ alias: `at_${assetId}`, src: urls.atlasUrl, format: '.atlas' });
                 PIXI.Assets.add({ alias: `sk_${assetId}`, src: urls.dataUrl, format: ext });
                 await PIXI.Assets.load([`at_${assetId}`, `sk_${assetId}`]);
@@ -1223,7 +1355,7 @@
 
             reorderDOMBasedOnZIndex();
             
-        } catch (e) { alert("Error loading shared scene: " + e.message); }
+        } catch (e) { showModal('Error', "Error loading shared scene: " + e.message, 'alert'); }
         
         document.getElementById('loading-overlay').style.display = 'none';
     }
@@ -1295,7 +1427,7 @@
                 let options = { mimeType: 'video/webm; codecs=vp9' };
                 if (!MediaRecorder.isTypeSupported(options.mimeType)) options = { mimeType: 'video/webm' };
                 try { mediaRecorder = new MediaRecorder(stream, options); } 
-                catch (e) { alert("Browser not supported for recording."); return; }
+                catch (e) { showModal('Error', "Browser not supported for recording.", 'alert'); return; }
                 mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
                 mediaRecorder.onstop = () => {
                     const blob = new Blob(recordedChunks, { type: options.mimeType });
@@ -1382,11 +1514,10 @@
             obj.activeSkins = restoreState.skins ? [...restoreState.skins] : [];
             if(!obj.urls && restoreState.urls) obj.urls = restoreState.urls;
             
-            // Kế thừa Animator Config
             obj.animatorParams = restoreState.animatorParams ? JSON.parse(JSON.stringify(restoreState.animatorParams)) : [];
             obj.animatorRules = restoreState.animatorRules ? JSON.parse(JSON.stringify(restoreState.animatorRules)) : [];
         } else {
-            obj.uid = 'spine_' + crypto.randomUUID();
+            obj.uid = 'spine_' + generateUID();
             obj.x = LOGICAL_WIDTH / 2; obj.y = LOGICAL_HEIGHT / 2;
             obj.visible = true; obj.attachedParentUid = null; obj.attachedBoneName = null;
             
@@ -1718,7 +1849,7 @@
             });
 
             const stateForClone = {
-                uid: 'spine_' + crypto.randomUUID(),
+                uid: 'spine_' + generateUID(),
                 x: obj.x, y: obj.y, 
                 scaleX: obj.scale.x, scaleY: obj.scale.y,
                 zIndex: obj.zIndex, visible: obj.visible,
@@ -1790,7 +1921,7 @@
     // ==========================================
     // LOGIC CHO BẢNG FSM ANIMATOR CONFIG
     // ==========================================
-    function openAnimatorConfig(obj) {
+    async function openAnimatorConfig(obj) {
         configObj = obj;
         document.getElementById('animator-target-name').innerText = `[${obj.name}]`;
         document.getElementById('animator-modal').style.display = 'flex';
@@ -1804,12 +1935,12 @@
         updateLiveDashboard();
     }
 
-    function addFsmParam(type) {
+    async function addFsmParam(type) {
         if (!configObj) return;
         const nameInput = document.getElementById('fsm-new-param-name');
         const pName = nameInput.value.trim();
-        if (!pName) return alert("Please enter a Parameter name.");
-        if (configObj.animatorParams.some(p => p.name === pName)) return alert("Parameter name already exists!");
+        if (!pName) { showModal('Error', "Please enter a Parameter name.", 'alert'); return; }
+        if (configObj.animatorParams.some(p => p.name === pName)) { showModal('Error', "Parameter name already exists!", 'alert'); return; }
         
         configObj.animatorParams.push({ name: pName, type: type, value: type === 'bool' ? false : 0, key: '' });
         nameInput.value = '';
@@ -1861,12 +1992,12 @@
     }
     
     function updateFsmParamKey(idx, val) {
-        if(configObj && configObj.animatorParams[idx]) configObj.animatorParams[idx].key = val.toLowerCase();
+        if(configObj && configObj.animatorParams[idx]) configObj.animatorParams[idx].key = val ? String(val).toLowerCase() : '';
     }
 
-    function addFsmRule() {
+    async function addFsmRule() {
         if (!configObj) return;
-        if (configObj.animatorParams.length === 0) return alert("You must create a Parameter before adding a Rule.");
+        if (configObj.animatorParams.length === 0) { showModal('Error', "You must create a Parameter before adding a Rule.", 'alert'); return; }
         
         const defaultAnim = configObj.skeleton.data.animations[0] ? configObj.skeleton.data.animations[0].name : '';
         configObj.animatorRules.push({
