@@ -180,15 +180,15 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.5); backdrop-filter: blur(4px); 
         }
 
-        /* --- CUSTOM UI MODAL --- */
-        #ui-modal { position: absolute; inset: 0; background: rgba(0,0,0,0.85); display: none; justify-content: center; align-items: center; z-index: 5000; backdrop-filter: blur(5px); }
+        /* --- CUSTOM UI MODALS --- */
+        .ui-modal-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.85); display: none; justify-content: center; align-items: center; z-index: 5000; backdrop-filter: blur(5px); }
         .ui-modal-box { background: #1e1e1e; padding: 30px; border-radius: 8px; border: 1px solid #333; width: 400px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
     </style>
 </head>
 <body>
 
     <!-- CUSTOM UI MODAL DIALOG -->
-    <div id="ui-modal" class="screen">
+    <div id="ui-modal" class="ui-modal-overlay screen">
         <div class="ui-modal-box">
             <h3 id="ui-modal-title" style="color:var(--accent); margin-bottom:15px; font-size: 18px;">Notification</h3>
             <p id="ui-modal-msg" style="font-size:13px; margin-bottom:20px; line-height:1.5; color:#ccc;"></p>
@@ -196,6 +196,29 @@
             <div style="display:flex; gap:10px;">
                 <button id="ui-modal-btn-cancel" class="btn-ui" style="flex:1; background:#444; display:none;">Cancel</button>
                 <button id="ui-modal-btn-ok" class="btn-ui" style="flex:1;">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MÀN HÌNH SAVE & SHARE SETTINGS CHUYÊN SÂU -->
+    <div id="share-settings-modal" class="ui-modal-overlay screen">
+        <div class="ui-modal-box">
+            <h3 style="color:var(--accent); margin-bottom:15px; font-size: 18px;">Save & Share Settings</h3>
+            
+            <div style="text-align:left; margin-bottom:15px;">
+                <label style="font-size:11px; color:#888; text-transform:uppercase; font-weight:bold;">Scene Name</label>
+                <input type="text" id="share-input-name" style="width:100%; padding:10px; background:#121212; border:1px solid #444; color:#fff; border-radius:4px; margin-top:5px; outline:none;" placeholder="My Awesome Scene">
+            </div>
+            
+            <div style="text-align:left; margin-bottom:25px;">
+                <label style="font-size:11px; color:#888; text-transform:uppercase; font-weight:bold;">Allowed Emails (Access Control)</label>
+                <p style="font-size:10px; color:#666; margin-top:3px; margin-bottom:5px;">Enter email addresses separated by commas. Leave empty to allow anyone with the link to view.</p>
+                <input type="text" id="share-input-emails" placeholder="e.g. client@gmail.com, boss@studio.com" style="width:100%; padding:10px; background:#121212; border:1px solid #444; color:#fff; border-radius:4px; outline:none;">
+            </div>
+
+            <div style="display:flex; gap:10px;">
+                <button id="share-btn-cancel" class="btn-ui" style="flex:1; background:#444;">Cancel</button>
+                <button id="share-btn-save" class="btn-ui" style="flex:1; background:#2e7d32;">Confirm & Save</button>
             </div>
         </div>
     </div>
@@ -228,10 +251,7 @@
             </div>
 
             <div id="grid-my-scenes" class="scene-grid">
-                <div class="btn-create-new" onclick="createNewScene()">
-                    <span style="font-size:30px; margin-bottom:10px;">+</span>
-                    <span>Create New Scene</span>
-                </div>
+                <!-- Sẽ được vẽ bằng JS (Đã sửa lỗi nhân bản HTML) -->
             </div>
 
             <div id="grid-shared-scenes" class="scene-grid" style="display:none;">
@@ -300,7 +320,7 @@
             <div id="share-modal">
                 <div class="modal-content">
                     <h3 style="color:var(--accent); margin-bottom:10px;">🎉 Scene Saved Successfully!</h3>
-                    <p style="font-size:13px; color:#aaa;">Anyone with this link can view this exact scene arrangement.</p>
+                    <p style="font-size:13px; color:#aaa;">Share this link to collaborate or preview.</p>
                     <input type="text" id="share-link-input" readonly>
                     <div style="display:flex; gap:10px;">
                         <button class="btn-ui" id="btn-copy-link" style="flex:2;">Copy Link</button>
@@ -360,7 +380,7 @@
     // --- GLOBAL VARIABLES ---
     let currentUser = null;
     let userIndex = { my_scenes: [], shared_with_me: [] };
-    let currentSceneId = null; // Biến quản lý ID nội bộ chống lỗi URL
+    let currentSceneId = null; 
 
     const spineFiles = {};
     const allUploadedFiles = {};
@@ -416,6 +436,33 @@
         });
     }
 
+    // --- CUSTOM SHARE SETTINGS MODAL LOGIC ---
+    function showShareSettingsModal(defaultName) {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('share-settings-modal');
+            document.getElementById('share-input-name').value = defaultName;
+            document.getElementById('share-input-emails').value = '';
+            
+            modal.style.display = 'flex';
+
+            document.getElementById('share-btn-save').onclick = () => {
+                modal.style.display = 'none';
+                const nameVal = document.getElementById('share-input-name').value.trim() || 'Untitled Scene';
+                const emailsStr = document.getElementById('share-input-emails').value;
+                const emailsArray = emailsStr.split(',')
+                                        .map(e => e.trim().toLowerCase())
+                                        .filter(e => e !== '');
+
+                resolve({ name: nameVal, emails: emailsArray });
+            };
+
+            document.getElementById('share-btn-cancel').onclick = () => {
+                modal.style.display = 'none';
+                resolve(null);
+            };
+        });
+    }
+
     function generateUID() {
         if (typeof crypto !== 'undefined' && crypto.randomUUID) {
             return crypto.randomUUID().replace(/-/g, '');
@@ -454,7 +501,7 @@
     async function initSystem() {
         const urlParams = new URLSearchParams(window.location.search);
         const sceneIdParam = urlParams.get('scene');
-        if (sceneIdParam) currentSceneId = sceneIdParam; // Ghi nhận ID ban đầu
+        if (sceneIdParam) currentSceneId = sceneIdParam;
 
         const { data: { session } } = await supabaseClient.auth.getSession();
         
@@ -551,7 +598,7 @@
         await supabaseClient.auth.signOut();
         currentUser = null;
         userIndex = { my_scenes: [], shared_with_me: [] };
-        currentSceneId = null; // Dọn dẹp
+        currentSceneId = null; 
         
         if (window.location.protocol !== 'blob:') {
             try { 
@@ -591,7 +638,7 @@
     async function saveUserIndex() {
         if (!currentUser) return;
         const blob = new Blob([JSON.stringify(userIndex)], {type: "application/json"});
-        await supabaseClient.storage.from(BUCKET).upload(`users/${currentUser.id}/index.json`, blob, { upsert: true });
+        await supabaseClient.storage.from(BUCKET).upload(`users/${currentUser.id}/index.json`, blob, { upsert: true, cacheControl: '0' });
     }
 
     function switchDashTab(tabName) {
@@ -612,7 +659,6 @@
     function renderDashboard() {
         const gridMy = document.getElementById('grid-my-scenes');
         
-        // SỬA LỖI NHÂN BẢN: Hardcode lại nút Create thay vì lấy từ HTML cũ
         let myScenesHTML = `
             <div class="btn-create-new" onclick="createNewScene()">
                 <span style="font-size:30px; margin-bottom:10px;">+</span>
@@ -621,9 +667,15 @@
         `;
         
         userIndex.my_scenes.forEach((sc, idx) => {
+            // Hiển thị thêm badge cho Private Scene
+            let badge = '';
+            if (sc.allowedEmails && sc.allowedEmails.length > 0) {
+                badge = `<span style="background:#8b2a2a; color:#fff; font-size:9px; padding:2px 6px; border-radius:10px; margin-left:8px; vertical-align:middle;">🔒 Private</span>`;
+            }
+
             myScenesHTML += `
                 <div class="scene-card">
-                    <div class="scene-title">${sc.name}</div>
+                    <div class="scene-title">${sc.name} ${badge}</div>
                     <div class="scene-date">Last updated: ${sc.date}</div>
                     <div class="scene-actions">
                         <button class="btn-ui" style="flex:1;" onclick="openScene('${sc.id}')">Open Editor</button>
@@ -656,7 +708,7 @@
     }
 
     function openScene(id) {
-        currentSceneId = id; // Ghi nhận ID khi mở
+        currentSceneId = id; 
         if (window.location.protocol !== 'blob:') {
             try {
                 const url = new URL(window.location.href);
@@ -679,8 +731,14 @@
     }
 
     function createNewScene() {
-        currentSceneId = null; // Xóa ID để hệ thống biết đây là đồ mới
-        try { window.history.pushState({}, '', window.location.pathname); } catch(e) {}
+        currentSceneId = null; 
+        if (window.location.protocol !== 'blob:') {
+            try { 
+                const url = new URL(window.location.href);
+                url.searchParams.delete('scene');
+                window.history.pushState({}, '', url.toString()); 
+            } catch(e) {}
+        }
         
         const spines = app.stage.children.filter(c => c.isSpine);
         spines.forEach(c => {
@@ -695,8 +753,14 @@
     }
     
     function goToDashboard() {
-        currentSceneId = null; // Dọn dẹp
-        try { window.history.pushState({}, '', window.location.pathname); } catch(e) {}
+        currentSceneId = null; 
+        if (window.location.protocol !== 'blob:') {
+            try { 
+                const url = new URL(window.location.href);
+                url.searchParams.delete('scene');
+                window.history.pushState({}, '', url.toString()); 
+            } catch(e) {}
+        }
         
         const spines = app.stage.children.filter(c => c.isSpine);
         spines.forEach(c => {
@@ -721,7 +785,9 @@
         userIndex.my_scenes.splice(idx, 1);
         await saveUserIndex();
         
+        // Dọn dẹp cả Storage và bảng Permissions
         await supabaseClient.storage.from(BUCKET).remove([`saved_scenes/${id}.json`]);
+        await supabaseClient.from('scene_permissions').delete().eq('scene_id', id);
         
         document.getElementById('loading-overlay').style.display = 'none';
         renderDashboard();
@@ -1076,7 +1142,7 @@
         createTreeDOM(root, listContainer);
     }
 
-    // --- REVERT TO SUPABASE UPLOAD (ROBUST, NO BLOB URLS) ---
+    // --- UPLOAD DIRECTLY TO SUPABASE (NO BLOB URLs FOR PIXI) ---
     async function uploadAndAdd(id) {
         if (!currentUser) {
             showModal('Warning', "You must be logged in to upload and preview new assets. This ensures the security of the server.", 'alert');
@@ -1216,20 +1282,25 @@
 
             let existingId = null;
             let sceneName = "Untitled Scene";
+            let allowedEmails = [];
 
-            // KIỂM TRA QUYỀN SỞ HỮU SCENE
+            // KIỂM TRA QUYỀN SỞ HỮU SCENE ĐỂ GHI ĐÈ
             if (currentSceneId) {
                 const existingInfo = userIndex.my_scenes.find(s => s.id === currentSceneId);
                 if (existingInfo) {
                     existingId = currentSceneId; // Là đồ của mình -> Ghi đè
                     sceneName = existingInfo.name;
+                    allowedEmails = existingInfo.allowedEmails || [];
                 }
             }
 
+            // LẦN ĐẦU TIÊN LƯU HOẶC LƯU BẢN SAO (FORK) TỪ NGƯỜI KHÁC
             if (!existingId) {
-                // Scene mới tinh HOẶC Scene của người khác (Fork/Save As)
-                sceneName = await showModal('Save Scene', "Enter a name for this scene:", 'prompt', "My New Scene");
-                if (!sceneName) return; 
+                const settings = await showShareSettingsModal("My New Scene");
+                if (!settings) return; // Hủy lưu
+                
+                sceneName = settings.name;
+                allowedEmails = settings.emails;
             }
 
             document.getElementById('load-status').innerText = "Saving Scene to Cloud...";
@@ -1243,7 +1314,7 @@
 
                 for (const assetId of uniqueAssetIds) {
                     const repInst = spines.find(c => c.baseAssetId === assetId);
-                    assetsMap[assetId] = repInst.urls; // Use URLs already uploaded by uploadAndAdd
+                    assetsMap[assetId] = repInst.urls;
                 }
 
                 spines.forEach(c => {
@@ -1263,30 +1334,48 @@
                     });
                 });
 
-                const sceneData = { assets: assetsMap, instances: instances };
+                // ĐÓNG GÓI JSON (Loại bỏ các email ra khỏi file JSON công khai)
+                const sceneData = { 
+                    assets: assetsMap, 
+                    instances: instances 
+                };
+                
                 const jsonString = JSON.stringify(sceneData);
                 const blob = new Blob([jsonString], {type: "application/json"});
                 
                 const sceneId = existingId ? existingId : 'sc_' + generateUID(); 
-                currentSceneId = sceneId; // Khóa chặt ID hiện tại vào biến nhớ
+                currentSceneId = sceneId; 
 
-                await supabaseClient.storage.from(BUCKET).upload(`saved_scenes/${sceneId}.json`, blob, { upsert: true });
+                // LƯU FILE LÊN STORAGE
+                await supabaseClient.storage.from(BUCKET).upload(`saved_scenes/${sceneId}.json`, blob, { upsert: true, cacheControl: '0' });
 
+                // BẢO MẬT: LƯU EMAIL VÀO DATABASE BẢNG SCENE_PERMISSIONS
+                const emailsStr = allowedEmails.join(',');
+                await supabaseClient.from('scene_permissions').upsert({
+                    scene_id: sceneId,
+                    owner_email: currentUser.email,
+                    allowed_emails: emailsStr
+                });
+
+                // Cập nhật Database cá nhân
                 let idx = userIndex.my_scenes.findIndex(s => s.id === sceneId);
                 if (idx >= 0) {
                     userIndex.my_scenes[idx].date = new Date().toLocaleDateString();
+                    userIndex.my_scenes[idx].allowedEmails = allowedEmails; 
                 } else {
-                    userIndex.my_scenes.push({ id: sceneId, name: sceneName, date: new Date().toLocaleDateString() });
+                    userIndex.my_scenes.push({ 
+                        id: sceneId, 
+                        name: sceneName, 
+                        date: new Date().toLocaleDateString(),
+                        allowedEmails: allowedEmails
+                    });
                 }
                 await saveUserIndex();
 
-                // KHẮC PHỤC LỖI TẠO LINK CHIA SẺ TRONG MÔI TRƯỜNG BLOB
                 let finalShareUrl = "";
                 if (window.location.protocol === 'blob:') {
-                    // Môi trường giả lập Canvas: Hardcode tạm domain thật của bạn
                     finalShareUrl = `https://rigandroll.net/?scene=${sceneId}`;
                 } else {
-                    // Môi trường thật: Tự động lấy domain hiện tại (GitHub Pages, v.v.)
                     const url = new URL(window.location.href);
                     url.searchParams.set('scene', sceneId);
                     finalShareUrl = url.toString();
@@ -1309,16 +1398,46 @@
     }
 
     async function checkAndLoadSharedScene(sceneId) {
-        document.getElementById('load-status').innerText = "Downloading Shared Scene...";
+        document.getElementById('load-status').innerText = "Verifying Access Permissions...";
         document.getElementById('loading-overlay').style.display = 'flex';
 
         try {
-            const { data } = supabaseClient.storage.from(BUCKET).getPublicUrl(`saved_scenes/${sceneId}.json`);
-            const response = await fetch(data.publicUrl);
+            // LỚP 1: KIỂM TRA QUYỀN TỪ DATABASE TRƯỚC (APP-LEVEL SECURITY ĐỂ BÁO LỖI UI)
+            const { data: permData, error: permErr } = await supabaseClient
+                .from('scene_permissions')
+                .select('*')
+                .eq('scene_id', sceneId)
+                .single();
+
+            if (permData && permData.allowed_emails && permData.allowed_emails.trim() !== '') {
+                const allowed = permData.allowed_emails.split(',').map(e => e.trim().toLowerCase());
+                if (!currentUser) {
+                    document.getElementById('loading-overlay').style.display = 'none';
+                    await showModal('Private Scene', "This is a private scene. Please log in to view it.", 'alert');
+                    showScreen('auth');
+                    return;
+                }
+                if (currentUser.email !== permData.owner_email && !allowed.includes(currentUser.email)) {
+                    document.getElementById('loading-overlay').style.display = 'none';
+                    await showModal('Access Denied', "Your account does not have permission to view this scene.", 'alert');
+                    goToDashboard();
+                    return;
+                }
+            }
+
+            // LỚP 2: TẢI FILE TỪ STORAGE (MÁY CHỦ SẼ TỰ ĐỘNG CHẶN NẾU HACKER CỐ VƯỢT QUA LỚP 1)
+            document.getElementById('load-status').innerText = "Downloading Scene Data...";
             
-            if (!response.ok) throw new Error("Scene not found.");
+            const { data } = supabaseClient.storage.from(BUCKET).getPublicUrl(`saved_scenes/${sceneId}.json`);
+            const response = await fetch(data.publicUrl + '?t=' + Date.now()); 
+            
+            if (!response.ok) {
+                // Máy chủ Storage từ chối trả file do luật RLS
+                throw new Error("Scene not found or Blocked by Server Security Policy.");
+            }
             const sceneData = await response.json();
 
+            // Ghi lại lịch sử truy cập
             if (currentUser) {
                 const isMine = userIndex.my_scenes.some(s => s.id === sceneId);
                 const isAlreadyShared = userIndex.shared_with_me.some(s => s.id === sceneId);
@@ -1355,7 +1474,10 @@
 
             reorderDOMBasedOnZIndex();
             
-        } catch (e) { showModal('Error', "Error loading shared scene: " + e.message, 'alert'); }
+        } catch (e) { 
+            showModal('Access Error', e.message, 'alert'); 
+            goToDashboard(); // Lỗi thì trả về Dashboard
+        }
         
         document.getElementById('loading-overlay').style.display = 'none';
     }
