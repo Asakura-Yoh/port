@@ -187,7 +187,6 @@
 </head>
 <body>
 
-    <!-- CUSTOM UI MODAL DIALOG -->
     <div id="ui-modal" class="ui-modal-overlay screen">
         <div class="ui-modal-box">
             <h3 id="ui-modal-title" style="color:var(--accent); margin-bottom:15px; font-size: 18px;">Notification</h3>
@@ -200,7 +199,6 @@
         </div>
     </div>
 
-    <!-- MÀN HÌNH SAVE & SHARE SETTINGS CHUYÊN SÂU -->
     <div id="share-settings-modal" class="ui-modal-overlay screen">
         <div class="ui-modal-box">
             <h3 style="color:var(--accent); margin-bottom:15px; font-size: 18px;">Save & Share Settings</h3>
@@ -223,7 +221,6 @@
         </div>
     </div>
 
-    <!-- MÀN HÌNH 1: AUTHENTICATION -->
     <div id="auth-screen" class="screen" style="justify-content:center; align-items:center;">
         <div class="auth-box">
             <h2 style="color:var(--accent); margin-bottom:25px;">Spine Workspace</h2>
@@ -234,7 +231,6 @@
         </div>
     </div>
 
-    <!-- MÀN HÌNH 2: DASHBOARD -->
     <div id="dashboard-screen" class="screen">
         <div class="dash-container">
             <div class="dash-header">
@@ -251,7 +247,6 @@
             </div>
 
             <div id="grid-my-scenes" class="scene-grid">
-                <!-- Sẽ được vẽ bằng JS (Đã sửa lỗi nhân bản HTML) -->
             </div>
 
             <div id="grid-shared-scenes" class="scene-grid" style="display:none;">
@@ -259,7 +254,6 @@
         </div>
     </div>
 
-    <!-- MÀN HÌNH 3: EDITOR CHÍNH -->
     <div id="editor-screen" class="screen">
         <button class="toggle-btn" id="toggle-l" onclick="toggleSidebar('left')">◀</button>
         <button class="toggle-btn" id="toggle-r" onclick="toggleSidebar('right')">▶</button>
@@ -667,7 +661,6 @@
         `;
         
         userIndex.my_scenes.forEach((sc, idx) => {
-            // Hiển thị thêm badge cho Private Scene
             let badge = '';
             if (sc.allowedEmails && sc.allowedEmails.length > 0) {
                 badge = `<span style="background:#8b2a2a; color:#fff; font-size:9px; padding:2px 6px; border-radius:10px; margin-left:8px; vertical-align:middle;">🔒 Private</span>`;
@@ -1675,7 +1668,7 @@
                 const layerDOM = document.getElementById(obj.uid);
                 if(layerDOM) {
                     layerDOM.querySelector('.ins-x').value = Math.round(obj.x);
-                    layerDOM.querySelector('.ins-y').value = Math.round(child.y);
+                    layerDOM.querySelector('.ins-y').value = Math.round(obj.y);
                 }
             }
         });
