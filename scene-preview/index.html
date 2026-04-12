@@ -404,7 +404,8 @@
     const FPS_TARGET = 30; 
 
     let configObj = null;
-    let isAnimatorDashboardOpen = false;
+    // BẬT TỰ ĐỘNG Animator Dashboard
+    let isAnimatorDashboardOpen = true;
 
     const keysDown = new Set();
     const keysJustPressed = new Set();
@@ -2299,13 +2300,6 @@
         } else {
             isAnimatorDashboardOpen = !isAnimatorDashboardOpen;
         }
-        
-        const btn = document.getElementById('btn-toggle-animator');
-        if (isAnimatorDashboardOpen) {
-            btn.style.background = '#4caf50';
-        } else {
-            btn.style.background = '#5c2a8c';
-        }
         updateLiveDashboard();
     }
 
@@ -2325,10 +2319,12 @@
         
         if (!isAnimatorDashboardOpen) {
             dash.style.display = 'none';
+            btnToggle.style.background = '#5c2a8c'; // Màu tắt
             return;
         }
 
         dash.style.display = 'block';
+        btnToggle.style.background = '#4caf50'; // Màu bật (xanh)
         targetLabel.innerText = `[${activeObj.name}]`;
         list.innerHTML = '';
 
@@ -2348,7 +2344,7 @@
             if (p.type === 'trigger') {
                 row.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
                                     <span style="font-size:11px; color:#fff; font-weight:bold;">${p.name} <span style="color:#aaa; font-weight:normal;">[${p.key ? p.key.toUpperCase() : '?'}]</span></span>
-                                    <button class="btn-ui" style="width:auto; padding:4px 10px; font-size:10px; background:#e6a822; color:#000;" onclick="fireTrigger('${activeObj.uid}', '${p.name}')">🔥 FIRE</button>
+                                    <button class="btn-ui" style="width:auto; padding:4px 10px; font-size:10px; background:#e6a822; color:#000;" onclick="fireTrigger('${activeObj.uid}', '${p.name}'); if(window.refreshRulesUI) { window.refreshRulesUI(); setTimeout(window.refreshRulesUI, 200); }">🔥 FIRE</button>
                                  </div>`;
             } else if (p.type === 'bool') {
                 row.innerHTML = `<label style="font-size:12px; cursor:pointer; color:#fff; display:flex; align-items:center; gap:8px;">
