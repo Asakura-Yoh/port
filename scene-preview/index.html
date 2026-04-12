@@ -172,6 +172,9 @@
         .fsm-row { background: #252526; padding: 10px; border-radius: 4px; border: 1px solid #333; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .fsm-badge { padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; color: white; }
         .fsm-btn-del { background: #8b2a2a; border: none; color: white; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 10px; }
+        .fsm-btn-move { background: #444; border: none; color: white; padding: 2px 6px; border-radius: 3px; cursor: pointer; font-size: 10px; transition: background 0.2s; }
+        .fsm-btn-move:hover:not(:disabled) { background: #666; }
+        .fsm-btn-move:disabled { opacity: 0.3; cursor: default; }
         
         /* ĐÃ SỬA: ĐƯA DASHBOARD VỀ GÓC TRÊN TRÁI VÀ ĐẶT TÂM THU PHÓNG */
         #live-animator-dashboard { 
@@ -2106,6 +2109,19 @@
         renderAnimatorRules();
     }
 
+    function moveFsmParam(idx, dir) {
+        if (!configObj) return;
+        const newIdx = idx + dir;
+        if (newIdx < 0 || newIdx >= configObj.animatorParams.length) return;
+        
+        const temp = configObj.animatorParams[idx];
+        configObj.animatorParams[idx] = configObj.animatorParams[newIdx];
+        configObj.animatorParams[newIdx] = temp;
+        
+        renderAnimatorParams();
+        renderAnimatorRules();
+    }
+
     function renderAnimatorParams() {
         const list = document.getElementById('fsm-params-list');
         list.innerHTML = '';
@@ -2130,9 +2146,13 @@
 
             div.innerHTML = `
                 <span class="fsm-badge" style="background:${typeColor}; color:${p.type==='trigger'?'#000':'#fff'};">${p.type}</span>
-                <span style="flex:1; font-weight:bold;">${p.name}</span>
+                <span style="flex:1; font-weight:bold; margin-left:5px;">${p.name}</span>
                 ${valUI}
-                <button class="fsm-btn-del" style="margin-left:10px;" onclick="removeFsmParam(${idx})">✕</button>
+                <div style="display:flex; gap:2px; margin-left:10px;">
+                    <button class="fsm-btn-move" onclick="moveFsmParam(${idx}, -1)" ${idx === 0 ? 'disabled' : ''} title="Move Up">▲</button>
+                    <button class="fsm-btn-move" onclick="moveFsmParam(${idx}, 1)" ${idx === configObj.animatorParams.length - 1 ? 'disabled' : ''} title="Move Down">▼</button>
+                </div>
+                <button class="fsm-btn-del" style="margin-left:5px;" onclick="removeFsmParam(${idx})">✕</button>
             `;
             list.appendChild(div);
         });
@@ -2163,6 +2183,18 @@
     function removeFsmRule(idx) {
         if (!configObj) return;
         configObj.animatorRules.splice(idx, 1);
+        renderAnimatorRules();
+    }
+
+    function moveFsmRule(idx, dir) {
+        if (!configObj) return;
+        const newIdx = idx + dir;
+        if (newIdx < 0 || newIdx >= configObj.animatorRules.length) return;
+        
+        const temp = configObj.animatorRules[idx];
+        configObj.animatorRules[idx] = configObj.animatorRules[newIdx];
+        configObj.animatorRules[newIdx] = temp;
+        
         renderAnimatorRules();
     }
 
@@ -2227,7 +2259,11 @@
                     <select class="r-param" style="flex:2;">${pOptions}</select>
                     ${opUI}
                     ${valUI}
-                    <button class="fsm-btn-del" onclick="removeFsmRule(${idx})">✕</button>
+                    <div style="display:flex; gap:2px; margin-left:auto;">
+                        <button class="fsm-btn-move" onclick="moveFsmRule(${idx}, -1)" ${idx === 0 ? 'disabled' : ''} title="Move Up">▲</button>
+                        <button class="fsm-btn-move" onclick="moveFsmRule(${idx}, 1)" ${idx === configObj.animatorRules.length - 1 ? 'disabled' : ''} title="Move Down">▼</button>
+                        <button class="fsm-btn-del" style="margin-left:2px;" onclick="removeFsmRule(${idx})">✕</button>
+                    </div>
                 </div>
                 <div style="display:flex; gap:5px; align-items:center; width:100%; margin-top:5px;">
                     <span style="color:#4caf50; font-weight:bold; font-size:11px;">THEN</span>
