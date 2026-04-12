@@ -173,11 +173,14 @@
         .fsm-badge { padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; color: white; }
         .fsm-btn-del { background: #8b2a2a; border: none; color: white; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 10px; }
         
+        /* ĐÃ SỬA: ĐƯA DASHBOARD VỀ GÓC TRÊN TRÁI VÀ ĐẶT TÂM THU PHÓNG */
         #live-animator-dashboard { 
-            display: none; position: absolute; bottom: 65px; right: 20px; 
+            display: none; position: absolute; top: 0px; left: 0px; 
             background: rgba(30, 30, 30, 0.95); padding: 15px; border-radius: 8px; 
             border: 1px solid #444; z-index: 100; min-width: 280px; 
             box-shadow: 0 4px 15px rgba(0,0,0,0.5); backdrop-filter: blur(4px); 
+            transform-origin: top left; /* Đóng vai trò mỏ neo khi thu phóng */
+            transition: transform 0.1s ease-out; /* Mượt mà khi resize */
         }
 
         /* --- CUSTOM UI MODALS --- */
@@ -251,7 +254,7 @@
             </div>
 
             <div id="grid-my-scenes" class="scene-grid">
-                <!-- Sẽ được vẽ bằng JS (Đã sửa lỗi nhân bản HTML) -->
+                <!-- Sẽ được vẽ bằng JS -->
             </div>
 
             <div id="grid-shared-scenes" class="scene-grid" style="display:none;">
@@ -275,16 +278,17 @@
         </div>
 
         <div id="main-view">
+            <!-- ĐÃ SỬA: Bọc Dashboard VÀO BÊN TRONG canvas-wrapper để nó thuộc về không gian của Canvas -->
             <div id="canvas-wrapper">
                 <div id="canvas-container"></div>
-            </div>
-
-            <div id="live-animator-dashboard">
-                <div style="color:var(--accent); font-weight:bold; font-size:12px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
-                    <span>🎮 Animator Editor <span id="live-animator-target" style="color:#aaa; font-weight:normal; margin-left:5px;">Name</span></span>
-                    <button onclick="toggleAnimatorDashboard(false)" style="background:none; border:none; color:#888; cursor:pointer; font-size:14px; padding:0 5px;">✕</button>
+                
+                <div id="live-animator-dashboard">
+                    <div style="color:var(--accent); font-weight:bold; font-size:12px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+                        <span>🎮 Animator Editor <span id="live-animator-target" style="color:#aaa; font-weight:normal; margin-left:5px;">Name</span></span>
+                        <button onclick="toggleAnimatorDashboard(false)" style="background:none; border:none; color:#888; cursor:pointer; font-size:14px; padding:0 5px;">✕</button>
+                    </div>
+                    <div id="live-params-list"></div>
                 </div>
-                <div id="live-params-list"></div>
             </div>
 
             <div id="playback-bar">
@@ -484,11 +488,29 @@
         keysDown.delete(String(e.key).toLowerCase());
     });
 
+    // --- ĐÃ SỬA: Hàm tạo hiệu ứng chớp sáng cho Trigger ---
+    window.flashTriggerUI = function(pName) {
+        const safeName = pName.replace(/\s+/g, '-');
+        const row = document.getElementById(`live-param-row-${safeName}`);
+        if (row) {
+            const originalBg = row.style.background;
+            row.style.background = 'rgba(76, 175, 80, 0.3)'; // Xanh lá nhạt
+            row.style.borderLeft = '3px solid #4caf50';
+            setTimeout(() => {
+                row.style.background = originalBg;
+                row.style.borderLeft = '3px solid transparent';
+            }, 200); // Sáng trong 0.2s rồi tắt
+        }
+    };
+
     window.fireTrigger = function(uid, pName) {
         const obj = app.stage.children.find(c => c.uid === uid);
         if (obj && obj.animatorParams) {
             const p = obj.animatorParams.find(pa => pa.name === pName);
-            if (p) p.value = true;
+            if (p) {
+                p.value = true;
+                window.flashTriggerUI(pName); // Kích hoạt hiệu ứng chớp sáng
+            }
         }
     };
 
@@ -667,7 +689,6 @@
         `;
         
         userIndex.my_scenes.forEach((sc, idx) => {
-            // Hiển thị thêm badge cho Private Scene
             let badge = '';
             if (sc.allowedEmails && sc.allowedEmails.length > 0) {
                 badge = `<span style="background:#8b2a2a; color:#fff; font-size:9px; padding:2px 6px; border-radius:10px; margin-left:8px; vertical-align:middle;">🔒 Private</span>`;
@@ -785,7 +806,6 @@
         userIndex.my_scenes.splice(idx, 1);
         await saveUserIndex();
         
-        // GỌI HÀM XÓA BẢO MẬT BÊN DATABASE
         await supabaseClient.rpc('delete_scene_data', { p_scene_id: id });
         
         document.getElementById('loading-overlay').style.display = 'none';
@@ -839,6 +859,10 @@
                         child.animatorParams.forEach(p => {
                             if (p.type === 'trigger' && p.key && keysJustPressed.has(String(p.key).toLowerCase())) {
                                 p.value = true;
+                                // ĐÃ SỬA: Chớp sáng khi bấm phím tắt
+                                if (activeObj === child) {
+                                    window.flashTriggerUI(p.name);
+                                }
                             }
                         });
                     }
@@ -1611,8 +1635,14 @@
     function updateScaleDisplay() {
         const wrapper = document.getElementById('canvas-wrapper');
         if (!wrapper) return;
-        const scale = (wrapper.clientWidth / LOGICAL_WIDTH) * 100;
-        document.getElementById('view-scale').innerText = Math.round(scale) + "%";
+        const scale = (wrapper.clientWidth / LOGICAL_WIDTH);
+        document.getElementById('view-scale').innerText = Math.round(scale * 100) + "%";
+
+        // ÁP DỤNG THU PHÓNG (SCALE) CHO BẢNG ANIMATOR DASHBOARD
+        const dash = document.getElementById('live-animator-dashboard');
+        if (dash) {
+            dash.style.transform = `scale(${scale})`;
+        }
     }
 
     function spawn(obj, name, baseAssetId, restoreState = null) {
@@ -2094,7 +2124,7 @@
                 valUI = `<span style="font-size:11px; margin-left:10px; color:#aaa;">Key:</span>
                          <input type="text" maxlength="1" style="width:30px; text-align:center; padding:2px; font-weight:bold; margin-left:5px; text-transform:uppercase;" value="${p.key || ''}" onchange="updateFsmParamKey(${idx}, this.value)" placeholder="-">`;
             } else {
-                valUI = `<input type="number" step="0.1" style="width:60px; margin-left:10px;" value="${p.value}" onchange="updateFsmParamValue(${idx}, parseFloat(this.value))">`;
+                valUI = `<input type="number" min="-10" max="10" step="1" style="width:60px; margin-left:10px;" value="${p.value}" onchange="updateFsmParamValue(${idx}, parseFloat(this.value))">`;
             }
 
             div.innerHTML = `
@@ -2178,7 +2208,7 @@
                               <option value=">=" ${rule.operator==='>='?'selected':''}>&gt;=</option>
                               <option value="<=" ${rule.operator==='<='?'selected':''}>&lt;=</option>
                         </select>`;
-                valUI = `<input class="r-val" type="number" step="0.1" style="flex:1;" value="${rule.value}">`;
+                valUI = `<input class="r-val" type="number" min="-10" max="10" step="1" style="flex:1;" value="${rule.value}">`;
             }
             
             let animOptions = configObj.skeleton.data.animations.map(a => `<option value="${a.name}" ${a.name===rule.targetAnim?'selected':''}>${a.name}</option>`).join('');
@@ -2302,9 +2332,18 @@
         targetLabel.innerText = `[${activeObj.name}]`;
         list.innerHTML = '';
 
+        // --- SECTION 1: HIỂN THỊ CÁC THANH SLIDER / NÚT BẤM (PARAMETERS) ---
+        const paramsContainer = document.createElement('div');
+        
         activeObj.animatorParams.forEach(p => {
             const row = document.createElement('div');
+            const safeName = p.name.replace(/\s+/g, '-');
+            row.id = `live-param-row-${safeName}`; // Gắn ID để gọi hiệu ứng Flash
             row.style.marginBottom = '12px';
+            row.style.padding = '6px';
+            row.style.borderRadius = '4px';
+            row.style.borderLeft = '3px solid transparent';
+            row.style.transition = 'all 0.2s';
             
             if (p.type === 'trigger') {
                 row.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
@@ -2315,19 +2354,114 @@
                 row.innerHTML = `<label style="font-size:12px; cursor:pointer; color:#fff; display:flex; align-items:center; gap:8px;">
                                     <input type="checkbox" style="width:16px; height:16px; margin:0;" ${p.value ? 'checked' : ''}> ${p.name}
                                  </label>`;
-                row.querySelector('input').onchange = (e) => p.value = e.target.checked;
+                row.querySelector('input').onchange = (e) => { 
+                    p.value = e.target.checked; 
+                    if(window.refreshRulesUI) window.refreshRulesUI(); 
+                };
             } else {
                 row.innerHTML = `<div style="font-size:11px; margin-bottom:4px; display:flex; justify-content:space-between; color:#fff;">
                                     <span>${p.name}</span> <span class="val-display" style="color:var(--accent); font-weight:bold;">${p.value}</span>
                                  </div>
-                                 <input type="range" min="-10" max="10" step="0.1" value="${p.value}" style="width:100%; accent-color:#4caf50;">`;
+                                 <input type="range" min="-10" max="10" step="1" value="${p.value}" style="width:100%; accent-color:#4caf50;">`;
                 row.querySelector('input').oninput = (e) => {
                     p.value = parseFloat(e.target.value);
                     row.querySelector('.val-display').innerText = p.value;
+                    if(window.refreshRulesUI) window.refreshRulesUI();
                 };
             }
-            list.appendChild(row);
+            paramsContainer.appendChild(row);
         });
+        list.appendChild(paramsContainer);
+
+        // --- SECTION 2: BẢNG THEO DÕI STATE (RULES) ĐANG CHẠY ---
+        if (activeObj.animatorRules && activeObj.animatorRules.length > 0) {
+            
+            // ĐÃ SỬA: Lọc ra các rules không phải là Trigger
+            const stateRules = activeObj.animatorRules.filter(r => {
+                let p = activeObj.animatorParams.find(pa => pa.name === r.paramName);
+                return p && p.type !== 'trigger';
+            });
+
+            if (stateRules.length > 0) {
+                const rulesDiv = document.createElement('div');
+                rulesDiv.style.marginTop = '15px';
+                rulesDiv.style.borderTop = '1px solid #444';
+                rulesDiv.style.paddingTop = '10px';
+                rulesDiv.innerHTML = `<div style="font-size:10px; color:#888; text-transform:uppercase; font-weight:bold; margin-bottom:8px; display:flex; justify-content:space-between;"><span>Live States Monitor</span><span style="color:#4caf50;">● Active</span></div>`;
+
+                activeObj.animatorRules.forEach((rule, idx) => {
+                    // Kiểm tra lại lần nữa để bỏ qua UI render cho Trigger
+                    let p = activeObj.animatorParams.find(pa => pa.name === rule.paramName);
+                    if (p && p.type === 'trigger') return;
+
+                    const ruleRow = document.createElement('div');
+                    ruleRow.id = `rule-ui-${idx}`;
+                    ruleRow.style.fontSize = '11px';
+                    ruleRow.style.marginBottom = '4px';
+                    ruleRow.style.padding = '6px 8px';
+                    ruleRow.style.borderRadius = '4px';
+                    ruleRow.style.display = 'flex';
+                    ruleRow.style.justifyContent = 'space-between';
+                    ruleRow.style.transition = 'all 0.2s';
+                    ruleRow.style.background = 'rgba(255, 255, 255, 0.05)';
+                    ruleRow.style.color = '#888';
+                    ruleRow.style.borderLeft = '3px solid transparent';
+                    
+                    ruleRow.innerHTML = `
+                        <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:60%;">▶ ${rule.targetAnim}</span> 
+                        <span style="font-family:monospace; font-size:10px;">${rule.paramName} ${rule.operator || '=='} ${rule.value}</span>
+                    `;
+                    rulesDiv.appendChild(ruleRow);
+                });
+                list.appendChild(rulesDiv);
+            }
+        }
+
+        // Hàm cập nhật màu sắc Rules theo thời gian thực khi kéo Slider
+        window.refreshRulesUI = function() {
+            if(!activeObj || !activeObj.animatorRules) return;
+            let trackWinners = {};
+            
+            activeObj.animatorRules.forEach((rule, idx) => {
+                let param = activeObj.animatorParams.find(p => p.name === rule.paramName);
+                let isMatch = false;
+                
+                if (param && !trackWinners[rule.trackIndex]) {
+                    if (param.type === 'trigger') {
+                        isMatch = (param.value === true);
+                    } else if (param.type === 'bool') {
+                        isMatch = (String(param.value) === String(rule.value));
+                    } else if (param.type === 'float') {
+                        let pVal = parseFloat(param.value);
+                        let rVal = parseFloat(rule.value);
+                        if (rule.operator === '>') isMatch = pVal > rVal;
+                        else if (rule.operator === '<') isMatch = pVal < rVal;
+                        else if (rule.operator === '==') isMatch = pVal === rVal;
+                        else if (rule.operator === '>=') isMatch = pVal >= rVal;
+                        else if (rule.operator === '<=') isMatch = pVal <= rVal;
+                    }
+                    if (isMatch) trackWinners[rule.trackIndex] = true; // Chỉ Rule thỏa mãn đầu tiên trên Track đó sáng lên
+                }
+                
+                const row = document.getElementById(`rule-ui-${idx}`);
+                if (row) {
+                    if (isMatch) {
+                        row.style.background = 'rgba(76, 175, 80, 0.2)';
+                        row.style.color = '#4caf50';
+                        row.style.fontWeight = 'bold';
+                        row.style.borderLeft = '3px solid #4caf50';
+                    } else {
+                        row.style.background = 'rgba(255, 255, 255, 0.05)';
+                        row.style.color = '#888';
+                        row.style.fontWeight = 'normal';
+                        row.style.borderLeft = '3px solid transparent';
+                    }
+                }
+            });
+        };
+
+        // Chạy ngay lần đầu để tô màu các rule đang thỏa mãn
+        window.refreshRulesUI();
     }
 
     function checkEmptyState() {
