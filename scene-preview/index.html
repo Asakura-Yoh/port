@@ -1192,8 +1192,13 @@
                 pngUrls.push(url);
             }
 
-            await supabaseClient.storage.from(BUCKET).upload(folder + group.atlas.name, group.atlas);
-            const atlasUrl = supabaseClient.storage.from(BUCKET).getPublicUrl(folder + group.atlas.name).data.publicUrl;
+            // ĐẢM BẢO FILE LUÔN CÓ ĐUÔI .atlas ĐỂ PIXIJS KHÔNG NHẦM THÀNH FILE TEXT
+            let atlasFileName = group.atlas.name;
+            if (atlasFileName.toLowerCase().endsWith('.txt')) atlasFileName = atlasFileName.substring(0, atlasFileName.length - 4);
+            if (!atlasFileName.toLowerCase().endsWith('.atlas')) atlasFileName += '.atlas';
+
+            await supabaseClient.storage.from(BUCKET).upload(folder + atlasFileName, group.atlas);
+            const atlasUrl = supabaseClient.storage.from(BUCKET).getPublicUrl(folder + atlasFileName).data.publicUrl;
 
             const dataFile = group.json || group.skel;
             await supabaseClient.storage.from(BUCKET).upload(folder + dataFile.name, dataFile);
@@ -1244,8 +1249,13 @@
                 pngUrls.push(url);
             }
 
-            await supabaseClient.storage.from(BUCKET).upload(folder + group.atlas.name, group.atlas);
-            const atlasUrl = supabaseClient.storage.from(BUCKET).getPublicUrl(folder + group.atlas.name).data.publicUrl;
+            // ĐẢM BẢO FILE LUÔN CÓ ĐUÔI .atlas ĐỂ PIXIJS KHÔNG NHẦM THÀNH FILE TEXT
+            let atlasFileName = group.atlas.name;
+            if (atlasFileName.toLowerCase().endsWith('.txt')) atlasFileName = atlasFileName.substring(0, atlasFileName.length - 4);
+            if (!atlasFileName.toLowerCase().endsWith('.atlas')) atlasFileName += '.atlas';
+
+            await supabaseClient.storage.from(BUCKET).upload(folder + atlasFileName, group.atlas);
+            const atlasUrl = supabaseClient.storage.from(BUCKET).getPublicUrl(folder + atlasFileName).data.publicUrl;
 
             const dataFile = group.json || group.skel;
             await supabaseClient.storage.from(BUCKET).upload(folder + dataFile.name, dataFile);
