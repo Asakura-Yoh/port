@@ -193,7 +193,6 @@
 </head>
 <body>
 
-    <!-- CUSTOM UI MODAL DIALOG -->
     <div id="ui-modal" class="ui-modal-overlay screen">
         <div class="ui-modal-box">
             <h3 id="ui-modal-title" style="color:var(--accent); margin-bottom:15px; font-size: 18px;">Notification</h3>
@@ -206,7 +205,6 @@
         </div>
     </div>
 
-    <!-- MÀN HÌNH SAVE & SHARE SETTINGS CHUYÊN SÂU -->
     <div id="share-settings-modal" class="ui-modal-overlay screen">
         <div class="ui-modal-box">
             <h3 style="color:var(--accent); margin-bottom:15px; font-size: 18px;">Save & Share Settings</h3>
@@ -229,7 +227,6 @@
         </div>
     </div>
 
-    <!-- MÀN HÌNH 1: AUTHENTICATION -->
     <div id="auth-screen" class="screen" style="justify-content:center; align-items:center;">
         <div class="auth-box">
             <h2 style="color:var(--accent); margin-bottom:25px;">Spine Workspace</h2>
@@ -240,7 +237,6 @@
         </div>
     </div>
 
-    <!-- MÀN HÌNH 2: DASHBOARD -->
     <div id="dashboard-screen" class="screen">
         <div class="dash-container">
             <div class="dash-header">
@@ -257,22 +253,20 @@
             </div>
 
             <div id="grid-my-scenes" class="scene-grid">
-                <!-- Sẽ được vẽ bằng JS -->
-            </div>
+                </div>
 
             <div id="grid-shared-scenes" class="scene-grid" style="display:none;">
             </div>
         </div>
     </div>
 
-    <!-- MÀN HÌNH 3: EDITOR CHÍNH -->
     <div id="editor-screen" class="screen">
         <button class="toggle-btn" id="toggle-l" onclick="toggleSidebar('left')">◀</button>
         <button class="toggle-btn" id="toggle-r" onclick="toggleSidebar('right')">▶</button>
 
         <div id="sidebar-left" class="sidebar">
             <input type="file" id="file-folder" webkitdirectory directory multiple style="display:none">
-            <input type="file" id="update-file-input" multiple accept=".json,.skel,.atlas,.png,.jpg" style="display:none">
+            <input type="file" id="update-file-input" multiple accept=".json,.skel,.atlas,.atlas.txt,.txt,.png,.jpg" style="display:none">
 
             <div id="drop-zone" onclick="document.getElementById('file-folder').click()">
                 📁 Drop Folder Spine Here<br><small>Canvas: 1920 x 1080</small>
@@ -281,7 +275,6 @@
         </div>
 
         <div id="main-view">
-            <!-- ĐÃ SỬA: Bọc Dashboard VÀO BÊN TRONG canvas-wrapper để nó thuộc về không gian của Canvas -->
             <div id="canvas-wrapper">
                 <div id="canvas-container"></div>
                 
@@ -1028,8 +1021,11 @@
             const match = path.match(/(.+)\.(json|skel)$/i);
             if (match) {
                 const basePath = match[1];
-                const atlasPath = basePath + '.atlas';
-                const atlasFile = allUploadedFiles[atlasPath];
+                
+                // SỬA LỖI TẠI ĐÂY: Quét cả 3 định dạng phổ biến của Spine Atlas
+                const atlasFile = allUploadedFiles[basePath + '.atlas'] 
+                               || allUploadedFiles[basePath + '.atlas.txt'] 
+                               || allUploadedFiles[basePath + '.txt'];
                 
                 if (atlasFile) {
                     const text = await atlasFile.text();
@@ -1085,9 +1081,15 @@
         let newPngs = [...group.pngs];
         
         files.forEach(f => {
-            const match = f.name.match(/\.(json|skel|atlas|png|jpg|jpeg)$/i);
+            // SỬA LỖI TẠI ĐÂY: Thêm đuôi txt vào biểu thức chính quy (Regex)
+            const match = f.name.match(/\.(json|skel|atlas|txt|png|jpg|jpeg)$/i);
             if (match) {
-                const ext = match[1]?.toLowerCase();
+                let ext = match[1]?.toLowerCase();
+                
+                // Chuẩn hóa định dạng nếu phát hiện là file atlas giấu mặt
+                if (f.name.toLowerCase().endsWith('.atlas.txt')) ext = 'atlas';
+                else if (ext === 'txt') ext = 'atlas';
+
                 if (ext === 'json') group.json = f;
                 else if (ext === 'skel') group.skel = f;
                 else if (ext === 'atlas') newAtlasFile = f;
